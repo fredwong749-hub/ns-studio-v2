@@ -138,3 +138,15 @@ def test_m3_predicates_without_api_lock(tmp_path):
     assert D.reap(c2, lease_s=3600) == []                                # 刚心跳的不动
     assert D.finish(c2, a["id"], "h", "done") is None                    # 不是本机的活
     assert D.finish(c2, a["id"], "h2", "done")["state"] == "done"
+
+
+def test_long_shot_rerouted_to_lane(tmp_path):
+    """M6：长镜头领错道 → 回队并锁定 gpu36:2，只有那条道领得到（不 blocked 堵死）"""
+    c = mk(tmp_path)
+    v = enq(c, "s", "video", want_host="gpu36")
+    D.enqueue(c, run_id="r", ep=1, shot="s", step="first", state="done"); D.enqueue(c, run_id="r", ep=1, shot="s", step="last", state="na")
+    assert D.claim(c, "gpu36", "gpu36:0", ["video"])["id"] == v["id"]
+    j = D.finish(c, v["id"], "gpu36", "infra", {"want_lane": "gpu36:2"}, "长镜头只派 gpu36:2")
+    assert (j["state"], j["tries"], j["want_lane"]) == ("queued", 0, "gpu36:2")
+    assert D.claim(c, "gpu36", "gpu36:1", ["video"]) is None
+    assert D.claim(c, "gpu36", "gpu36:2", ["video"])["id"] == v["id"]

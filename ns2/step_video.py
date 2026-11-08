@@ -304,6 +304,9 @@ def run(job: dict, lane: str):
         return "blocked", {"rescored": re_, "has_output": True}, "打分仍出错（infra，不重渲）：" + str(re_[0]["error"])[:300]
     k = rendered_count(job)                                              # 变体按“本 job 已出几条”取，不按 tries（重启 / 回收不跳号也不重出）
     pv = pick_variant(p, k, lane)
+    if pv is None and lane != LONG_LANE and pick_variant(p, k, LONG_LANE) is not None:
+        # M6：长镜头（>260 帧）只能 gpu36:2 → 回队并锁定那条道（infra 不计次），不再 blocked 堵死
+        return "infra", {"want_lane": LONG_LANE, "has_output": False}, f"长镜头只派 {LONG_LANE}，已改派"
     if pv is None:
         vs = p.get("variants") or {}
         why = "；".join(f"{k}={v.get('status')}" + (f"（{v.get('reason')}）" if v.get("reason") else "") for k, v in vs.items())

@@ -35,7 +35,7 @@ CREATE TABLE IF NOT EXISTS jobs (
   payload TEXT NOT NULL DEFAULT '{}', result TEXT,
   want_host TEXT, lane TEXT, host TEXT,
   tries INTEGER NOT NULL DEFAULT 0, max_tries INTEGER NOT NULL DEFAULT 3,
-  idem_key TEXT UNIQUE, owner_trigger INTEGER NOT NULL DEFAULT 0,
+  idem_key TEXT UNIQUE, owner_trigger INTEGER NOT NULL DEFAULT 0, want_lane TEXT,
   created_at TEXT NOT NULL, started_at TEXT, finished_at TEXT, beat_at REAL,
   error TEXT
 );
@@ -60,6 +60,8 @@ def connect(path: str | Path) -> sqlite3.Connection:
     c.execute("PRAGMA journal_mode=WAL")
     c.execute("PRAGMA busy_timeout=30000")
     c.executescript(SCHEMA)
+    if "want_lane" not in {r["name"] for r in c.execute("PRAGMA table_info(jobs)")}:   # 旧库补列（CREATE IF NOT EXISTS 不加列）
+        c.execute("ALTER TABLE jobs ADD COLUMN want_lane TEXT")
     return c
 
 
@@ -142,7 +144,7 @@ def _claim_sql(step: str) -> str:
     if step == "film":
         return ("SELECT j.* FROM jobs j JOIN runs r ON r.run_id = j.run_id"
                 " WHERE j.state='queued' AND j.owner_trigger=0 AND r.status='producing'"
-                " AND (j.want_host IS NULL OR j.want_host=?) AND j.step=?" + FILM_SQL +
+                " AND (j.want_host IS NULL OR j.want_host=?) AND (j.want_lane IS NULL OR j.want_lane=?) AND j.step=?" + FILM_SQL +
                 " ORDER BY j.created_at, j.id LIMIT 1")
     pre = "".join(
         f" AND (SELECT p.state FROM jobs p WHERE p.run_id=j.run_id AND p.shot=j.shot AND p.step='{p}'"
@@ -156,7 +158,7 @@ def _claim_sql(step: str) -> str:
                 " AND COALESCE(p.want_host,'')=COALESCE(j.want_host,'') ORDER BY p.id DESC LIMIT 1), 'done') IN ('done','na')")
     return ("SELECT j.* FROM jobs j JOIN runs r ON r.run_id = j.run_id"
             " WHERE j.state='queued' AND j.owner_trigger=0 AND r.status='producing'"
-            " AND (j.want_host IS NULL OR j.want_host=?) AND j.step=?" + pre +
+            " AND (j.want_host IS NULL OR j.want_host=?) AND (j.want_lane IS NULL OR j.want_lane=?) AND j.step=?" + pre +
             " ORDER BY j.created_at, j.id LIMIT 1")
 
 
@@ -170,7 +172,7 @@ def claim(c, host: str, lane: str, steps: list[str]) -> dict | None:
         if c.execute("SELECT 1 FROM jobs WHERE state='running' AND lane=?", (lane,)).fetchone():
             c.execute("COMMIT")          # B3d / M1：每道并发 1 由库强制——这道上还有在跑的（含没回收的旧活）就不领
             return None
-        cands = [r for s in steps if (r := c.execute(_claim_sql(s), (host, s)).fetchone()) is not None]
+        cands = [r for s in steps if (r := c.execute(_claim_sql(s), (host, lane, s)).fetchone()) is not None]
         for r in sorted(cands, key=lambda r: (r["created_at"], r["id"]))[:1]:
             cur = c.execute("UPDATE jobs SET state='running', host=?, lane=?, started_at=?, beat_at=?, error=NULL WHERE id=? AND state='queued'",
                             (host, lane, now_iso(), time.time(), r["id"]))
@@ -219,9 +221,10 @@ def finish(c, job_id: int, host: str, state: str, result: dict | None = None, er
         new = state
     prev = json.dumps(j["result"], ensure_ascii=False) if j.get("result") is not None else None
     cur = c.execute("UPDATE jobs SET state=?, tries=?, result=?, error=?, finished_at=?, host=CASE WHEN ?='queued' THEN NULL ELSE host END,"
-                    " lane=CASE WHEN ?='queued' THEN NULL ELSE lane END WHERE id=? AND state='running' AND host=?",
+                    " lane=CASE WHEN ?='queued' THEN NULL ELSE lane END, want_lane=COALESCE(?, want_lane) WHERE id=? AND state='running' AND host=?",
                     (new, tries, json.dumps(result, ensure_ascii=False) if result is not None else prev,
-                     error, None if new == "queued" else now_iso(), new, new, job_id, host))
+                     error, None if new == "queued" else now_iso(), new, new,
+                     (result or {}).get("want_lane") if new == "queued" else None, job_id, host))   # M6：步函数要求改派到指定道
     if cur.rowcount != 1:                 # M3：检查与写之间被回收 / 重派 → 本次上报作废（API 回 409）
         return None
     r_ = result or {}

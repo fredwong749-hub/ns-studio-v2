@@ -107,3 +107,13 @@ def test_adult_untriggered_refused_by_worker(monkeypatch):
     monkeypatch.setattr(V, "submit", lambda *a, **k: (_ for _ in ()).throw(AssertionError("不该提交")))
     st, _, err = V.run({"id": 1, "run_id": "r", "shot": "ep03-S1", "ep": 3, "tries": 0, "payload": {"variants": {"v1": {}}}}, "gpu33:0")
     assert st == "blocked" and "成人" in err
+
+
+def test_long_variant_on_short_lane_asks_reroute(monkeypatch):
+    monkeypatch.setattr(V, "shot_adult", lambda run, sid: False)
+    monkeypatch.setattr(V, "rescore_pending", lambda *a: [])
+    monkeypatch.setattr(V, "rendered_count", lambda job: 0)
+    job = {"id": 1, "run_id": "r", "shot": "ep01-S1", "ep": 1, "tries": 0,
+           "payload": {"variants": {"v1": {"status": "ready", "frames": 300}}, "ladder": ["v1"]}}
+    st, res, err = V.run(job, "gpu36:0")
+    assert st == "infra" and res["want_lane"] == "gpu36:2"

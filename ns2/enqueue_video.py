@@ -49,7 +49,14 @@ def build(run: str, sid: str, host: str) -> list[dict]:
                  "sig": {"take": ln}, "result": {"take_n": ln, "migrated": True}})
     vs = {k: {kk: v.get(kk) for kk in KEEP} for k, v in (sh.get("variants") or {}).items()}
     ready = [k for k in sh.get("ladder_order") or list(vs) if (vs.get(k) or {}).get("status") == "ready"]
+    why = [] if fok else [f"首帧当前版 v{fn} 没过门"]
+    if not no_last and not lok:
+        why.append(f"尾帧当前版 v{ln} 没过门")
+    if not ready:
+        why.append("没有可派的变体：" + "；".join(f"{k}={v.get('status')}" + (f"（{v.get('reason')}）" if v.get("reason") else "")
+                                           for k, v in vs.items()))
     rows.append({"run_id": run, "ep": ep, "shot": sid, "step": "video", "want_host": host,
+                 **({"state": "blocked", "error": "视频不入排队：" + "；".join(why)[:900]} if why else {}),   # M6 / M8：前置不过直接 blocked 写原因
                  "max_tries": max(1, min(MAX_RENDERS, len(ready))),
                  "sig": {"first": sh.get("first_frame_take"), "last": sh.get("last_frame_take"), "cache": sh.get("cache_key")},
                  "payload": {"run": run, "variants": vs, "ladder": sh.get("ladder_order"),
