@@ -57,6 +57,7 @@ def test_timing_attribution(tmp_path):
     f = D.enqueue(c, run_id="r", ep=1, shot="ep01-S1", step="first", max_tries=3)[0]
     D.claim(c, "h", "h:0", ["first"]); D.finish(c, f["id"], "h", "retry", {"secs": 120, "gpu_s": 50, "has_output": True})
     D.claim(c, "h", "h:0", ["first"]); D.finish(c, f["id"], "h", "infra", {"secs": 30})
+    c.execute("UPDATE jobs SET ready_at=0")                                             # 快进 infra 退避
     D.claim(c, "h", "h:0", ["first"]); D.finish(c, f["id"], "h", "done", {"secs": 90, "gpu_s": 40})
     t = OV.TM.episode(D.finish_events(c, "r"), 1)
     assert t["attempts"] == 3 and t["logic_min"] == 2.0 and t["code_min"] == 0.5 and round(t["detect_min"], 1) == 0.8

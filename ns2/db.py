@@ -25,6 +25,7 @@ SOFT_PREREQ = {"first": "board", "board": "script"}
 PASSED = ("done", "na")
 LEASE_S = 45 * 60
 INFRA_MAX = 5
+INFRA_BACKOFF_S, INFRA_BACKOFF_MAX_S = 30, 600
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS jobs (
@@ -35,7 +36,7 @@ CREATE TABLE IF NOT EXISTS jobs (
   payload TEXT NOT NULL DEFAULT '{}', result TEXT,
   want_host TEXT, lane TEXT, host TEXT,
   tries INTEGER NOT NULL DEFAULT 0, max_tries INTEGER NOT NULL DEFAULT 3,
-  idem_key TEXT UNIQUE, owner_trigger INTEGER NOT NULL DEFAULT 0, want_lane TEXT,
+  idem_key TEXT UNIQUE, owner_trigger INTEGER NOT NULL DEFAULT 0, want_lane TEXT, ready_at REAL,
   created_at TEXT NOT NULL, started_at TEXT, finished_at TEXT, beat_at REAL,
   error TEXT
 );
@@ -60,8 +61,10 @@ def connect(path: str | Path) -> sqlite3.Connection:
     c.execute("PRAGMA journal_mode=WAL")
     c.execute("PRAGMA busy_timeout=30000")
     c.executescript(SCHEMA)
-    if "want_lane" not in {r["name"] for r in c.execute("PRAGMA table_info(jobs)")}:   # 旧库补列（CREATE IF NOT EXISTS 不加列）
-        c.execute("ALTER TABLE jobs ADD COLUMN want_lane TEXT")
+    cols = {r["name"] for r in c.execute("PRAGMA table_info(jobs)")}
+    for col, typ in (("want_lane", "TEXT"), ("ready_at", "REAL")):      # 旧库补列（CREATE IF NOT EXISTS 不加列）
+        if col not in cols:
+            c.execute(f"ALTER TABLE jobs ADD COLUMN {col} {typ}")
     return c
 
 
@@ -144,7 +147,8 @@ def _claim_sql(step: str) -> str:
     if step == "film":
         return ("SELECT j.* FROM jobs j JOIN runs r ON r.run_id = j.run_id"
                 " WHERE j.state='queued' AND j.owner_trigger=0 AND r.status='producing'"
-                " AND (j.want_host IS NULL OR j.want_host=?) AND (j.want_lane IS NULL OR j.want_lane=?) AND j.step=?" + FILM_SQL +
+                " AND (j.want_host IS NULL OR j.want_host=?) AND (j.want_lane IS NULL OR j.want_lane=?) AND j.step=?"
+                " AND (j.ready_at IS NULL OR j.ready_at <= CAST(strftime('%s','now') AS REAL))" + FILM_SQL +
                 " ORDER BY j.created_at, j.id LIMIT 1")
     pre = "".join(
         f" AND (SELECT p.state FROM jobs p WHERE p.run_id=j.run_id AND p.shot=j.shot AND p.step='{p}'"
@@ -158,7 +162,8 @@ def _claim_sql(step: str) -> str:
                 " AND COALESCE(p.want_host,'')=COALESCE(j.want_host,'') ORDER BY p.id DESC LIMIT 1), 'done') IN ('done','na')")
     return ("SELECT j.* FROM jobs j JOIN runs r ON r.run_id = j.run_id"
             " WHERE j.state='queued' AND j.owner_trigger=0 AND r.status='producing'"
-            " AND (j.want_host IS NULL OR j.want_host=?) AND (j.want_lane IS NULL OR j.want_lane=?) AND j.step=?" + pre +
+            " AND (j.want_host IS NULL OR j.want_host=?) AND (j.want_lane IS NULL OR j.want_lane=?) AND j.step=?"
+            " AND (j.ready_at IS NULL OR j.ready_at <= CAST(strftime('%s','now') AS REAL))" + pre +
             " ORDER BY j.created_at, j.id LIMIT 1")
 
 
@@ -208,9 +213,11 @@ def finish(c, job_id: int, host: str, state: str, result: dict | None = None, er
                 break
             n += 1
         new = "blocked" if n >= INFRA_MAX else "queued"
+        backoff = min(INFRA_BACKOFF_MAX_S, INFRA_BACKOFF_S * 2 ** (n - 1))      # M13：infra 回队退避，不连续霸占队首
         if new == "blocked":
             error = f"连续 {n} 次 infra 出错：{error}"
     elif state == "retry":
+        backoff = 0
         tries += 1
         if tries < j["max_tries"]:
             new = "queued"
@@ -219,12 +226,14 @@ def finish(c, job_id: int, host: str, state: str, result: dict | None = None, er
     else:
         assert state in STATES and state not in ("queued", "running"), state
         new = state
+        backoff = 0
     prev = json.dumps(j["result"], ensure_ascii=False) if j.get("result") is not None else None
     cur = c.execute("UPDATE jobs SET state=?, tries=?, result=?, error=?, finished_at=?, host=CASE WHEN ?='queued' THEN NULL ELSE host END,"
-                    " lane=CASE WHEN ?='queued' THEN NULL ELSE lane END, want_lane=COALESCE(?, want_lane) WHERE id=? AND state='running' AND host=?",
+                    " lane=CASE WHEN ?='queued' THEN NULL ELSE lane END, want_lane=COALESCE(?, want_lane), ready_at=? WHERE id=? AND state='running' AND host=?",
                     (new, tries, json.dumps(result, ensure_ascii=False) if result is not None else prev,
                      error, None if new == "queued" else now_iso(), new, new,
-                     (result or {}).get("want_lane") if new == "queued" else None, job_id, host))   # M6：步函数要求改派到指定道
+                     (result or {}).get("want_lane") if new == "queued" else None,                  # M6：步函数要求改派到指定道
+                     time.time() + backoff if new == "queued" and backoff else None, job_id, host))
     if cur.rowcount != 1:                 # M3：检查与写之间被回收 / 重派 → 本次上报作废（API 回 409）
         return None
     r_ = result or {}
@@ -281,7 +290,7 @@ def requeue(c, job_id: int, reason: str, force: bool = False, adult_of=None) -> 
     if j is None:
         return None
     hold = 1 if (adult_of and j["step"] in ADULT_STEPS and adult_of(j["run_id"], j["shot"]) and not triggered(c, j["run_id"], j["shot"])) else j["owner_trigger"]
-    cur = c.execute(f"UPDATE jobs SET state='queued', tries=0, host=NULL, lane=NULL, error=NULL, finished_at=NULL, result=NULL, beat_at=NULL,"
+    cur = c.execute(f"UPDATE jobs SET state='queued', tries=0, host=NULL, lane=NULL, error=NULL, finished_at=NULL, result=NULL, beat_at=NULL, ready_at=NULL,"
                     f" owner_trigger=? WHERE id=? AND state IN {states}", (hold, job_id))
     if cur.rowcount != 1:
         return None

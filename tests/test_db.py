@@ -80,10 +80,15 @@ def test_reap_and_finish_after_reap_rejected(tmp_path):
 def test_infra_requeues_without_counting_then_blocks(tmp_path):
     c = mk(tmp_path)
     f = enq(c, "s", "first")
+    import time as _t
     for i in range(D.INFRA_MAX - 1):
         D.claim(c, "h", "h:0", ["first"])
         j = D.finish(c, f["id"], "h", "infra", error="gpu33 OOM")
         assert (j["state"], j["tries"]) == ("queued", 0)
+        want = min(D.INFRA_BACKOFF_MAX_S, D.INFRA_BACKOFF_S * 2 ** i)                 # M13：退避 30 / 60 / 120 / 240 s…
+        assert abs(j["ready_at"] - _t.time() - want) < 5
+        assert D.claim(c, "h", "h:0", ["first"]) is None                                # 退避期间不领（不霸占队首）
+        c.execute("UPDATE jobs SET ready_at=0")                                         # 快进到退避结束
     D.claim(c, "h", "h:0", ["first"])
     j = D.finish(c, f["id"], "h", "infra", error="gpu33 OOM")
     assert j["state"] == "blocked" and "连续" in j["error"]
@@ -148,5 +153,15 @@ def test_long_shot_rerouted_to_lane(tmp_path):
     assert D.claim(c, "gpu36", "gpu36:0", ["video"])["id"] == v["id"]
     j = D.finish(c, v["id"], "gpu36", "infra", {"want_lane": "gpu36:2"}, "长镜头只派 gpu36:2")
     assert (j["state"], j["tries"], j["want_lane"]) == ("queued", 0, "gpu36:2")
+    c.execute("UPDATE jobs SET ready_at=0")                                             # 快进退避
     assert D.claim(c, "gpu36", "gpu36:1", ["video"]) is None
     assert D.claim(c, "gpu36", "gpu36:2", ["video"])["id"] == v["id"]
+
+
+def test_manual_requeue_clears_backoff(tmp_path):
+    c = mk(tmp_path)
+    f = enq(c, "s", "first", max_tries=1)
+    D.claim(c, "h", "h:0", ["first"]); D.finish(c, f["id"], "h", "infra")
+    c.execute("UPDATE jobs SET state='failed'")                                         # 人工判死后重派
+    assert D.requeue(c, f["id"], "x")["ready_at"] is None
+    assert D.claim(c, "h", "h:0", ["first"])["id"] == f["id"]
