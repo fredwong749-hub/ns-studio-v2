@@ -121,3 +121,20 @@ def test_lane_guard_one_running_per_lane(tmp_path):
     D.finish(c, a["id"], "g", "done")
     enq(c, "ep01-S3", "first")
     assert D.claim(c, "g", "g:0", ["first"])["shot"] == "ep01-S3"
+
+
+def test_m3_predicates_without_api_lock(tmp_path):
+    """M3：不靠 API 锁也对——两个连接（≈两个进程）并发同键入队不 500；被回收后旧上报作废；回收不动刚心跳的"""
+    c1 = mk(tmp_path)
+    c2 = D.connect(tmp_path / "q.db")
+    a, n1 = D.enqueue(c1, run_id="r", ep=1, shot="s", step="first", sig={"x": 1})
+    b, n2 = D.enqueue(c2, run_id="r", ep=1, shot="s", step="first", sig={"x": 1})
+    assert n1 and not n2 and a["id"] == b["id"]
+    D.claim(c1, "h", "h:0", ["first"])
+    assert D.reap(c2, lease_s=0, now=1e12) == [a["id"]]                  # 回收
+    assert D.finish(c1, a["id"], "h", "done") is None                    # 旧 worker 的上报作废
+    D.claim(c1, "h2", "h2:0", ["first"])
+    D.heartbeat(c1, a["id"], "h2")
+    assert D.reap(c2, lease_s=3600) == []                                # 刚心跳的不动
+    assert D.finish(c2, a["id"], "h", "done") is None                    # 不是本机的活
+    assert D.finish(c2, a["id"], "h2", "done")["state"] == "done"

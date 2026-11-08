@@ -107,15 +107,14 @@ def enqueue(c, *, run_id: str, ep: int, shot: str, step: str, payload: dict | No
         else:
             owner_trigger = True
     k = key or idem_key(run_id, shot, step, sig)
-    old = c.execute("SELECT * FROM jobs WHERE idem_key=?", (k,)).fetchone()
-    if old is not None:
-        return row(old), False
-    cur = c.execute(
-        "INSERT INTO jobs(run_id, ep, shot, step, stage, state, payload, result, want_host, max_tries, idem_key, owner_trigger, created_at, finished_at, error)"
+    cur = c.execute(                      # M3：INSERT OR IGNORE + 重查，并发同键不 500
+        "INSERT OR IGNORE INTO jobs(run_id, ep, shot, step, stage, state, payload, result, want_host, max_tries, idem_key, owner_trigger, created_at, finished_at, error)"
         " VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
         (run_id, ep, shot, step, STAGE_OF.get(step), state, json.dumps(payload or {}, ensure_ascii=False),
          json.dumps(result, ensure_ascii=False) if result is not None else None, want_host, max_tries, k,
          1 if owner_trigger else 0, now_iso(), now_iso() if state in ("done", "na", "best_effort") else None, error))
+    if cur.rowcount == 0:
+        return row(c.execute("SELECT * FROM jobs WHERE idem_key=?", (k,)).fetchone()), False
     _event(c, cur.lastrowid, "enqueue", {"state": state})
     if step == "film" and state == "queued":     # 新一版整集输入 → 本集更早的排队 film 行作废（不删，记 na + 原因）
         for r in c.execute("SELECT id FROM jobs WHERE run_id=? AND shot=? AND step='film' AND state='queued' AND id<?",
@@ -218,10 +217,13 @@ def finish(c, job_id: int, host: str, state: str, result: dict | None = None, er
     else:
         assert state in STATES and state not in ("queued", "running"), state
         new = state
-    c.execute("UPDATE jobs SET state=?, tries=?, result=?, error=?, finished_at=?, host=CASE WHEN ?='queued' THEN NULL ELSE host END,"
-              " lane=CASE WHEN ?='queued' THEN NULL ELSE lane END WHERE id=?",
-              (new, tries, json.dumps(result, ensure_ascii=False) if result is not None else j.get("result") and json.dumps(j["result"], ensure_ascii=False),
-               error, None if new == "queued" else now_iso(), new, new, job_id))
+    prev = json.dumps(j["result"], ensure_ascii=False) if j.get("result") is not None else None
+    cur = c.execute("UPDATE jobs SET state=?, tries=?, result=?, error=?, finished_at=?, host=CASE WHEN ?='queued' THEN NULL ELSE host END,"
+                    " lane=CASE WHEN ?='queued' THEN NULL ELSE lane END WHERE id=? AND state='running' AND host=?",
+                    (new, tries, json.dumps(result, ensure_ascii=False) if result is not None else prev,
+                     error, None if new == "queued" else now_iso(), new, new, job_id, host))
+    if cur.rowcount != 1:                 # M3：检查与写之间被回收 / 重派 → 本次上报作废（API 回 409）
+        return None
     r_ = result or {}
     _event(c, job_id, "finish", {"asked": state, "state": new, "tries": tries, "error": (error or "")[:300],
                                  "secs": r_.get("secs"), "gpu_s": r_.get("gpu_s"), "lane": j.get("lane"), "started_at": j.get("started_at")})
@@ -256,11 +258,15 @@ def reap(c, lease_s: float = LEASE_S, now: float | None = None) -> list[int]:
     """心跳超时的 running → queued（tries+1；用完 → failed）"""
     t = (now or time.time()) - lease_s
     ids = [r["id"] for r in c.execute("SELECT id FROM jobs WHERE state='running' AND (beat_at IS NULL OR beat_at < ?)", (t,))]
-    for i in ids:
-        c.execute("UPDATE jobs SET tries=tries+1, host=NULL, lane=NULL, error='心跳超时回收',"
-                  " state=CASE WHEN tries+1 >= max_tries THEN 'failed' ELSE 'queued' END WHERE id=?", (i,))
-        _event(c, i, "reap")
-    return ids
+    done = []
+    for i in ids:                         # M3：带谓词——中间心跳 / 上报过的不动
+        cur = c.execute("UPDATE jobs SET tries=tries+1, host=NULL, lane=NULL, error='心跳超时回收',"
+                        " state=CASE WHEN tries+1 >= max_tries THEN 'failed' ELSE 'queued' END"
+                        " WHERE id=? AND state='running' AND (beat_at IS NULL OR beat_at < ?)", (i, t))
+        if cur.rowcount == 1:
+            _event(c, i, "reap")
+            done.append(i)
+    return done
 
 
 def requeue(c, job_id: int, reason: str, force: bool = False, adult_of=None) -> dict | None:
