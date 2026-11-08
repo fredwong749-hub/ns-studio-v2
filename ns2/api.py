@@ -72,11 +72,25 @@ def conn():
     return _conn
 
 
+_reaper_state = {"ok_at": None, "err": None, "reaped": 0}
+
+
+def reap_once() -> None:
+    """M2：一轮回收；出错记下、不抛（线程不能静默死），/api/health 报上次成功时间与最近错误"""
+    import traceback
+    try:
+        with _lock:
+            n = D.reap(conn())
+        _reaper_state.update(ok_at=time.time(), err=None, reaped=_reaper_state["reaped"] + len(n))
+    except Exception as e:  # noqa: BLE001
+        _reaper_state["err"] = f"{type(e).__name__}: {e}"[:300]
+        print("REAPER_ERR", traceback.format_exc()[-800:], flush=True)
+
+
 def _reaper():
     while True:
         time.sleep(60)
-        with _lock:
-            D.reap(conn())
+        reap_once()
 
 
 @app.on_event("startup")
@@ -131,7 +145,9 @@ class RunReq(BaseModel):
 def health():
     with _lock:
         n = conn().execute("SELECT state, COUNT(*) n FROM jobs GROUP BY state").fetchall()
-    return {"ok": True, "db": DB_PATH, "jobs": {r["state"]: r["n"] for r in n},
+    rs = _reaper_state
+    return {"ok": rs["err"] is None, "db": DB_PATH, "jobs": {r["state"]: r["n"] for r in n},
+            "reaper": {"ok_age_s": round(time.time() - rs["ok_at"], 1) if rs["ok_at"] else None, "err": rs["err"], "reaped": rs["reaped"]},
             "workers": {h: {**w, "age_s": round(time.time() - w["at"], 1)} for h, w in _workers.items()}}
 
 

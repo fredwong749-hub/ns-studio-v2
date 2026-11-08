@@ -8,7 +8,8 @@
 - P1 r3（11-09 02:0x）：内网拓扑移出仓库树（git 历史里仍有，仓库 PUBLIC → **待项目方定：改私有 / 改写历史**）。证据 reports/p0/r3_netfix.md
 - **项目方 11-09 定**：① 仓库保持 PUBLIC、历史不改（项目方接受历史里的拓扑）；② 旧仓库 a12f5890 已 revert（a1c2f6da，旧页恢复原数据源、dist 已重建），
   87c78b47（隧道 18900 / 18893 + /ns2 桥）保留；③ **final 口径 = 队列 reviews 表**（单一来源，不写 review.json）——任务书 / 参考包“final 只认 review.json passed”按此替换
-- 待（P1，按审查 §8）：M2 reaper → M3 谓词更新 → M6 长镜头道 / 前置失败 → M8 → M9 review.json / models.lock → M10 ROLLBACK → M12/M13 余项
+- P1 r4：M2 ✅ 回收线程出错不死、health 报 reaper 状态。证据 reports/p0/r4_M2_reaper.md
+- 待（P1，按审查 §8）：M3 谓词更新 → M6 长镜头道 / 前置失败 → M8 → M9 review.json / models.lock → M10 ROLLBACK → M12/M13 余项
 
 ## 线上（gpu33 / gpu36，/root/work/fredw/ns2/）
 - API：gpu33 10.0.0.33:8900（pid 见 api.pid），db data/queue.db；worker：gpu33 道 0,1（GPU3 专审图）、gpu36 道 0,1,2；各机 worker.pid

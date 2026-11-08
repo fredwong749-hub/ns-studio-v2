@@ -140,3 +140,18 @@ def test_finish_durable(tmp_path, monkeypatch):
     assert (tmp_path / "pending/9.json").exists()                          # 留着等重启补报
     monkeypatch.setattr(W, "post", lambda *a, **k: {})
     assert W.resend_pending("x") == [(9, "accepted")] and not (tmp_path / "pending/9.json").exists()
+
+
+def test_reaper_survives_errors(tmp_path, api_mod, monkeypatch):
+    """M2：回收一轮出错不杀线程；health 报错；下一轮恢复"""
+    from fastapi.testclient import TestClient
+    A = api_mod
+    c = TestClient(A.app)
+    monkeypatch.setattr(A.D, "reap", lambda conn: (_ for _ in ()).throw(RuntimeError("坏行")))
+    A.reap_once()
+    h = c.get("/api/health").json()
+    assert h["ok"] is False and "坏行" in h["reaper"]["err"]
+    monkeypatch.setattr(A.D, "reap", lambda conn: [1, 2])
+    A.reap_once()
+    h = c.get("/api/health").json()
+    assert h["ok"] is True and h["reaper"]["err"] is None and h["reaper"]["reaped"] == 2 and h["reaper"]["ok_age_s"] < 5
