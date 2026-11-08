@@ -50,8 +50,20 @@ def upload(lane: str, rel: str) -> str:
     return _uploads[key]
 
 
-def submit(lane: str, var: dict, prefix: str, tag: dict) -> str:
+def reseed(graph: dict, seed: int) -> int:
+    """换新种子（种子永不复用，PLAN §1.4 #6）：改所有 RandomNoise.noise_seed；返回改了几处"""
+    k = 0
+    for n in graph.values():
+        if n.get("class_type") == "RandomNoise" and "noise_seed" in (n.get("inputs") or {}):
+            n["inputs"]["noise_seed"] = seed
+            k += 1
+    return k
+
+
+def submit(lane: str, var: dict, prefix: str, tag: dict, seed: int | None = None) -> str:
     g = json.loads(json.dumps(var["graph"]))
+    if seed is not None and not reseed(g, seed):
+        raise RuntimeError("要换种子但图里没有 RandomNoise.noise_seed")
     for n in g.values():
         for k, v in list((n.get("inputs") or {}).items()):
             if isinstance(v, str) and v.startswith("@"):
@@ -110,8 +122,9 @@ def pick_variant(payload: dict, tries: int, lane: str) -> tuple[str, dict] | Non
     return name, vs[name]
 
 
-def record_take(job: dict, var_name: str, var: dict, clip_rel: str, s: dict, *, final: bool) -> dict:
-    """写一条 video take；过门设当前；final 且没过 → ns2 视频里 penalty 最小的设当前。op_id 幂等（同 job 同次只写一次）"""
+def record_take(job: dict, var_name: str, var: dict, clip_rel: str, s: dict, *, final: bool, seed=None, trial: bool = False) -> dict:
+    """写一条 video take；过门设当前；final 且没过 → ns2 视频里 penalty 最小的设当前。op_id 幂等（同 job 同次只写一次）。
+    trial（验收 / 试跑）：只记 take，不动当前版"""
     import sys
     for p in ("services/render_router", "services/agent", "packages/schema"):
         if str(ROOT / p) not in sys.path:
@@ -125,13 +138,15 @@ def record_take(job: dict, var_name: str, var: dict, clip_rel: str, s: dict, *, 
     def fn(doc):
         takes = doc.setdefault("takes", [])
         n = 1 + max([t.get("n") or 0 for t in takes if t.get("stage") == "video"] or [0])
-        t = {"n": n, "stage": "video", "file": clip_rel, "seed": var.get("seed"), "prompt": var.get("prompt", ""),
+        t = {"n": n, "stage": "video", "file": clip_rel, "seed": var.get("seed") if seed is None else seed, "trial": trial, "prompt": var.get("prompt", ""),
              "workflow": var.get("recipe"), "variant": var_name, "gpu": job.get("lane"), "created_at": P._iso_jst(),
              "source": "ns2", "job_id": job["id"], "score": {k: s.get(k) for k in ("mean", "penalty", "gate", "J4", "error") if k in s},
              "postflight": {"ok": passed, "gate": gate, "ts": P._iso_jst()}}
         takes.append(t)
         out["n"] = n
-        if passed:
+        if trial:
+            pass
+        elif passed:
             doc.setdefault("active", {})["video"] = n
         elif final:
             mine = [x for x in takes if x.get("stage") == "video" and x.get("source") == "ns2" and x.get("job_id") == job["id"]
@@ -157,18 +172,20 @@ def run(job: dict, lane: str):
     sid, ep = job["shot"], int(job["ep"])
     prefix = f"ns2/{sid}__{name}"
     tag = {"agent": "NS2", "kind": "video", "shot": sid, "job": job["id"], "label": name}
-    pid = submit(lane, var, prefix, tag)
+    seed = int.from_bytes(os.urandom(4), "big") if p.get("fresh_seed") else None
+    pid = submit(lane, var, prefix, tag, seed)
     frames = int(var.get("frames") or 125)
     res = wait(lane, pid, timeout_s=max(1800, frames * 12))
     if res.get("error"):
         return "retry", {"variant": name, "pid": pid, "has_output": False, **res}, res["error"]
-    dst = ROOT / "data/pipeline/runs" / job["run_id"] / "video/clips" / f"ep{ep:02d}" / f"{sid}__{name}_s{var.get('seed')}.mp4"
+    used = var.get("seed") if seed is None else seed
+    dst = ROOT / "data/pipeline/runs" / job["run_id"] / "video/clips" / f"ep{ep:02d}" / f"{sid}__{name}_s{used}.mp4"
     dst.parent.mkdir(parents=True, exist_ok=True)
     shutil.copy2(res["path"], dst)
     s = score(dst, p.get("score_meta") or {})
     final = int(job.get("tries") or 0) + 1 >= int(job.get("max_tries") or 3)
-    rec = record_take(job, name, var, str(dst.relative_to(ROOT / "data")), s, final=final)
-    result = {"variant": name, "pid": pid, "gpu_s": res.get("gpu_s"), "clip": str(dst.relative_to(ROOT)), "take_n": rec["n"],
+    rec = record_take(job, name, var, str(dst.relative_to(ROOT / "data")), s, final=final, seed=used, trial=bool(p.get("trial")))
+    result = {"variant": name, "seed": used, "trial": bool(p.get("trial")), "pid": pid, "gpu_s": res.get("gpu_s"), "clip": str(dst.relative_to(ROOT)), "take_n": rec["n"],
               "score": {k: s.get(k) for k in ("mean", "penalty", "gate", "error") if k in s}, "has_output": True}
     if rec["passed"]:
         return "done", result, None

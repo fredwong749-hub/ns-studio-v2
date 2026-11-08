@@ -2,7 +2,7 @@
 
 不写任何旧文件、不建队列；报告给项目方确认后，M1 才用它生成 jobs 表初始行。
 状态口径（每镜每步唯一）：
-  done          active 版文件在本机 且 postflight.ok
+  done          active 版文件在本机 且 过门（首 / 尾帧按 ns2.gates.frame_passed，与旧 build_jobs 同口径；视频 postflight.ok）
   needs_review  active 版文件在本机，postflight 未过（旧系统的尽力版 / 待人工定）——不自动重跑
   missing_file  有 active 但文件不在本机（拉取缺口，迁移前要先拉）
   best_effort   （仅视频）takes.json 没有当前版，但旧视频子系统 state_<host>.json 记 best_effort 且片子在 → 等人工定，不重跑
@@ -41,8 +41,12 @@ def step_state(d: dict, stage: str, data: Path) -> dict:
     out = {"n": n, "file": t.get("file"), "sig": t.get("sig")}
     if not t.get("file") or not f.is_file():
         return {**out, "state": "missing_file"}
-    ok = bool((t.get("postflight") or {}).get("ok"))
-    return {**out, "state": "done" if ok else "needs_review"}
+    if stage == "video":
+        ok, why = bool((t.get("postflight") or {}).get("ok")), ""
+    else:
+        from ns2.gates import frame_passed
+        ok, why = frame_passed(stage, t, locked=(d.get("locked") or {}).get(stage) == n)
+    return {**out, "state": "done" if ok else "needs_review", **({"why": why} if not ok else {})}
 
 
 def video_states(data: Path, run: str) -> dict:

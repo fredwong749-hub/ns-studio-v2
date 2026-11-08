@@ -56,9 +56,18 @@ def test_run_flow_with_fake_comfy(tmp_path, monkeypatch):
     monkeypatch.setattr(V, "ROOT", tmp_path)
     (tmp_path / "data").mkdir()
     out = tmp_path / "out.mp4"; out.write_bytes(b"x")
-    monkeypatch.setattr(V, "submit", lambda lane, var, prefix, tag: "pid1")
+    monkeypatch.setattr(V, "submit", lambda lane, var, prefix, tag, seed=None: "pid1")
     monkeypatch.setattr(V, "wait", lambda lane, pid, timeout_s: {"path": str(out), "gpu_s": 400})
     monkeypatch.setattr(V, "score", lambda clip, meta: {"gate": {"pass": False, "fails": ["动作不足"]}, "penalty": 0.4})
     st, res, err = V.run({**_job(), "payload": {"variants": VARS, "ladder": ["v1", "s2"]}}, "gpu36:0")
     assert st == "retry" and res["has_output"] and "动作不足" in err
     assert (tmp_path / "data/pipeline/runs/r/video/clips/ep01/ep01-S1__v1_s1.mp4").is_file()
+
+
+def test_trial_keeps_active_and_reseed(tmp_path, monkeypatch):
+    tj = _patch_takes(tmp_path, monkeypatch)
+    V.record_take(_job(), "v1", VARS["v1"], "t.mp4", {"gate": {"pass": True}, "penalty": 0}, final=True, seed=99, trial=True)
+    d = json.loads(tj.read_text(encoding="utf-8"))
+    assert d["active"]["video"] == 3 and d["takes"][-1]["seed"] == 99 and d["takes"][-1]["trial"] is True
+    g = {"1": {"class_type": "RandomNoise", "inputs": {"noise_seed": 1}}, "2": {"class_type": "X", "inputs": {}}}
+    assert V.reseed(g, 7) == 1 and g["1"]["inputs"]["noise_seed"] == 7

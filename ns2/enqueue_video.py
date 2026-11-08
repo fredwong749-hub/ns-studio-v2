@@ -33,10 +33,12 @@ def build(run: str, sid: str, host: str) -> list[dict]:
     tj = json.loads((ROOT / "data/renders" / run / f"ep{ep:02d}" / sid.split("-")[1] / "takes.json").read_text(encoding="utf-8"))
     act = tj.get("active") or {}
 
+    from ns2.gates import frame_passed
+
     def ok(stage):
         n = act.get(stage)
         t = next((x for x in tj.get("takes") or [] if x.get("stage") == stage and x.get("n") == n), None)
-        return n, bool(t and (t.get("postflight") or {}).get("ok"))
+        return n, frame_passed(stage, t, locked=(tj.get("locked") or {}).get(stage) == n)[0]
     fn, fok = ok("image")
     ln, lok = ok("last")
     rows = [{"run_id": run, "ep": ep, "shot": sid, "step": "first", "state": "done" if fok else "blocked",
@@ -62,10 +64,14 @@ def main(argv=None) -> int:
     ap.add_argument("--shots", required=True)
     ap.add_argument("--host", default=os.uname().nodename if hasattr(os, "uname") else "")
     ap.add_argument("--dry", action="store_true")
+    ap.add_argument("--trial", action="store_true", help="验收试跑：只记 take 不动当前版、换新种子；视频行不做幂等去重")
     a = ap.parse_args(argv)
     host = {"gpu6": "gpu36"}.get(a.host, a.host)
     for sid in a.shots.split(","):
         for r in build(a.run, sid, host):
+            if a.trial and r["step"] == "video":
+                r["payload"].update(trial=True, fresh_seed=True)
+                r["sig"] = {**r["sig"], "trial": __import__("time").time()}
             if a.dry:
                 print(r["shot"], r["step"], r.get("state", "queued"), "variants=" + ",".join((r.get("payload") or {}).get("variants") or []))
                 continue
