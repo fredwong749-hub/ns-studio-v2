@@ -60,6 +60,7 @@ def build(run: str, sid: str, host: str) -> list[dict]:
                  "max_tries": max(1, min(MAX_RENDERS, len(ready))),
                  "sig": {"first": sh.get("first_frame_take"), "last": sh.get("last_frame_take"), "cache": sh.get("cache_key")},
                  "payload": {"run": run, "variants": vs, "ladder": sh.get("ladder_order"),
+                             "first_take": sh.get("first_frame_take"), "last_take": None if no_last else sh.get("last_frame_take"),   # M7：preflight 比对当前版
                              "score_meta": {"refs": sh.get("score_refs") or {}, "size": sh.get("size"), "first_frame": sh.get("first_frame"),
                                             "prompt": (vs.get(ready[0]) or {}).get("prompt", "") if ready else ""}}})
     return rows

@@ -117,3 +117,25 @@ def test_long_variant_on_short_lane_asks_reroute(monkeypatch):
            "payload": {"variants": {"v1": {"status": "ready", "frames": 300}}, "ladder": ["v1"]}}
     st, res, err = V.run(job, "gpu36:0")
     assert st == "infra" and res["want_lane"] == "gpu36:2"
+
+
+def test_video_preflight(tmp_path, monkeypatch):
+    """M5 / M7：输入缺、LoRA 没装、首帧已换版、尾帧比首帧旧 → 逐条写出来；都齐 → 空"""
+    monkeypatch.setattr(V, "ROOT", tmp_path)
+    d = tmp_path / "data/renders/r/ep01/S1"; d.mkdir(parents=True)
+    (tmp_path / "in.png").write_bytes(b"x")
+    def takes(fn, ft, ln, lt):
+        (d / "takes.json").write_text(json.dumps({"active": {"image": fn, "last": ln}, "takes": [
+            {"stage": "image", "n": fn, "created_at": ft}, {"stage": "last", "n": ln, "created_at": lt}]}))
+    job = {"run_id": "r", "shot": "ep01-S1"}
+    var = {"inputs": {"@a": "in.png"}, "graph": {"1": {"class_type": "LoraLoaderModelOnly", "inputs": {"lora_name": "x.safetensors"}}}}
+    monkeypatch.setattr(V, "comfy_loras", lambda lane: {"x.safetensors"})
+    takes(3, "2026-11-08T10:00", 2, "2026-11-08T11:00")
+    assert V.preflight(job, var, "gpu36:0", {"first_take": 3, "last_take": 2}) == []
+    bad = V.preflight(job, {**var, "inputs": {"@a": "nope.png"}}, "gpu36:0", {"first_take": 2, "last_take": 2})
+    assert any("不在本机" in x for x in bad) and any("首帧当前版已变" in x for x in bad)
+    monkeypatch.setattr(V, "comfy_loras", lambda lane: set())
+    assert any("没装 LoRA" in x for x in V.preflight(job, var, "gpu36:0", {}))
+    monkeypatch.setattr(V, "comfy_loras", lambda lane: None)                       # 问不到 ComfyUI → 不误拦
+    takes(4, "2026-11-08T12:00", 2, "2026-11-08T11:00")                            # 首帧重出了、尾帧还是旧的
+    assert any("比首帧" in x for x in V.preflight(job, var, "gpu36:0", {}))
