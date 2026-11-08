@@ -22,7 +22,8 @@
 - P3 r14：smoke_v2 ep01 全程新系统跑通（script→board→first→last→video→film，无人工派单；墙钟 23 分钟；同输入 0 新行）；
   **真机抓到首尾帧跨机交接缺失**（视频机用了旧首帧）→ ns2/handoff.py 修好并重跑验证（236 用 v14/v4，film v2）。证据 reports/p3/r14_smoke_full_chain.md
 - 待项目方：ep03-S4（成人，首帧待复核 + 触发）；series10 ep01 是否要用新系统重出一镜（会产生新版本、可能换当前版）
-- 待：minor 余项 → 收尾报告（ep03-S4 首个真活、ep01 整集、同输入 0 新版本）→ minor 余项 → 收尾报告（重试保 created_at 插队）→ minor；然后 P2 前端（ns2 同源新页）、P3
+- P3 r15：总览 need_frames 判定修正、ETA 不计等人的镜。证据 reports/p3/r15_overview_need_frames.md
+- 待：收尾报告（ep03-S4 首个真活、ep01 整集、同输入 0 新版本）→ minor 余项 → 收尾报告（重试保 created_at 插队）→ minor；然后 P2 前端（ns2 同源新页）、P3
 
 ## 线上（gpu33 / gpu36，/root/work/fredw/ns2/）
 - API：gpu33 10.0.0.33:8900（pid 见 api.pid），db data/queue.db；worker：gpu33 道 0,1（GPU3 专审图）、gpu36 道 0,1,2；各机 worker.pid

@@ -38,6 +38,7 @@ def test_overview_need_frames_and_adult_hold(tmp_path):
     c = D.connect(tmp_path / "q.db")
     c.execute("INSERT INTO runs(run_id) VALUES ('r')")
     D.enqueue(c, run_id="r", ep=1, shot="ep01-S1", step="first", state="best_effort")
+    D.enqueue(c, run_id="r", ep=1, shot="ep01-S1", step="last")                    # 排着但永远领不到（首帧卡住）
     D.enqueue(c, run_id="r", ep=1, shot="ep01-S1", step="video")
     D.enqueue(c, run_id="r", ep=1, shot="ep01-S2", step="first", state="done"); D.enqueue(c, run_id="r", ep=1, shot="ep01-S2", step="last", state="na")
     D.enqueue(c, run_id="r", ep=1, shot="ep01-S2", step="video", adult=True)

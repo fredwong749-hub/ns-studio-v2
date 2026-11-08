@@ -110,7 +110,9 @@ def build(run: str, rows: list[dict], reviews: dict, script: dict, now_iso: str,
             vx: dict = {"progress": None, "eta": None, "queue_pos": None}
             note = None
             frames_ok = fs in FRAME_OK and ls in FRAME_OK
-            frames_busy = any((x or {}).get("state") in ("queued", "running") for x in (f, l))
+            # 首帧已卡在等人（尽力版 / 阻断 / 失败）时，排着的尾帧永远领不到——不算“系统在办”
+            first_stuck = fs in ("best_effort", "blocked", "failed")
+            frames_busy = not first_stuck and any((x or {}).get("state") in ("queued", "running") for x in (f, l))
             if vstate == "running":
                 vs = "rendering"; V["rendering"] += 1
                 el = datetime.now().timestamp() - _t(v.get("started_at"))
@@ -186,7 +188,7 @@ def build(run: str, rows: list[dict], reviews: dict, script: dict, now_iso: str,
         T["last"][0] += cnt["last"]; T["last"][1] += n
         T["video"][0] += cnt["video"]; T["video"][1] += n
         T["cut"][0] += assembled; T["cut"][1] += 1
-    left = V["queued"] + V["rendering"] + V["need_frames"] + V["todo"]
+    left = V["queued"] + V["rendering"] + V["todo"]          # need_frames / blocked 在等人，不进预计完成时间
     eta_all_s = round(left * all_med / max(1, len(lane_med) or 1))
     V.update(median_s=round(all_med, 1), eta_all_s=eta_all_s, eta_all=_iso_in(eta_all_s) if left else None)
     return {"run": run, "at": now_iso, "totals": T, "videos": V, "episodes": episodes}
