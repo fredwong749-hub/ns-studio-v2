@@ -1,4 +1,4 @@
-"""六步函数注册表。M1a 只有 echo（链路验收用，不碰 GPU）；video / first / last 在 M1b / M1c 加。"""
+"""六步函数注册表。echo（链路验收用，不碰 GPU）；video（M1b）/ first、last（M1c）/ film（M2）；script、board 待 M2 后段。"""
 from __future__ import annotations
 
 
@@ -19,6 +19,7 @@ if True:  # M1a：测试 run 用 echo 顶所有步；真步函数注册后按 pa
             return real(job, lane)
         return fn
     from ns2 import step_frame as _SF
+    from ns2 import step_film as _SFL
     from ns2 import step_video as _SV
-    REAL: dict = {"video": _SV.run, "first": _SF.run, "last": _SF.run}
+    REAL: dict = {"video": _SV.run, "first": _SF.run, "last": _SF.run, "film": _SFL.run}
     STEP_FNS = {s: _dispatch(s) for s in ("script", "board", "first", "last", "video", "film")}

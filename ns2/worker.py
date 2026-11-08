@@ -76,6 +76,8 @@ def main(argv=None) -> int:
     ap.add_argument("--lanes", required=True)
     ap.add_argument("--steps", default="first,last,video,film")
     a = ap.parse_args(argv)
+    import os
+    os.environ["NS2_API"] = a.api          # film 步要读本集各镜最新行
     from ns2.steps import STEP_FNS
     lanes = [x for x in a.lanes.split(",") if x]
     assert "gpu33:2" not in lanes, "gpu33:2 是坏卡，永不派"

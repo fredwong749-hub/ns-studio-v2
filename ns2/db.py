@@ -83,7 +83,7 @@ def _event(c, job_id, kind, detail=None):
 
 def enqueue(c, *, run_id: str, ep: int, shot: str, step: str, payload: dict | None = None, want_host: str | None = None,
             sig: dict | None = None, state: str = "queued", result: dict | None = None, owner_trigger: bool = False,
-            max_tries: int = 3, key: str | None = None) -> tuple[dict, bool]:
+            max_tries: int = 3, key: str | None = None, error: str | None = None) -> tuple[dict, bool]:
     """→ (job, created)。同 idem_key 已有 → 原行、created=False"""
     assert step in STEPS and state in STATES, (step, state)
     k = key or idem_key(run_id, shot, step, sig)
@@ -91,17 +91,36 @@ def enqueue(c, *, run_id: str, ep: int, shot: str, step: str, payload: dict | No
     if old is not None:
         return row(old), False
     cur = c.execute(
-        "INSERT INTO jobs(run_id, ep, shot, step, stage, state, payload, result, want_host, max_tries, idem_key, owner_trigger, created_at, finished_at)"
-        " VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+        "INSERT INTO jobs(run_id, ep, shot, step, stage, state, payload, result, want_host, max_tries, idem_key, owner_trigger, created_at, finished_at, error)"
+        " VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
         (run_id, ep, shot, step, STAGE_OF.get(step), state, json.dumps(payload or {}, ensure_ascii=False),
          json.dumps(result, ensure_ascii=False) if result is not None else None, want_host, max_tries, k,
-         1 if owner_trigger else 0, now_iso(), now_iso() if state in ("done", "na", "best_effort") else None))
+         1 if owner_trigger else 0, now_iso(), now_iso() if state in ("done", "na", "best_effort") else None, error))
     _event(c, cur.lastrowid, "enqueue", {"state": state})
+    if step == "film" and state == "queued":     # 新一版整集输入 → 本集更早的排队 film 行作废（不删，记 na + 原因）
+        for r in c.execute("SELECT id FROM jobs WHERE run_id=? AND shot=? AND step='film' AND state='queued' AND id<?",
+                           (run_id, shot, cur.lastrowid)).fetchall():
+            c.execute("UPDATE jobs SET state='na', error='被新一版整集输入取代', finished_at=? WHERE id=?", (now_iso(), r["id"]))
+            _event(c, r["id"], "superseded", {"by": cur.lastrowid})
     return row(c.execute("SELECT * FROM jobs WHERE id=?", (cur.lastrowid,)).fetchone()), True
 
 
+FILM_SQL = (" AND j.id = (SELECT MAX(f.id) FROM jobs f WHERE f.run_id=j.run_id AND f.shot=j.shot AND f.step='film')"
+            " AND EXISTS (SELECT 1 FROM jobs v WHERE v.run_id=j.run_id AND v.ep=j.ep AND v.step='video')"
+            " AND NOT EXISTS (SELECT 1 FROM jobs v WHERE v.run_id=j.run_id AND v.ep=j.ep AND v.step='video'"
+            "   AND v.state IN ('queued','running')"
+            "   AND v.id = (SELECT MAX(x.id) FROM jobs x WHERE x.run_id=v.run_id AND x.shot=v.shot AND x.step='video'))")
+
+
 def _claim_sql(step: str) -> str:
-    """前置步 = 该镜该步“最新一行”（id 最大，重派会新起一行）必须 done/na；没入队 = 不领"""
+    """前置步 = 该镜该步“最新一行”（id 最大，重派会新起一行）必须 done/na；没入队 = 不领。
+    film（shot = epNN，整集一行）：本集所有镜的最新视频行都不在 queued/running（尽力 / 阻断的镜用占位，L-204 D8 不挡整集），
+    且只领本集最新的 film 行（视频每定一镜就新起一行 film，旧行被取代）"""
+    if step == "film":
+        return ("SELECT j.* FROM jobs j JOIN runs r ON r.run_id = j.run_id"
+                " WHERE j.state='queued' AND j.owner_trigger=0 AND r.status='producing'"
+                " AND (j.want_host IS NULL OR j.want_host=?) AND j.step=?" + FILM_SQL +
+                " ORDER BY j.created_at, j.id LIMIT 1")
     pre = "".join(
         f" AND (SELECT p.state FROM jobs p WHERE p.run_id=j.run_id AND p.shot=j.shot AND p.step='{p}'"
         f" ORDER BY p.id DESC LIMIT 1) IN ('done','na')" for p in PREREQ.get(step, ()))
@@ -167,7 +186,25 @@ def finish(c, job_id: int, host: str, state: str, result: dict | None = None, er
               (new, tries, json.dumps(result, ensure_ascii=False) if result is not None else j.get("result") and json.dumps(j["result"], ensure_ascii=False),
                error, None if new == "queued" else now_iso(), new, new, job_id))
     _event(c, job_id, "finish", {"asked": state, "state": new, "tries": tries, "error": (error or "")[:300]})
+    if j["step"] == "video" and new != "queued" and not ((j.get("payload") or {}).get("trial") or (j.get("payload") or {}).get("echo")):
+        enqueue_film(c, j["run_id"], j["ep"], want_host=j["host"])
     return row(c.execute("SELECT * FROM jobs WHERE id=?", (job_id,)).fetchone())
+
+
+def film_sig(c, run_id: str, ep: int) -> dict:
+    """整集输入签名 = 本集每镜最新视频行（id, 状态）。同签名重复入队幂等"""
+    rows = c.execute("SELECT shot, MAX(id) id FROM jobs WHERE run_id=? AND ep=? AND step='video' GROUP BY shot", (run_id, ep)).fetchall()
+    out = {}
+    for r in rows:
+        st = c.execute("SELECT state FROM jobs WHERE id=?", (r["id"],)).fetchone()["state"]
+        out[r["shot"]] = [r["id"], st]
+    return {"videos": dict(sorted(out.items()))}
+
+
+def enqueue_film(c, run_id: str, ep: int, want_host: str | None = None, force: bool = False) -> tuple[dict, bool]:
+    """force = 人工“重新合成”（输入没变也出新一版）"""
+    sig = {**film_sig(c, run_id, ep), **({"manual": now_iso()} if force else {})}
+    return enqueue(c, run_id=run_id, ep=ep, shot=f"ep{ep:02d}", step="film", want_host=want_host, sig=sig, max_tries=2)
 
 
 def reap(c, lease_s: float = LEASE_S, now: float | None = None) -> list[int]:

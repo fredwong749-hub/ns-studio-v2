@@ -55,6 +55,7 @@ class Enq(BaseModel):
     owner_trigger: bool = False
     max_tries: int = 3
     key: str | None = None
+    error: str | None = None
 
 
 class Claim(BaseModel):
@@ -103,6 +104,21 @@ def enqueue(e: Enq):
         raise HTTPException(400, f"step/state 不认识：{e.step}/{e.state}")
     with _lock:
         j, created = D.enqueue(conn(), **e.model_dump())
+    return {"job": j, "created": created}
+
+
+class FilmReq(BaseModel):
+    run_id: str
+    want_host: str | None = None
+    force: bool = False
+
+
+@app.post("/api/episodes/{ep}/assemble")
+def assemble(ep: int, f: FilmReq):
+    """PLAN §2.4：给该集插一行 film 任务。签名 = 本集每镜最新视频行，同签名幂等；force=true 出新一版。
+    （视频步每定一镜 db.finish 也会自动入队，平时不用手点）"""
+    with _lock:
+        j, created = D.enqueue_film(conn(), f.run_id, ep, f.want_host, f.force)
     return {"job": j, "created": created}
 
 
