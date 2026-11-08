@@ -155,3 +155,15 @@ def test_reaper_survives_errors(tmp_path, api_mod, monkeypatch):
     A.reap_once()
     h = c.get("/api/health").json()
     assert h["ok"] is True and h["reaper"]["err"] is None and h["reaper"]["reaped"] == 2 and h["reaper"]["ok_age_s"] < 5
+
+
+def test_rollback_script_syntax():
+    """M10：回滚脚本至少语法正确（真演练记录在 reports/p0/r9_M10.md）"""
+    import shutil
+    import subprocess
+    import pytest
+    b = shutil.which("bash")
+    if not b:
+        pytest.skip("no bash")
+    r = subprocess.run([b, "-n", "ns2/rollback.sh"], capture_output=True, text=True)
+    assert r.returncode == 0, r.stderr

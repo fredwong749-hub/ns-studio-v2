@@ -1,0 +1,47 @@
+=== r9 回滚演练（按 docs/ROLLBACK.md 字面）2026-11-09 02:21:02 JST
+takes ep01-S1 前: seq 167 takes 45 active {'image': 27, 'last': 12}
+--- to-old
+== gpu33 2026-11-09 02:21:02 JST
+STOP: 在
+ns2 worker: 369223 
+ns2 api:    369131 
+旧 producer/night: 
+旧 vidgen:  
++ kill 369223
++ kill 369131
++ bash /root/work/fredw/offline_20261101/start.sh gpu33
+fwd pid 35384 alive
+producer pid 370132 alive
+night pid 370134 alive
+== gpu33 2026-11-09 02:21:26 JST
+STOP: 无
+ns2 worker: 
+ns2 api:    
+旧 producer/night: producer=370132 night=370134 
+旧 vidgen:  
+旧系统跑 60 s 内派单 / 出图行（producer 日志）：
+（以上为空 = 未派单）
+takes ep01-S1 旧系统期间: seq 167 takes 45 active {'image': 27, 'last': 12}
+--- to-new
+== gpu33 2026-11-09 02:22:06 JST
+STOP: 无
+ns2 worker: 
+ns2 api:    
+旧 producer/night: producer=370132 night=370134 
+旧 vidgen:  
++ echo 'P5 ns2 cutover gpu33 2026-11-09T02:22:06+09:00' > /root/work/fredw/offline_20261101/STOP
++ kill 370134
++ kill 370132
++ NS2_DB=/root/work/fredw/ns2/data/queue.db nohup /root/work/fredw/offline_20261101/venv/bin/python -m uvicorn ns2.api:app --host 10.0.0.33 --port 8900 --log-level warning >> /root/work/fredw/ns2/logs/api.log 2>&1 < /dev/null & echo $! > /root/work/fredw/ns2/api.pid
++ nohup /root/work/fredw/offline_20261101/venv/bin/python -u -m ns2.worker --api http://10.0.0.33:8900 --host gpu33 --lanes gpu33:0,gpu33:1 --files 10.0.0.33:8901 >> /root/work/fredw/ns2/logs/worker.log 2>&1 < /dev/null & echo $! > /root/work/fredw/ns2/worker.pid
+== gpu33 2026-11-09 02:22:19 JST
+STOP: 在
+ns2 worker: 371605 
+ns2 api:    371491 
+旧 producer/night: 
+旧 vidgen:  
+{"ok":true,"db":"/root/work/fredw/ns2/data/queue.db","jobs":{"best_effort":26,"blocked":2,"done":164,"na":6,"queued":3},"reaper":{"ok_age_s":null,"err":null,"reaped":0},"workers":{"gpu33":{"at":1794158536.8333626,"lanes":["gpu33:0","gpu33:1"],"age_s":3.1}}}
+新系统 echo： [(203, 'done', 'gpu33:0')]
+takes ep01-S1 后: seq 167 takes 45 active {'image': 27, 'last': 12}
+=== 演练结束 02:22:35
+
