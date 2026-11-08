@@ -339,6 +339,20 @@ def run(job: dict, lane: str):
     host = lane.split(":")[0]
     if not p.get("echo") and not p.get("owner_triggered") and shot_adult(job["run_id"], job["shot"]):
         return "blocked", None, "成人镜未经项目方触发（L-128）：worker 拒渲；请在前端点“触发”"
+    if not p.get("echo"):
+        from ns2 import handoff as HO
+        from ns2.migrate import host_for
+        src = host_for("images", int(job["ep"]))
+        if src and src != host:          # P3 真机发现：出图机 ≠ 视频机时先把出图机当前首 / 尾帧交接过来，否则用的是本机旧帧
+            try:
+                ho = HO.sync_frames(job["run_id"], job["shot"], src, ROOT)
+            except HO.HandoffConflict as e:
+                return "blocked", None, f"首尾帧交接冲突：{e}"
+            except OSError as e:
+                return "infra", None, f"首尾帧交接失败（{src} 文件口）：{e!r}"[:400]
+            if ho["changed"] and p.get("variants"):
+                p = {k: v for k, v in p.items() if k not in ("variants", "ladder", "score_meta", "first_take", "last_take")}   # 帧变了 → 旧变体作废，下面重编
+                job = {**job, "payload": p}
     if not p.get("variants") and not p.get("echo"):
         cp, why = compile_payload(job, host)
         if cp is None:

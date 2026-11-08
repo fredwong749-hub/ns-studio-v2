@@ -3,6 +3,15 @@ import sys
 from pathlib import Path
 
 from ns2 import step_video as V
+import pytest
+
+
+@pytest.fixture(autouse=True)
+def _no_real_handoff(monkeypatch, request):
+    """其余用例不连真出图机：交接打桩成“无变化”（交接本身由 test_handoff_pulls_image_host_frames 测）"""
+    if request.node.name != "test_handoff_pulls_image_host_frames":
+        from ns2 import handoff as HO
+        monkeypatch.setattr(HO, "sync_frames", lambda *a, **k: {"changed": False})
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path[:0] = [str(ROOT / "services/render_router"), str(ROOT / "services/agent"), str(ROOT / "packages/schema")]
@@ -139,3 +148,32 @@ def test_video_preflight(tmp_path, monkeypatch):
     monkeypatch.setattr(V, "comfy_loras", lambda lane: None)                       # 问不到 ComfyUI → 不误拦
     takes(4, "2026-11-08T12:00", 2, "2026-11-08T11:00")                            # 首帧重出了、尾帧还是旧的
     assert any("比首帧" in x for x in V.preflight(job, var, "gpu36:0", {}))
+
+
+def test_handoff_pulls_image_host_frames(tmp_path, monkeypatch):
+    """P3 真机 bug：视频机用的是本机旧首帧。交接：拉出图机当前首 / 尾帧文件 + take，本机 active 指过去；同号不同文件 → 冲突不覆盖"""
+    import pytest
+    from ns2 import handoff as HO
+    from ns2 import worker as W
+    src = tmp_path / "src"; dst = tmp_path / "dst"
+    sd = src / "data/renders/r/ep01/S2"; (sd / "takes").mkdir(parents=True)
+    (sd / "takes/image_014.png").write_bytes(b"new-first"); (sd / "takes/last_004.png").write_bytes(b"new-last")
+    (sd / "takes.json").write_text(json.dumps({"active": {"image": 14, "last": 4}, "takes": [
+        {"stage": "image", "n": 14, "file": "renders/r/ep01/S2/takes/image_014.png"},
+        {"stage": "last", "n": 4, "file": "renders/r/ep01/S2/takes/last_004.png"}]}))
+    srv = W.serve_files("127.0.0.1", 0, src)
+    base = f"http://127.0.0.1:{srv.server_address[1]}"
+    tj = dst / "takes.json"; dst.mkdir()
+    tj.write_text(json.dumps({"active": {"image": 1, "video": 1}, "takes": [{"stage": "image", "n": 1, "file": "renders/r/ep01/S2/takes/image_001.png"}]}))
+    monkeypatch.setattr(P, "takes_path", lambda sid, run=None: tj)
+    out = HO.sync_frames("r", "ep01-S2", "gpu33", dst, base=base)
+    d = json.loads(tj.read_text())
+    assert out["changed"] and d["active"]["image"] == 14 and d["active"]["last"] == 4 and d["active"]["video"] == 1
+    assert (dst / "data/renders/r/ep01/S2/takes/image_014.png").read_bytes() == b"new-first"
+    assert any(t.get("synced_from") == "gpu33" for t in d["takes"])
+    assert HO.sync_frames("r", "ep01-S2", "gpu33", dst, base=base)["changed"] is False          # 再跑一遍不变
+    d["takes"][-1]["file"] = "renders/r/ep01/S2/takes/other.png"; tj.write_text(json.dumps(d))     # 本机同号不同文件
+    monkeypatch.setattr(P, "mutate_takes", lambda sid, fn, **k: fn(json.loads(tj.read_text())))
+    with pytest.raises(HO.HandoffConflict):
+        HO.sync_frames("r", "ep01-S2", "gpu33", dst, base=base)
+    srv.shutdown()
