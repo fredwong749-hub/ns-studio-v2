@@ -212,3 +212,17 @@ def test_review_bulk(tmp_path, api_mod):
     ov = c.get("/api/overview?run=r").json()
     st = {s["id"]: s["video"]["state"] for e in ov["episodes"] for s in e["shots"]}
     assert st["ep01-S1"] == "final" and st["ep01-S2"] == "final"
+
+
+def test_enqueue_episode_payload_has_name_and_version(tmp_path, monkeypatch):
+    """P6 R0 发现：注释吞掉了 name / version，剧本步拿不到 --source-version"""
+    from ns2 import enqueue_episode as EE
+    sent = []
+    monkeypatch.setattr(EE, "post", lambda api, path, body: sent.append(body) or {"job": {"id": len(sent)}, "created": True})
+    md = tmp_path / "P4_ep05.final.md"
+    md.write_text("x", encoding="utf-8")
+    assert EE.main(["--api", "http://x", "--run", "r", "--ep", "5", "--md", str(md), "--version", "v3"]) == 0
+    assert len(sent) == 2 and {b["want_host"] for b in sent} == {"gpu33", "gpu36"}
+    for b in sent:
+        assert b["payload"]["name"] == "P4_ep05.final.md" and b["payload"]["version"] == "v3"
+    assert sum(b["payload"]["enqueue_shots"] for b in sent) == 1
