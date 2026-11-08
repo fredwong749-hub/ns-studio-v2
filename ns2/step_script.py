@@ -57,7 +57,8 @@ def shot_rows(run_id: str, ep: int, shots: list[int], md_sha: str) -> list[dict]
     """每镜 board / first / last（出图机）+ video（视频机，变体到时在本机编译）。sig = 剧本正文 sha：两台的剧本行入的是同一批行（幂等）"""
     from ns2.migrate import host_for
     ih, vh = host_for("images", ep), host_for("video", ep)
-    rows = []
+    rows = [{"run_id": run_id, "ep": ep, "shot": f"ep{ep:02d}", "step": "assets", "want_host": ih, "max_tries": 2,   # P6 R1a：本集前期资产
+             "sig": {"script": md_sha}}]
     for i in shots:
         sid = f"ep{ep:02d}-S{i}"
         for step, host, mt in (("board", ih, 2), ("first", ih, 3), ("last", ih, 3), ("video", vh, 4)):

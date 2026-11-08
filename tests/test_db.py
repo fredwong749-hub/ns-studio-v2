@@ -111,9 +111,10 @@ def test_soft_prereq_script_board(tmp_path):
 def test_shot_rows_partition():
     from ns2.step_script import shot_rows
     rows = shot_rows("r", 5, [1, 2], "abc")
-    assert [(r["shot"], r["step"], r["want_host"]) for r in rows[:4]] == [
+    assert (rows[0]["shot"], rows[0]["step"], rows[0]["want_host"]) == ("ep05", "assets", "gpu33")      # P6 R1a
+    assert [(r["shot"], r["step"], r["want_host"]) for r in rows[1:5]] == [
         ("ep05-S1", "board", "gpu33"), ("ep05-S1", "first", "gpu33"), ("ep05-S1", "last", "gpu33"), ("ep05-S1", "video", "gpu33")]
-    assert rows[3]["max_tries"] == 4 and len(rows) == 8
+    assert rows[4]["max_tries"] == 4 and len(rows) == 9
 
 
 def test_lane_guard_one_running_per_lane(tmp_path):
@@ -176,3 +177,34 @@ def test_enqueue_episode_one_script_row_per_host(tmp_path, monkeypatch):
     hosts = sorted(b["want_host"] for b in sent)
     assert hosts == ["gpu33", "gpu36"] and len({D.idem_key("r", b["shot"], "script", b["sig"]) for b in sent}) == 2
     assert [b["payload"]["enqueue_shots"] for b in sent if b["want_host"] == "gpu33"] == [True]     # ep05 出图机 gpu33 负责入队镜头
+
+
+def test_p6_assets_between_script_and_board(tmp_path):
+    """P6 R1a：board 等本集本机 assets 做完；assets 等 script；assets done → 本集 blocked 的 board 自动回队"""
+    c = D.connect(tmp_path / "q.db")
+    c.execute("INSERT INTO runs(run_id) VALUES ('r')")
+    D.enqueue(c, run_id="r", ep=5, shot="ep05", step="script", want_host="gpu33")
+    a, _ = D.enqueue(c, run_id="r", ep=5, shot="ep05", step="assets", want_host="gpu33")
+    b, _ = D.enqueue(c, run_id="r", ep=5, shot="ep05-S1", step="board", want_host="gpu33")
+    assert D.claim(c, "gpu33", "gpu33:0", ["assets", "board"]) is None          # 剧本没导入：都不领
+    s = D.claim(c, "gpu33", "gpu33:0", ["script"])
+    D.finish(c, s["id"], "gpu33", "done")
+    got = D.claim(c, "gpu33", "gpu33:0", ["board", "assets"])
+    assert got["step"] == "assets"                                              # board 还在等资产
+    assert D.claim(c, "gpu33", "gpu33:1", ["board"]) is None
+    D.finish(c, got["id"], "gpu33", "done")
+    bb = D.claim(c, "gpu33", "gpu33:0", ["board"])
+    assert bb["id"] == b["id"]
+    D.finish(c, bb["id"], "gpu33", "blocked", error="预检不过：缺设定图")
+    a2, created = D.enqueue(c, run_id="r", ep=5, shot="ep05", step="assets", want_host="gpu33", key="assets-again")
+    got = D.claim(c, "gpu33", "gpu33:0", ["assets"])
+    D.finish(c, got["id"], "gpu33", "done")
+    row = c.execute("SELECT state FROM jobs WHERE id=?", (b["id"],)).fetchone()
+    assert row["state"] == "queued"                                             # 资产补齐 → 卡住的分镜回队
+
+
+def test_p6_shot_rows_have_assets_row():
+    from ns2.step_script import shot_rows
+    rows = shot_rows("r", 5, [1, 2], "sha")
+    assert [r["step"] for r in rows if r["shot"] == "ep05"] == ["assets"]
+    assert sum(r["step"] == "board" for r in rows) == 2

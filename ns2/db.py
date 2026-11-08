@@ -17,11 +17,12 @@ import time
 from datetime import datetime, timezone
 from pathlib import Path
 
-STEPS = ("script", "board", "first", "last", "video", "film")
+STEPS = ("script", "assets", "board", "first", "last", "video", "film")
 STATES = ("queued", "running", "done", "failed", "blocked", "best_effort", "na")
 PREREQ = {"last": ("first",), "video": ("first", "last")}
 # 有就必须过、没有不挡（迁移来的镜没有 script / board 行）：first ← 本镜 board；board ← 本集本机 script（shot = epNN）
-SOFT_PREREQ = {"first": "board", "board": "script"}
+SOFT_PREREQ = {"first": ("board",), "board": ("assets", "script"), "assets": ("script",)}   # P6 R1a：剧本 → 资产 → 分镜（有行才挡）
+EP_LEVEL = ("script", "assets")      # 一集一行（shot = epNN）
 PASSED = ("done", "na")
 LEASE_S = 45 * 60
 INFRA_MAX = 5
@@ -153,18 +154,24 @@ def _claim_sql(step: str) -> str:
     pre = "".join(
         f" AND (SELECT p.state FROM jobs p WHERE p.run_id=j.run_id AND p.shot=j.shot AND p.step='{p}'"
         f" ORDER BY p.id DESC LIMIT 1) IN ('done','na')" for p in PREREQ.get(step, ()))
-    soft = SOFT_PREREQ.get(step)
-    if soft == "board":
-        pre += (" AND COALESCE((SELECT p.state FROM jobs p WHERE p.run_id=j.run_id AND p.shot=j.shot AND p.step='board'"
-                " ORDER BY p.id DESC LIMIT 1), 'done') IN ('done','na')")
-    elif soft == "script":       # 本集剧本行（shot = epNN）在本机（want_host 相同）导入过
-        pre += (" AND COALESCE((SELECT p.state FROM jobs p WHERE p.run_id=j.run_id AND p.ep=j.ep AND p.step='script'"
-                " AND COALESCE(p.want_host,'')=COALESCE(j.want_host,'') ORDER BY p.id DESC LIMIT 1), 'done') IN ('done','na')")
+    for soft in SOFT_PREREQ.get(step, ()):
+        pre += _soft_sql(soft)
     return ("SELECT j.* FROM jobs j JOIN runs r ON r.run_id = j.run_id"
             " WHERE j.state='queued' AND j.owner_trigger=0 AND r.status='producing'"
             " AND (j.want_host IS NULL OR j.want_host=?) AND (j.want_lane IS NULL OR j.want_lane=?) AND j.step=?"
             " AND (j.ready_at IS NULL OR j.ready_at <= CAST(strftime('%s','now') AS REAL))" + pre +
             " ORDER BY j.created_at, j.id LIMIT 1")
+
+
+def _soft_sql(soft: str) -> str:
+    pre = ""
+    if soft == "board":
+        pre += (" AND COALESCE((SELECT p.state FROM jobs p WHERE p.run_id=j.run_id AND p.shot=j.shot AND p.step='board'"
+                " ORDER BY p.id DESC LIMIT 1), 'done') IN ('done','na')")
+    elif soft in EP_LEVEL:       # 本集剧本 / 资产行（shot = epNN）在本机（want_host 相同）做过
+        pre += (f" AND COALESCE((SELECT p.state FROM jobs p WHERE p.run_id=j.run_id AND p.ep=j.ep AND p.step='{soft}'"
+                " AND COALESCE(p.want_host,'')=COALESCE(j.want_host,'') ORDER BY p.id DESC LIMIT 1), 'done') IN ('done','na')")
+    return pre
 
 
 def claim(c, host: str, lane: str, steps: list[str]) -> dict | None:
@@ -243,6 +250,11 @@ def finish(c, job_id: int, host: str, state: str, result: dict | None = None, er
         c.execute("UPDATE jobs SET owner_trigger=1 WHERE run_id=? AND shot=? AND step IN ('first','last','video') AND state='queued'",
                   (j["run_id"], j["shot"]))
         _event(c, job_id, "adult_hold", {"shot": j["shot"]})
+    if j["step"] == "assets" and new == "done":         # P6 R1a：资产补齐 → 本集因预检卡住的分镜行放回队列（立即可领）
+        for b in c.execute("SELECT id FROM jobs WHERE run_id=? AND ep=? AND step='board' AND state='blocked'", (j["run_id"], j["ep"])).fetchall():
+            c.execute("UPDATE jobs SET state='queued', tries=0, host=NULL, lane=NULL, error=NULL, finished_at=NULL, result=NULL, beat_at=NULL,"
+                      " ready_at=NULL WHERE id=? AND state='blocked'", (b["id"],))
+            _event(c, b["id"], "requeue", {"by": "assets_done", "assets_job": job_id})
     if j["step"] in ("first", "last") and new in ("failed", "blocked", "best_effort") and not (j.get("payload") or {}).get("echo")             and c.execute("SELECT 1 FROM jobs WHERE run_id=? AND ep=? AND step='video' AND state IN ('done','best_effort')", (j["run_id"], j["ep"])).fetchone():
         enqueue_film(c, j["run_id"], j["ep"], want_host=None)
     if j["step"] == "video" and new != "queued" and not ((j.get("payload") or {}).get("trial") or (j.get("payload") or {}).get("echo")):

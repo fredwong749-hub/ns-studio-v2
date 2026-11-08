@@ -4,7 +4,7 @@
 参数：{"sid": "ep05-S1", "run": "series10_v2", "lane": "gpu33:0", "port": 8188}
 输出最后一行：@@NS2@@{...}
 复用（PLAN 原则 5）：ns_render.pipeline.compile_with_edits（写 compiled.json / visual_spec.json，与旧画布同一函数）
-+ producer.first_job_for_rung 第 1 档作业 + unified_frame._contract 生成契约 preflight + producer.refs_guard + 成人判定。
++ producer.first_job_for_rung 第 1 档作业 + unified_frame._contract 生成契约 preflight + 成人判定（P6 R1a 去掉 refs_guard）。
 结果：ok（可出首帧）/ blocked（preflight 缺什么写清）/ adult（编译过了，首帧等项目方触发）。
 """
 from __future__ import annotations
@@ -42,8 +42,8 @@ def main(a: dict) -> dict:
     project = UF.project_for(script) or a["run"]
     job = {**PR.first_job_for_rung(project, ep, shot, script.globals, rung, "first", a["run"]), "lane": a["lane"]}
     pf = UF._contract(job)
-    bad_refs = PR.refs_guard(paths, sid, job)
-    reasons = ([] if pf.ok else list(pf.reasons())) + ([f"K-OPS-F03 refs 与目标状态不一致：{x}" for x in bad_refs])
+    # P6 R1a：去掉 K-OPS-F03 refs 表核对（它防的是“笔记本生成、推到服务器”两边不一致；资产改在服务器本机生成，前提已不成立）
+    reasons = [] if pf.ok else list(pf.reasons())
     out = {"prompt_sha": hashlib.sha256((job.get("prompt") or "").encode("utf-8")).hexdigest()[:16],
            "has_last": bool(job.get("last_prompt") or getattr(c, "last_prompt", None)),
            "adult": bool(job.get("adult")), "adult_reasons": list(job.get("adult_reasons") or [])[:6],

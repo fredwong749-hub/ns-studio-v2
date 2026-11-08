@@ -178,7 +178,7 @@ def main(argv=None) -> int:
     ap.add_argument("--api", required=True)
     ap.add_argument("--host", required=True)
     ap.add_argument("--lanes", required=True)
-    ap.add_argument("--steps", default="script,board,first,last,video,film")
+    ap.add_argument("--steps", default="script,assets,board,first,last,video,film")
     ap.add_argument("--files", default="", help="只读文件口 bind:port（如 10.0.0.36:8901）；空 = 不开")
     a = ap.parse_args(argv)
     import os
