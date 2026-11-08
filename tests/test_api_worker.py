@@ -43,3 +43,19 @@ def test_end_to_end_echo(tmp_path, monkeypatch):
     assert [j["state"] for j in js] == ["done", "done", "done"]
     assert [j["step"] for j in sorted(js, key=lambda j: j["started_at"])] == ["first", "last", "video"]
     srv.should_exit = True
+
+
+def test_worker_file_server_range(tmp_path):
+    import urllib.request
+    from ns2 import worker as W
+    (tmp_path / "data/x").mkdir(parents=True)
+    (tmp_path / "data/x/a.bin").write_bytes(bytes(range(256)) * 4)
+    srv = W.serve_files("127.0.0.1", 0, tmp_path)
+    port = srv.server_address[1]
+    r = urllib.request.urlopen(urllib.request.Request(f"http://127.0.0.1:{port}/files/x/a.bin", headers={"Range": "bytes=10-19"}))
+    assert r.status == 206 and r.headers["Content-Range"] == "bytes 10-19/1024" and r.read() == bytes(range(10, 20))
+    assert len(urllib.request.urlopen(f"http://127.0.0.1:{port}/files/x/a.bin").read()) == 1024
+    import urllib.error, pytest
+    with pytest.raises(urllib.error.HTTPError):
+        urllib.request.urlopen(f"http://127.0.0.1:{port}/files/../../etc/passwd")
+    srv.shutdown()

@@ -13,8 +13,8 @@ import urllib.error
 import urllib.request
 from pathlib import Path
 
-from fastapi import FastAPI, HTTPException
-from fastapi.responses import FileResponse, StreamingResponse
+from fastapi import FastAPI, HTTPException, Request
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
 from ns2 import db as D
@@ -211,22 +211,19 @@ def _safe_rel(rel: str) -> str:
 
 
 @app.get("/files/{host}/{rel:path}")
-def files(host: str, rel: str):
-    """出图 / 视频在产出那台机器上：本机直接给，别的机器转到它 worker 的只读文件口（内网）"""
+def files(host: str, rel: str, request: Request):
+    """出图 / 视频在产出那台机器上：一律经该机 worker 的只读文件口取（本机也走，统一 Range 语义），Range 透传"""
     rel = _safe_rel(rel)
-    if host == SELF:
-        f = ROOT / "data" / rel
-        if not f.is_file():
-            raise HTTPException(404)
-        return FileResponse(f)
     base = FILE_PORTS.get(host)
     if not base:
         raise HTTPException(404, f"不认识的机器 {host}")
+    hdr = {"Range": request.headers["range"]} if request.headers.get("range") else {}
     try:
-        up = urllib.request.urlopen(f"{base}/files/{urllib.request.quote(rel)}", timeout=30)
+        up = urllib.request.urlopen(urllib.request.Request(f"{base}/files/{urllib.request.quote(rel)}", headers=hdr), timeout=30)
     except urllib.error.HTTPError as e:
         raise HTTPException(e.code)
     except OSError as e:
         raise HTTPException(502, f"{host} 文件口不通：{e}")
-    return StreamingResponse(iter(lambda: up.read(1 << 16), b""), media_type=up.headers.get("Content-Type") or "application/octet-stream",
-                             headers={k: v for k, v in (("Content-Length", up.headers.get("Content-Length")),) if v})
+    keep = ("Content-Type", "Content-Length", "Content-Range", "Accept-Ranges")
+    return StreamingResponse(iter(lambda: up.read(1 << 16), b""), status_code=up.status,
+                             headers={k: up.headers[k] for k in keep if up.headers.get(k)})

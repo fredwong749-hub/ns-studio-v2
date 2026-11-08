@@ -93,13 +93,32 @@ def serve_files(bind: str, port: int, root):
                 return self.send_error(400)
             if not f.is_file():
                 return self.send_error(404)
-            self.send_response(200)
+            size = f.stat().st_size
+            a, b = 0, size - 1
+            rng = self.headers.get("Range") or ""
+            import re
+            m = re.match(r"bytes=(\d*)-(\d*)$", rng.strip())
+            if m and (m[1] or m[2]):                       # 视频拖动 / 只取头：Range 必须支持，否则整片走隧道
+                if m[1]:
+                    a, b = int(m[1]), min(size - 1, int(m[2])) if m[2] else size - 1
+                else:
+                    a = max(0, size - int(m[2]))
+                if a > b or a >= size:
+                    self.send_response(416); self.send_header("Content-Range", f"bytes */{size}"); self.end_headers(); return
+                self.send_response(206)
+                self.send_header("Content-Range", f"bytes {a}-{b}/{size}")
+            else:
+                self.send_response(200)
+            self.send_header("Accept-Ranges", "bytes")
             self.send_header("Content-Type", mimetypes.guess_type(f.name)[0] or "application/octet-stream")
-            self.send_header("Content-Length", str(f.stat().st_size))
+            self.send_header("Content-Length", str(b - a + 1))
             self.end_headers()
             with open(f, "rb") as fh:
-                while chunk := fh.read(1 << 16):
+                fh.seek(a)
+                left = b - a + 1
+                while left > 0 and (chunk := fh.read(min(1 << 16, left))):
                     self.wfile.write(chunk)
+                    left -= len(chunk)
 
     srv = http.server.ThreadingHTTPServer((bind, port), H)
     threading.Thread(target=srv.serve_forever, daemon=True, name="files").start()
