@@ -1,6 +1,6 @@
 # STATE（ns-studio-v2，活文件）
 
-当前：**M1c 首 / 尾帧步**（M0 ✅ · M1a ✅ · **M1b 视频步 ✅ 真机验收**：ep01-S1 试跑 3 条全过门、同输入 0 新行、回滚演练通过）
+当前：**M1c 首 / 尾帧步 真机验收中**（smoke_v2 3 镜首→尾→视频全走新系统，gpu33）。M0 ✅ · M1a ✅ · M1b ✅
 
 ## 线上（gpu33 / gpu36，/root/work/fredw/ns2/）
 - API：gpu33 10.0.0.33:8900，pid 4015035，db /root/work/fredw/ns2/data/queue.db，日志 logs/api.log
@@ -27,3 +27,10 @@
 - 首跑 bug：score_clip PATH 无 ffmpeg → 崩被当没过门连渲 3 条（~18 GPU 分钟），188f793 修（打分崩 = infra 不重渲、重派先补打分）
 - 同输入两次入队：job 16 created True → False，行数 1，takes 不变
 - 回滚演练 19:27–19:29：旧系统起 90 s 无冲突、takes 不变 → 切回新系统，echo job 17 done（rollback_drill.log）
+
+## M1c（9dd2160）
+- 首 / 尾帧步 = 旧 FrameExec + Producer 阶梯原代码，经 ns2/legacy_frame.py 子进程在旧部署目录跑（PLAN 原则 5“复用已验证执行层”；M2–M4 萃取进 ns2 后删）
+- 新队列管派单 / 计次 / 状态：pass → done（旧 auto_current 设当前）；fail → retry（带上次不过项，FL 触发换构图）；preflight / 成人未触发 → blocked；infra → 回队不计次，连续 5 次 blocked
+- 已知限制：infra 回队会重出图（旧系统是只重打分），M2 补“只重打分”
+- 验收 run：smoke_v2（独立目录，不碰 series10_v2）。jobs 18–23（S1–S3 首 / 尾帧，gpu33），19:36 起
+- gpu33 video_policy.json 手放 smoke_v2 scope（= 笔记本 71271f28，sha 1f12abb4…，备份 .bak_P5_1108），供 build_jobs 编 smoke 视频变体
