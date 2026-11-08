@@ -1,0 +1,805 @@
+[
+ {
+  "shot": "ep01-S1",
+  "ep": 1,
+  "lane_images": "gpu33",
+  "lane_video": "gpu36",
+  "first": {
+   "n": 27,
+   "file": "renders/series10_v2/ep01/S1/takes/image_027_0347194f_raw_post.png",
+   "sig": {
+    "script_sig": "1bb20fc79f8aab4a",
+    "prompt_sha": "e4b1ba2d1e3d22cc",
+    "rule_fp": "3d4e8e7e0b4f1426",
+    "v": 1
+   },
+   "state": "done"
+  },
+  "last": {
+   "n": 12,
+   "file": "renders/series10_v2/ep01/S1/takes/last_012_907d62a4_raw_post.png",
+   "sig": {
+    "script_sig": "1bb20fc79f8aab4a",
+    "prompt_sha": null,
+    "rule_fp": "3d4e8e7e0b4f1426",
+    "v": 1
+   },
+   "state": "done"
+  },
+  "video": {
+   "state": "done",
+   "file": "data/pipeline/runs/series10_v2/video/clips/ep01/ep01-S1__v1_s1737715154.mp4",
+   "note": "仅在 state_gpu33.json（takes.json 无当前版）",
+   "candidates": 1
+  }
+ },
+ {
+  "shot": "ep01-S2",
+  "ep": 1,
+  "lane_images": "gpu33",
+  "lane_video": "gpu36",
+  "first": {
+   "n": 10,
+   "file": "renders/series10_v2/ep01/S2/takes/image_010_cc8fc700_raw_post.png",
+   "sig": null,
+   "state": "done"
+  },
+  "last": {
+   "n": 5,
+   "file": "renders/series10_v2/ep01/S2/takes/last_005_9b52b9ff_raw_post.png",
+   "sig": null,
+   "state": "done"
+  },
+  "video": {
+   "n": 2,
+   "file": "renders/series10_v2/ep01/S2/takes/video_002_pipeline_e88f2a7e.mp4",
+   "sig": null,
+   "state": "done"
+  }
+ },
+ {
+  "shot": "ep01-S3",
+  "ep": 1,
+  "lane_images": "gpu33",
+  "lane_video": "gpu36",
+  "first": {
+   "n": 8,
+   "file": "renders/series10_v2/ep01/S3/takes/image_008_b462bb4b_raw_post.png",
+   "sig": null,
+   "state": "done"
+  },
+  "last": {
+   "n": 9,
+   "file": "renders/series10_v2/ep01/S3/takes/last_009_09a386b4_raw_post.png",
+   "sig": null,
+   "state": "done"
+  },
+  "video": {
+   "state": "done",
+   "file": "data/pipeline/runs/series10_v2/video/clips/ep01/ep01-S3__s2_s854503377.mp4",
+   "note": "仅在 state_gpu33.json（takes.json 无当前版）",
+   "candidates": 4
+  }
+ },
+ {
+  "shot": "ep01-S4",
+  "ep": 1,
+  "lane_images": "gpu33",
+  "lane_video": "gpu36",
+  "first": {
+   "n": 25,
+   "file": "renders/series10_v2/ep01/S4/takes/image_025_dc05b448_raw_post.png",
+   "sig": null,
+   "state": "done"
+  },
+  "last": {
+   "state": "queued"
+  },
+  "video": {
+   "n": 2,
+   "file": "renders/series10_v2/ep01/S4/takes/video_002_pipeline_437b130f.mp4",
+   "sig": null,
+   "state": "done"
+  }
+ },
+ {
+  "shot": "ep01-S5",
+  "ep": 1,
+  "lane_images": "gpu33",
+  "lane_video": "gpu36",
+  "first": {
+   "n": 13,
+   "file": "renders/series10_v2/ep01/S5/takes/image_013_4209dc0c_raw_post.png",
+   "sig": null,
+   "state": "done"
+  },
+  "last": {
+   "n": 17,
+   "file": "renders/series10_v2/ep01/S5/takes/last_017_0b853a61_raw_post.png",
+   "sig": null,
+   "state": "done"
+  },
+  "video": {
+   "state": "done",
+   "file": "data/pipeline/runs/series10_v2/video/clips/ep01/ep01-S5__v1_s1415789852.mp4",
+   "note": "仅在 state_gpu33.json（takes.json 无当前版）",
+   "candidates": 1
+  }
+ },
+ {
+  "shot": "ep01-S6",
+  "ep": 1,
+  "lane_images": "gpu33",
+  "lane_video": "gpu36",
+  "first": {
+   "n": 8,
+   "file": "renders/series10_v2/ep01/S6/takes/image_008_0571f3a0_raw_post.png",
+   "sig": null,
+   "state": "done"
+  },
+  "last": {
+   "n": 14,
+   "file": "renders/series10_v2/ep01/S6/takes/last_014_f785224c_raw_post.png",
+   "sig": null,
+   "state": "done"
+  },
+  "video": {
+   "state": "done",
+   "file": "data/pipeline/runs/series10_v2/video/clips/ep01/ep01-S6__v1_s3364279156.mp4",
+   "note": "仅在 state_gpu33.json（takes.json 无当前版）",
+   "candidates": 1
+  }
+ },
+ {
+  "shot": "ep01-S7",
+  "ep": 1,
+  "lane_images": "gpu33",
+  "lane_video": "gpu36",
+  "first": {
+   "n": 9,
+   "file": "renders/series10_v2/ep01/S7/takes/image_009_b596f164_raw_post.png",
+   "sig": null,
+   "state": "done"
+  },
+  "last": {
+   "n": 19,
+   "file": "renders/series10_v2/ep01/S7/takes/last_019_fbd0287c_raw_post.png",
+   "sig": null,
+   "state": "done"
+  },
+  "video": {
+   "state": "queued"
+  }
+ },
+ {
+  "shot": "ep01-S8",
+  "ep": 1,
+  "lane_images": "gpu33",
+  "lane_video": "gpu36",
+  "first": {
+   "n": 14,
+   "file": "renders/series10_v2/ep01/S8/takes/image_014_6a5ca629_raw_post.png",
+   "sig": null,
+   "state": "done"
+  },
+  "last": {
+   "n": 24,
+   "file": "renders/series10_v2/ep01/S8/takes/last_024_86407da2_raw_post.png",
+   "sig": null,
+   "state": "done"
+  },
+  "video": {
+   "state": "done",
+   "file": "data/pipeline/runs/series10_v2/video/clips/ep01/ep01-S8__s2_s3875978895.mp4",
+   "note": "仅在 state_gpu33.json（takes.json 无当前版）",
+   "candidates": 4
+  }
+ },
+ {
+  "shot": "ep01-S9",
+  "ep": 1,
+  "lane_images": "gpu33",
+  "lane_video": "gpu36",
+  "first": {
+   "n": 22,
+   "file": "renders/series10_v2/ep01/S9/takes/image_022_656152c0_raw_post.png",
+   "sig": null,
+   "state": "done"
+  },
+  "last": {
+   "n": 38,
+   "file": "renders/series10_v2/ep01/S9/takes/last_038_4d945ee7_raw_post.png",
+   "sig": null,
+   "state": "done"
+  },
+  "video": {
+   "state": "queued"
+  }
+ },
+ {
+  "shot": "ep01-S10",
+  "ep": 1,
+  "lane_images": "gpu33",
+  "lane_video": "gpu36",
+  "first": {
+   "n": 19,
+   "file": "renders/series10_v2/ep01/S10/takes/image_019_e06d5898_raw_post.png",
+   "sig": null,
+   "state": "done"
+  },
+  "last": {
+   "n": 4,
+   "file": "renders/series10_v2/ep01/S10/takes/last_004_c3ef08ec_raw_post.png",
+   "sig": null,
+   "state": "done"
+  },
+  "video": {
+   "state": "done",
+   "file": "data/pipeline/runs/series10_v2/video/clips/ep01/ep01-S10__v1_s519935320.mp4",
+   "note": "仅在 state_gpu33.json（takes.json 无当前版）",
+   "candidates": 1
+  }
+ },
+ {
+  "shot": "ep01-S11",
+  "ep": 1,
+  "lane_images": "gpu33",
+  "lane_video": "gpu36",
+  "first": {
+   "n": 10,
+   "file": "renders/series10_v2/ep01/S11/takes/image_010_8674bcb4_raw_post.png",
+   "sig": null,
+   "state": "done"
+  },
+  "last": {
+   "n": 16,
+   "file": "renders/series10_v2/ep01/S11/takes/last_016_bcca2eeb_raw_post.png",
+   "sig": null,
+   "state": "done"
+  },
+  "video": {
+   "state": "queued"
+  }
+ },
+ {
+  "shot": "ep01-S12",
+  "ep": 1,
+  "lane_images": "gpu33",
+  "lane_video": "gpu36",
+  "first": {
+   "n": 13,
+   "file": "renders/series10_v2/ep01/S12/takes/image_013_ec12cce7_raw_post.png",
+   "sig": null,
+   "state": "done"
+  },
+  "last": {
+   "n": 2,
+   "file": "renders/series10_v2/ep01/S12/takes/last_002_29bcc4e0_raw_post.png",
+   "sig": null,
+   "state": "done"
+  },
+  "video": {
+   "state": "queued"
+  }
+ },
+ {
+  "shot": "ep01-S13",
+  "ep": 1,
+  "lane_images": "gpu33",
+  "lane_video": "gpu36",
+  "first": {
+   "n": 8,
+   "file": "renders/series10_v2/ep01/S13/takes/image_008_50b01515_raw_post.png",
+   "sig": null,
+   "state": "done"
+  },
+  "last": {
+   "n": 4,
+   "file": "renders/series10_v2/ep01/S13/takes/last_004_4323c265_raw_post.png",
+   "sig": null,
+   "state": "done"
+  },
+  "video": {
+   "state": "done",
+   "file": "data/pipeline/runs/series10_v2/video/clips/ep01/ep01-S13__s2_s1377674240.mp4",
+   "note": "仅在 state_gpu33.json（takes.json 无当前版）",
+   "candidates": 4
+  }
+ },
+ {
+  "shot": "ep01-S14",
+  "ep": 1,
+  "lane_images": "gpu33",
+  "lane_video": "gpu36",
+  "first": {
+   "n": 2,
+   "file": "renders/series10_v2/ep01/S14/takes/image_002_7845f85a_raw_post.png",
+   "sig": null,
+   "state": "done"
+  },
+  "last": {
+   "n": 11,
+   "file": "renders/series10_v2/ep01/S14/takes/last_011_91b1ba3e_raw_post.png",
+   "sig": null,
+   "state": "done"
+  },
+  "video": {
+   "state": "queued"
+  }
+ },
+ {
+  "shot": "ep01-S15",
+  "ep": 1,
+  "lane_images": "gpu33",
+  "lane_video": "gpu36",
+  "first": {
+   "n": 12,
+   "file": "renders/series10_v2/ep01/S15/takes/image_012_bc8a51e9_raw_post.png",
+   "sig": null,
+   "state": "done"
+  },
+  "last": {
+   "n": 6,
+   "file": "renders/series10_v2/ep01/S15/takes/last_006_9481d538_raw_post.png",
+   "sig": null,
+   "state": "done"
+  },
+  "video": {
+   "n": 1,
+   "file": "renders/series10_v2/ep01/S15/takes/video_001_pipeline_6c8f0e84.mp4",
+   "sig": null,
+   "state": "done"
+  }
+ },
+ {
+  "shot": "ep01-S16",
+  "ep": 1,
+  "lane_images": "gpu33",
+  "lane_video": "gpu36",
+  "first": {
+   "n": 11,
+   "file": "renders/series10_v2/ep01/S16/takes/image_011_e577e7c4_raw_post.png",
+   "sig": null,
+   "state": "done"
+  },
+  "last": {
+   "n": 6,
+   "file": "renders/series10_v2/ep01/S16/takes/last_006_6c284b01_raw_post.png",
+   "sig": null,
+   "state": "done"
+  },
+  "video": {
+   "state": "done",
+   "file": "data/pipeline/runs/series10_v2/video/clips/ep01/ep01-S16__v1_s1902323318.mp4",
+   "note": "仅在 state_gpu33.json（takes.json 无当前版）",
+   "candidates": 1
+  }
+ },
+ {
+  "shot": "ep02-S1",
+  "ep": 2,
+  "lane_images": "gpu36",
+  "lane_video": "gpu36",
+  "first": {
+   "state": "queued"
+  },
+  "last": {
+   "state": "queued"
+  },
+  "video": {
+   "state": "queued"
+  }
+ },
+ {
+  "shot": "ep02-S4",
+  "ep": 2,
+  "lane_images": "gpu36",
+  "lane_video": "gpu36",
+  "first": {
+   "state": "queued"
+  },
+  "last": {
+   "state": "queued"
+  },
+  "video": {
+   "state": "queued"
+  }
+ },
+ {
+  "shot": "ep02-S7",
+  "ep": 2,
+  "lane_images": "gpu36",
+  "lane_video": "gpu36",
+  "first": {
+   "state": "queued"
+  },
+  "last": {
+   "state": "queued"
+  },
+  "video": {
+   "state": "queued"
+  }
+ },
+ {
+  "shot": "ep03-S1",
+  "ep": 3,
+  "lane_images": "gpu33",
+  "lane_video": "gpu33",
+  "first": {
+   "n": 3,
+   "file": "renders/series10_v2/ep03/S1/takes/image_003_b2a63e46_raw_post.png",
+   "sig": {
+    "script_sig": "11010366e016909b",
+    "prompt_sha": "8ba32018ce00be5b",
+    "rule_fp": "3d4e8e7e0b4f1426",
+    "v": 1
+   },
+   "state": "done"
+  },
+  "last": {
+   "n": 5,
+   "file": "renders/series10_v2/ep03/S1/takes/last_005_cb0097a0_raw_post.png",
+   "sig": {
+    "script_sig": "11010366e016909b",
+    "prompt_sha": null,
+    "rule_fp": "3d4e8e7e0b4f1426",
+    "v": 1
+   },
+   "state": "done"
+  },
+  "video": {
+   "n": 1,
+   "file": "renders/series10_v2/ep03/S1/takes/video_001_pipeline_8ab9a28a.mp4",
+   "sig": {
+    "script_sig": "11010366e016909b",
+    "prompt_sha": null,
+    "rule_fp": "3d4e8e7e0b4f1426",
+    "v": 1
+   },
+   "state": "done"
+  }
+ },
+ {
+  "shot": "ep03-S2",
+  "ep": 3,
+  "lane_images": "gpu33",
+  "lane_video": "gpu33",
+  "first": {
+   "n": 1,
+   "file": "renders/series10_v2/ep03/S2/takes/image_001_343ad3da_raw_post.png",
+   "sig": {
+    "script_sig": "a70251c4c61e35b2",
+    "prompt_sha": "fca0abdec1ccdd43",
+    "rule_fp": "3d4e8e7e0b4f1426",
+    "v": 1
+   },
+   "state": "done"
+  },
+  "last": {
+   "n": 3,
+   "file": "renders/series10_v2/ep03/S2/takes/last_003_b27c9eef_raw_post.png",
+   "sig": {
+    "script_sig": "a70251c4c61e35b2",
+    "prompt_sha": null,
+    "rule_fp": "3d4e8e7e0b4f1426",
+    "v": 1
+   },
+   "state": "done"
+  },
+  "video": {
+   "n": 1,
+   "file": "renders/series10_v2/ep03/S2/takes/video_001_pipeline_b7ad0a88.mp4",
+   "sig": {
+    "script_sig": "a70251c4c61e35b2",
+    "prompt_sha": null,
+    "rule_fp": "3d4e8e7e0b4f1426",
+    "v": 1
+   },
+   "state": "done"
+  }
+ },
+ {
+  "shot": "ep03-S3",
+  "ep": 3,
+  "lane_images": "gpu33",
+  "lane_video": "gpu33",
+  "first": {
+   "n": 1,
+   "file": "renders/series10_v2/ep03/S3/takes/image_001_a276647d_raw_post.png",
+   "sig": {
+    "script_sig": "04d1427969c4b35a",
+    "prompt_sha": "1619de7f790c9604",
+    "rule_fp": "3d4e8e7e0b4f1426",
+    "v": 1
+   },
+   "state": "done"
+  },
+  "last": {
+   "state": "queued"
+  },
+  "video": {
+   "n": 1,
+   "file": "renders/series10_v2/ep03/S3/takes/video_001_pipeline_daeea5c8.mp4",
+   "sig": {
+    "script_sig": "04d1427969c4b35a",
+    "prompt_sha": null,
+    "rule_fp": "3d4e8e7e0b4f1426",
+    "v": 1
+   },
+   "state": "done"
+  }
+ },
+ {
+  "shot": "ep03-S4",
+  "ep": 3,
+  "lane_images": "gpu33",
+  "lane_video": "gpu33",
+  "first": {
+   "n": 1,
+   "file": "renders/series10_v2/ep03/S4/takes/image_001_950cfae8_raw_post.png",
+   "sig": {
+    "script_sig": "46772436082ddd90",
+    "prompt_sha": "db4168c4a85fed90",
+    "rule_fp": "3d4e8e7e0b4f1426",
+    "v": 1
+   },
+   "state": "done"
+  },
+  "last": {
+   "n": 2,
+   "file": "renders/series10_v2/ep03/S4/takes/last_002_d6c4a0c6_raw_post.png",
+   "sig": {
+    "script_sig": "46772436082ddd90",
+    "prompt_sha": null,
+    "rule_fp": "3d4e8e7e0b4f1426",
+    "v": 1
+   },
+   "state": "done"
+  },
+  "video": {
+   "state": "queued"
+  }
+ },
+ {
+  "shot": "ep03-S5",
+  "ep": 3,
+  "lane_images": "gpu33",
+  "lane_video": "gpu33",
+  "first": {
+   "n": 1,
+   "file": "renders/series10_v2/ep03/S5/takes/image_001_037ad5bb_raw_post.png",
+   "sig": {
+    "script_sig": "713437a4e3416577",
+    "prompt_sha": "fdf71944e23142a1",
+    "rule_fp": "3d4e8e7e0b4f1426",
+    "v": 1
+   },
+   "state": "done"
+  },
+  "last": {
+   "state": "queued"
+  },
+  "video": {
+   "n": 1,
+   "file": "renders/series10_v2/ep03/S5/takes/video_001_pipeline_a2c57758.mp4",
+   "sig": {
+    "script_sig": "713437a4e3416577",
+    "prompt_sha": null,
+    "rule_fp": "3d4e8e7e0b4f1426",
+    "v": 1
+   },
+   "state": "done"
+  }
+ },
+ {
+  "shot": "ep03-S6",
+  "ep": 3,
+  "lane_images": "gpu33",
+  "lane_video": "gpu33",
+  "first": {
+   "n": 1,
+   "file": "renders/series10_v2/ep03/S6/takes/image_001_8379fabf_raw_post.png",
+   "sig": {
+    "script_sig": "f1455ebd0ea8ec10",
+    "prompt_sha": "16063e9e32363422",
+    "rule_fp": "3d4e8e7e0b4f1426",
+    "v": 1
+   },
+   "state": "done"
+  },
+  "last": {
+   "n": 1,
+   "file": "renders/series10_v2/ep03/S6/takes/last_001_4c447ae8_raw_post.png",
+   "sig": {
+    "script_sig": "f1455ebd0ea8ec10",
+    "prompt_sha": null,
+    "rule_fp": "3d4e8e7e0b4f1426",
+    "v": 1
+   },
+   "state": "done"
+  },
+  "video": {
+   "state": "best_effort",
+   "file": "data/pipeline/runs/series10_v2/video/clips/ep03/ep03-S6__s3_s4135165620.mp4",
+   "note": "仅在 state_gpu33.json（takes.json 无当前版）",
+   "candidates": 3
+  }
+ },
+ {
+  "shot": "ep03-S7",
+  "ep": 3,
+  "lane_images": "gpu33",
+  "lane_video": "gpu33",
+  "first": {
+   "n": 2,
+   "file": "renders/series10_v2/ep03/S7/takes/image_002_90f9b722_raw_post.png",
+   "sig": {
+    "script_sig": "64cfb7e4b7b4fd46",
+    "prompt_sha": "37f1c901d8ae4e29",
+    "rule_fp": "3d4e8e7e0b4f1426",
+    "v": 1
+   },
+   "state": "done"
+  },
+  "last": {
+   "state": "queued"
+  },
+  "video": {
+   "n": 1,
+   "file": "renders/series10_v2/ep03/S7/takes/video_001_pipeline_1e88b405.mp4",
+   "sig": {
+    "script_sig": "64cfb7e4b7b4fd46",
+    "prompt_sha": null,
+    "rule_fp": "3d4e8e7e0b4f1426",
+    "v": 1
+   },
+   "state": "done"
+  }
+ },
+ {
+  "shot": "ep03-S8",
+  "ep": 3,
+  "lane_images": "gpu33",
+  "lane_video": "gpu33",
+  "first": {
+   "n": 1,
+   "file": "renders/series10_v2/ep03/S8/takes/image_001_fd2a025a_raw_post.png",
+   "sig": {
+    "script_sig": "6819a75c7d36c3e7",
+    "prompt_sha": "496ac46906fecdf7",
+    "rule_fp": "3d4e8e7e0b4f1426",
+    "v": 1
+   },
+   "state": "done"
+  },
+  "last": {
+   "n": 1,
+   "file": "renders/series10_v2/ep03/S8/takes/last_001_cd7f89f2_raw_post.png",
+   "sig": {
+    "script_sig": "6819a75c7d36c3e7",
+    "prompt_sha": null,
+    "rule_fp": "3d4e8e7e0b4f1426",
+    "v": 1
+   },
+   "state": "done"
+  },
+  "video": {
+   "n": 1,
+   "file": "renders/series10_v2/ep03/S8/takes/video_001_pipeline_141be2ea.mp4",
+   "sig": {
+    "script_sig": "6819a75c7d36c3e7",
+    "prompt_sha": null,
+    "rule_fp": "3d4e8e7e0b4f1426",
+    "v": 1
+   },
+   "state": "done"
+  }
+ },
+ {
+  "shot": "ep03-S9",
+  "ep": 3,
+  "lane_images": "gpu33",
+  "lane_video": "gpu33",
+  "first": {
+   "n": 2,
+   "file": "renders/series10_v2/ep03/S9/takes/image_002_d1dbdc4c_raw_post.png",
+   "sig": {
+    "script_sig": "1c8da2a678849139",
+    "prompt_sha": "51b91e1b89532da1",
+    "rule_fp": "3d4e8e7e0b4f1426",
+    "v": 1
+   },
+   "state": "done"
+  },
+  "last": {
+   "n": 5,
+   "file": "renders/series10_v2/ep03/S9/takes/last_005_f03be69f_raw_post.png",
+   "sig": {
+    "script_sig": "1c8da2a678849139",
+    "prompt_sha": null,
+    "rule_fp": "3d4e8e7e0b4f1426",
+    "v": 1
+   },
+   "state": "done"
+  },
+  "video": {
+   "n": 1,
+   "file": "renders/series10_v2/ep03/S9/takes/video_001_pipeline_35c12324.mp4",
+   "sig": {
+    "script_sig": "1c8da2a678849139",
+    "prompt_sha": null,
+    "rule_fp": "3d4e8e7e0b4f1426",
+    "v": 1
+   },
+   "state": "done"
+  }
+ },
+ {
+  "shot": "ep03-S10",
+  "ep": 3,
+  "lane_images": "gpu33",
+  "lane_video": "gpu33",
+  "first": {
+   "n": 1,
+   "file": "renders/series10_v2/ep03/S10/takes/image_001_19557654_raw_post.png",
+   "sig": {
+    "script_sig": "ad87a7f493f39bf0",
+    "prompt_sha": "cae14074a6451bd1",
+    "rule_fp": "3d4e8e7e0b4f1426",
+    "v": 1
+   },
+   "state": "done"
+  },
+  "last": {
+   "n": 2,
+   "file": "renders/series10_v2/ep03/S10/takes/last_002_9ff8a9fa_raw_post.png",
+   "sig": {
+    "script_sig": "ad87a7f493f39bf0",
+    "prompt_sha": null,
+    "rule_fp": "3d4e8e7e0b4f1426",
+    "v": 1
+   },
+   "state": "done"
+  },
+  "video": {
+   "state": "best_effort",
+   "file": "data/pipeline/runs/series10_v2/video/clips/ep03/ep03-S10__s4_s3818986116.mp4",
+   "note": "仅在 state_gpu33.json（takes.json 无当前版）",
+   "candidates": 4
+  }
+ },
+ {
+  "shot": "ep03-S11",
+  "ep": 3,
+  "lane_images": "gpu33",
+  "lane_video": "gpu33",
+  "first": {
+   "n": 1,
+   "file": "renders/series10_v2/ep03/S11/takes/image_001_b5ff7c69_raw_post.png",
+   "sig": {
+    "script_sig": "ed275efcf2cfb90e",
+    "prompt_sha": "c586a6035bea1fe6",
+    "rule_fp": "3d4e8e7e0b4f1426",
+    "v": 1
+   },
+   "state": "done"
+  },
+  "last": {
+   "n": 1,
+   "file": "renders/series10_v2/ep03/S11/takes/last_001_42cfdb87_raw_post.png",
+   "sig": {
+    "script_sig": "ed275efcf2cfb90e",
+    "prompt_sha": null,
+    "rule_fp": "3d4e8e7e0b4f1426",
+    "v": 1
+   },
+   "state": "done"
+  },
+  "video": {
+   "state": "best_effort",
+   "file": "data/pipeline/runs/series10_v2/video/clips/ep03/ep03-S11__s3_s1413035761.mp4",
+   "note": "仅在 state_gpu33.json（takes.json 无当前版）",
+   "candidates": 3
+  }
+ }
+]

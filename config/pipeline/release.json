@@ -1,0 +1,50 @@
+{
+ "_doc": "W17 RELEASE-AUTO（总调度 MASTER-WSL 11-03；L-160 / L-163 “把所有自动化写在代码上”）：发版流水线开关与参数。读取方 tools/autopilot/release_tick.py（resident_sync loop 每拍）、tools/qa/system_version.py（release_cfg / xdist_stall_s）。请求文件 data/system_versions/release_request.json（nsfs.release_request/1），结果 data/system_versions/release_result.json。",
+ "enabled": false,
+ "_enabled_audit_1107": "11-07 项目方转来《审计与修复指令》Step 1：冻结 K-OPS 自动 cut / release 分支，只留手工提交；冒烟 ≥6/8 后由项目方解冻。",
+ "every_s": 60,
+ "pytest_n": 4,
+ "_pytest_n": "L-162：xdist 12 worker 在本机僵死两次 → release_tick 跑 cut 时设 NS_CUT_PYTEST_N=pytest_n（手工 cut 不受影响）",
+ "xdist_stall_min": 10,
+ "_xdist_stall_min": "cut 定向 pytest：这么多分钟内整棵进程树 CPU 合计 < 1 s = 僵死 → 杀掉，以 max(1, N/2) 重试一次，记进 cut 报告 xdist_heal",
+ "gates_on": "local",
+ "_trigger": "触发一次发版 = 写 data/system_versions/release_request.json（schema nsfs.release_request/1）：{\"schema\":\"nsfs.release_request/1\",\"list\":\"docs/system_versions/LIST_cutX.txt\",\"reviews\":[{\"group\":\"G2\",\"verdict\":\"可入\",\"p0\":[]},…G2–G7 各一组],\"requested_by\":\"谁\",\"deploy\":true,\"handover\":false}；resident_sync 每 every_s 拍 release_tick.tick() 拼树 → cut --dry → cut → deploy --verify，结果 release_result.json；同一份请求（内容 sha）只跑一次，改内容才再跑。L-190 项目方授权：发版 / 部署交本流水线。注意：tick 跑在 resident_sync 里，那个进程不在就不会发——手工入口仍是 ops/psmaster/cut_deploy_*.sh。",
+ "gates_on_fallback": "local",
+ "_gates_on": "W45（总调度 11-04 定 B）：cut 七门默认在 gpu33 跑（tools/qa/remote_gates.py，结果与耗时拉回 cut 报告；commit/tag/push 仍在笔记本）。服务器基础设施失败 → gates_on_fallback=local 退回本机并在报告记 gates_on_fallback（fail = 失败关闭）。临时改回：cut --on local 或 NS_CUT_ON=local。说明 docs/master/handover/CUT_ON_SERVER.md",
+ "hosts": [
+  "gpu33",
+  "gpu36"
+ ],
+ "verify_shot": 8,
+ "verify_run": "series10_v2",
+ "_verify": "deploy --verify 用的 golden 镜号 / 剧（最近一次 verify_sv-20261102-16 用 8 / series10_v2）；请求里 verify_shot / verify_run 可覆盖；verify 不过 = 部署不算完成、流水线停并登记",
+ "cut_timeout_s": 14400,
+ "deploy_timeout_s": 10800,
+ "handover": {
+  "min_stage": "出图",
+  "_min_stage": "L-152：runs.json primary 任一集 sop_gate 阶段 ≥ 出图（与 sop_gate promote 的“任一集”同口径）才换代",
+  "laptop_ps1": "ops/autostart/restart_producer.ps1",
+  "legacy_procs": [
+   {
+    "name": "bench2",
+    "host": "gpu33",
+    "match": "bench2\\.py",
+    "note": "实验基准（/root/build_sage），DEPLOY_V2_PRODUCER.md §6"
+   },
+   {
+    "name": "bakeoff",
+    "host": "gpu36",
+    "match": "run\\.py gen --models=|score_srv\\.py",
+    "cwd_match": "/bakeoff/",
+    "note": "bakeoff run.py gen + 子 shell 链 score_srv.py（/root/work/fredw/bakeoff/srv）"
+   }
+  ],
+  "protect": [
+   "uvicorn",
+   "audio_post\\.py"
+  ],
+  "_protect": "永不停（叠加 config/policies/sentinel.yaml S16_laptop_procs 的进程清单与 producer / night / fwd / ComfyUI 默认表）；nsfs_canvas / audio_post 不在 L-152 范围，总调度另定"
+ },
+ "e2e_owner_gate": "record",
+ "_e2e_owner_gate": "W-E2E（L-214，总调度派）：cut 闸门之外再跑 tools/qa/e2e_owner.py（项目方路径验收：页面 GET 对真相 + 沙箱 POST：用这张 / 修改 / 成人镜触发 / 改描述；只读、不连服务器）。record = 第一版只记进 cut 报告（data/system_versions/<sv>_e2e_owner.json）不挡发版；下一版起改 enforce = 有不过就不发；off = 不跑。真机冒烟 tools/qa/e2e_smoke.py 不进闸门（手动）。"
+}

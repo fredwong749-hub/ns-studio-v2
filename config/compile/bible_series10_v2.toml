@@ -1,0 +1,71 @@
+# ===================================================================
+# V2（series10_v2）编译规则——只放技术纠正规则，不放任何 V1 内容 / 画风（L-126，总调度 11-02 21:0x）
+# 资产包模式下编译器读这一份（config/compile/run_style.json runs.series10_v2.bible），完全不读 V1 的 config/visual_bible.toml。
+# 画风（调色、色温、光比、镜头气质）一律等 STYLE-V2 定稿，经 run_style.json 的风格句进入；这里不写。
+# 从 V1 迁来的只有总调度点名保留的技术句：漆皮材质（V2 的 O1–O4 全是漆皮）、近景面部对焦、暗场细节（去掉 V1 布光风格“光比 1:4”）、
+# 安全镜衣装、真人皮肤（去 AI 味），以及与画风无关的拼装 / 分类 / 生成参数。人物表为空（人物只认资产包清单）。
+# ===================================================================
+
+[project]
+name = "series10_v2"
+aspect = "9:16"
+pipeline = "image_to_video"
+
+[look]
+use_script_suffix = false
+# 风格句只来自 run_style.json（gen_contract.style.preset_suffix）；这里与它同一句，只作编译器兜底（不写 V1 的 S★）
+fallback_suffix = "无字幕、无文字、无水印"     # L-130：风格句按段取 render_quality 预设（run_style.json segments），这里不放风格
+lens_template = "{mm}mm"            # V2 不补镜头句（compiler.lens_term 资产包模式直接返回空）；此值仅占位，避免回落到 V1 的 Leica 模板
+lens_default = ["50", "1.4"]
+lens_skip_if = ["mm"]
+no_text = "无字幕、无文字、无水印"
+style_negative = "字幕、文字、水印、logo、标题字"
+script_light_wins = true
+
+[look.video]
+style = "画面干净，无字幕无文字"
+tail = "动作流畅自然，保持首帧人物面部与装扮完全一致"
+negative = "人物变形，面部跳变，肢体崩坏，动作过快，画风变为动漫，出现多余人物，塑料皮肤，过度磨皮"   # MERGE-IMG-O 11-03：补回“画风变为动漫”（V1 visual_bible [look.video]）
+
+[realism]
+banned_words = ["娃娃感", "精致完美", "完美无瑕", "网红脸", "网红", "纯欲", "斩男", "严格保持图1的眼睛形状", "五官比例完全一致"]   # MERGE-IMG-O 11-03（CARRYOVER P2）：补回 V1 v9 两条（去 AI 味的通用技术句，与画风无关）
+skin_terms = "真实皮肤质感，可见细小毛孔与细软绒毛，自然的轻微不对称，眼睛为真实人眼大小"
+
+[[materials]]
+id = "patent_gloss"                  # 技术纠正（材质渲染）：漆皮要画成镜面高光，不画成哑光皮
+match = ["漆皮"]
+term = "漆皮为像抹了油一样的高亮镜面漆皮，表面湿润光泽，镜面反射清晰，高光锐利"
+
+[[shot_rules]]
+id = "closeup"
+match = ["特写", "极近", "近景", "大特写"]
+term = "面部清晰对焦，五官锐利"
+
+[[shot_rules]]
+id = "dark"                          # 去掉 V1 布光风格“画面光比1:4”（光比交 STYLE-V2 调色预设）
+match = ["暗", "夜", "剪影", "黑暗", "深夜", "昏"]
+term = "暗部保留细节，面部可辨，非纯黑"
+
+[shot_rules_safe]
+term = "衣装完整、无裸露"
+negative = "裸露、走光、低俗姿势"
+
+[characters]
+
+[assembly]
+first_frame = ["triggers", "character_dna", "shot_size_angle", "wardrobe_look", "pose_expression_start",
+               "scene", "lighting", "script_img_verbatim", "materials", "shot_rules", "director_boost",
+               "lens", "style_suffix"]
+# L-201（项目方 11-06：S1/S2 首尾帧几乎一样）：尾帧按分镜“落幅”出——只锁人物身份、发型、服装、场景与光线；机位与景别跟落幅走（推镜收紧、拉镜放宽、急推改到落幅角度）
+last_frame_keep = "图1是本镜头的首帧画面。保持图1的人物身份、发型、服装、场景与光线不变（同一场景同一人物同一服装）；机位与景别按下面写的镜头结束状态调整（推镜就收紧、拉镜就放宽、换角度就转到结束时的角度），把画面改为这个镜头动作结束时的瞬间："
+script_verbatim = true
+director_boost = "owner_only"
+
+[classification]
+minor_guard = "未成年人外观"
+overrides = "config/adult_overrides.json"
+keywords_source = "compiler"
+
+[looks]
+inject = false
+slots = ["outfit", "shoes", "makeup", "hair"]

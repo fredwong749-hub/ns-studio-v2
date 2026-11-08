@@ -1,0 +1,180 @@
+# ===================================================================
+# 视觉圣经（Visual Bible）——《为他而骚》
+# 项目方所有画面要求的唯一配置。编译器 / 画面说明 / 导演 agent / gpu3 渲染器都从这里读。
+# 新故事：复制 templates/visual_bible.template.toml，按同样结构填写。
+# 每条规则后注明来源（docs/REQUIREMENTS.md 编号）。改规则只改这里。
+# ===================================================================
+
+[project]
+name = "为他而骚"
+script = "script play lib/为他而骚 （剧本和镜头）v2.md"
+image_doc = "script play lib/为他而骚（image提示词） v2.md"
+corrector_doc = "script play lib/为他而骚（3提示词纠正器） v2.md"
+aspect = "9:16"
+pipeline = "image_to_video"   # 图生视频：首尾帧决定画质（A6）
+
+# -------------------------------------------------------------------
+# 一、画面质感（镜头 / 色调 / 干净）
+# -------------------------------------------------------------------
+[look]
+# 剧本里的“每条img统一后缀”优先；剧本没有时用 fallback_suffix（避免重复）
+use_script_suffix = true
+fallback_suffix = "专业电影画面，徕卡M 50mm f/2镜头，焦点锐利，微反差强，皮肤纹理清晰，自然高光，暖调通透，干净真实"   # CLEANUP 11-01（总调度 R17，L-087 项目方选 R0）：= render_quality leica_sstar style_suffix 原文；⤴ 10-30 旧后缀（85mm 大光圈 / 柔焦虚化 / 浓郁饱和暖调）已被 L-018 S★ 与契约 I7 取代
+lens = "Leica Summilux-SL 85mm f/1.2 级别的锐利解析力与微反差"           # A2：后缀没写 Leica 时补
+lens_video = "Leica 镜头质感，高清锐利"                                  # A2
+# T06：编译器实际追加的 Leica 句（焦段/光圈取自风格后缀，后缀没写时用 lens_default；后缀已有 lens_skip_if 任一词时不加）
+lens_template = "Leica Summilux-SL {mm}mm f/{f} 级别的锐利解析力与微反差，焦平面上眼睛与睫毛清晰锐利，皮肤毛孔与发丝细节真实"
+lens_default = ["50", "1.4"]
+lens_skip_if = ["Leica", "徕卡"]
+no_text = "无字幕、无文字、无水印"                                         # A3（剧本指定的屏幕文字例外）
+style_negative = "字幕、文字、水印、logo、标题字、画面发灰、低饱和、暗沉脏色、过曝死白"
+color_reference = "assets/style/color_reference_01.png"                  # A4：林晚定妆图的浓郁色调
+color_match_strength = 0.6                                               # 首尾帧统一对齐参考色调
+color_match_dark_shots = 0.3                                             # 夜景/暗场减弱，保留剧本光线
+script_light_wins = true                                                 # 剧本写的光源（霓虹/警示黄灯/钠光）优先于全局暖调
+
+[look.video]
+style = "专业电影镜头画面感，大光圈浅景深，色彩丰富艳丽，画面干净，无字幕无文字"
+tail = "动作流畅自然，保持首帧人物面部与装扮完全一致"                       # 《image提示词》§3.2 结尾固定句
+negative = "人物变形，面部跳变，肢体崩坏，动作过快，画风变为动漫，出现多余人物，塑料皮肤，过度磨皮"
+
+# -------------------------------------------------------------------
+# 二、真人感（去 AI 味）——research v8
+# -------------------------------------------------------------------
+[realism]
+final_model = "base"                 # 定稿用 Qwen 2.1 Base（Turbo 负面词无效、皮肤更塑料）
+preview_model = "turbo"
+steps = 35
+cfg = 3.0
+resolution_mp = 1.5                  # 约 1.5MP，再做低重绘第二遍
+second_pass_denoise = 0.30
+vae = "texture_fix_vae_for_qwen_image_2.1_bf16.safetensors"
+loras = [
+  { file = "krea2_film_texture_qwen21.safetensors", strength = 0.5 },
+]
+loras_ab = ["purelens_qwen21.safetensors", "nicegirls_v2_qwen21.safetensors"]
+plate_loras = [                       # 只用于把风格化参考做成写实身份底板
+  { file = "Qwen2.1_Anything2RealCharacters.safetensors", strength = 0.8 },
+  { file = "krea2_film_texture_qwen21.safetensors", strength = 0.5 },
+]
+banned_loras = ["glamour_realism_qwen21.safetensors"]   # 用 AI 图训练，加重 AI 味
+banned_words = ["娃娃感", "精致完美", "完美无瑕", "网红脸", "网红", "纯欲", "斩男", "严格保持图1的眼睛形状", "五官比例完全一致"]   # v8 + v9
+skin_terms = "真实皮肤质感，可见细小毛孔与细软绒毛，自然的轻微不对称，眼睛为真实人眼大小"
+
+# -------------------------------------------------------------------
+# 三、材质与道具规则（出现关键词就追加，原文已含则跳过）
+# 追加顺序 = 本节条目顺序（T06：编译器按此顺序拼接，调整顺序会改变提示词 → bible_version 变化）
+# -------------------------------------------------------------------
+[[materials]]
+id = "toenails_lin_wan"              # B5：只在镜头原文写到赤脚/脚趾/露趾/透明高跟时追加；需林晚入镜
+match = ["赤脚", "光脚", "脚趾", "露趾", "透明高跟", "hh12clear", "足弓", "脚背"]
+character = "林晚"
+term = "脚趾甲为2厘米长的性感美甲"
+
+[[materials]]
+id = "patent_gloss"                  # B8
+match = ["漆皮", "ptxtrench", "ptxcorset", "ptxharness", "hh12patent"]
+term = "漆皮为像抹了油一样的高亮镜面漆皮，表面湿润光泽，镜面反射清晰，高光锐利"
+
+[[materials]]
+id = "needle_heel"                   # B7
+match = ["高跟", "细跟", "hh12clear", "hh12patent"]
+term = "鞋跟直径约6毫米、细如一根筷子的针形细跟，跟高12厘米"
+
+# -------------------------------------------------------------------
+# 四、镜头类型规则（《3提示词纠正器》）
+# -------------------------------------------------------------------
+[[shot_rules]]
+id = "closeup"                       # 纠正器 1.1
+match = ["特写", "极近", "近景", "大特写"]
+term = "面部清晰对焦，五官锐利"
+
+[[shot_rules]]
+id = "dark"                          # 纠正器 1.2
+match = ["暗", "夜", "剪影", "黑暗", "深夜", "昏"]
+term = "暗部保留细节，面部可辨，画面光比1:4，非纯黑"
+
+[shot_rules_safe]                    # 纠正器 1.3（非成人镜头），B10：不保守，但不裸露
+term = "衣装完整、无裸露"
+negative = "裸露、走光、低俗姿势"
+
+# -------------------------------------------------------------------
+# 五、人物（身份 / 参考 / 妆容 / 美甲 / 穿搭）
+# -------------------------------------------------------------------
+[characters.lin_wan]
+name = "林晚"
+detect = ["林晚", "蓝发"]
+detect_she_with_trigger = "lnwan01"  # 首帧写“她”且 motion 带此触发词 → 林晚
+identity_source = "script_lock"      # 身份描述以剧本角色锁为准（剧本写入者维护）
+identity_extra = ""                  # research v9 的人物描述，项目方确认后填入
+reference_master = "assets/characters/lin_wan/plates/master.png"     # 写实母版（B1/A1，待选定）
+reference_fallback = "assets/characters/lin_wan/items/makeup/M0_s0.png"
+reference_role_line = "图1只提供面部与发型：保持同一人的脸型、五官与浅冰蓝色齐刘海长直发，不要沿用图1的姿势、服装、首饰和背景。"
+face_ref_approval = "config/face_reference.json"                      # B3
+nails = "手指甲为5厘米超长透明水晶甲、镶满钻石饰品；脚趾甲为2厘米长的性感美甲"   # B5（已写入角色锁）
+heels_default = "hh12clear"          # 12cm 透明针形细跟；偶尔 hh12patent 漆皮侧开（B7）
+wardrobe_rule = "日常穿着偏性感、不保守；上班/通勤＝修身上衣＋黑色高亮镜面漆皮超短裙＋12cm针形细跟高跟鞋"   # B10
+
+hair_color = "雾霾天蓝色及腰直发（比参考图略深、带一点灰的真实染发色），齐刘海"   # 项目方 2026-10-30 选择
+eyes = { bare = "自然深棕色眼睛", glam = "灰蓝色美瞳" }   # 项目方选择：按情节切换——素颜通勤深棕，浓妆/夜场灰蓝美瞳
+makeup_palette = "蓝调玫瑰、莓果、樱桃红、冷调灰褐、梅子色、银色；草莓粉作贯穿点缀；避开橙色与珊瑚色"   # B9 / research v9
+makeup_principles = "每款只有一个视觉焦点；腮红、唇色、眼影同一色温；雾面与水光对比；唇线边缘柔化；粉底下可见毛孔"
+
+[characters.lin_wan.makeup_states]   # 按剧情选妆容底板；L1–L8 配方见 research v9（写实母版定后替换 M*）
+bare = { plate = "items/makeup/M1", episodes = "1-8,49,51-58", name = "素颜通勤" }
+transition = { plate = "items/makeup/M2", episodes = "6", name = "ep06 过渡妆" }
+heavy = { plate = "items/makeup/M4", episodes = "default", name = "浓妆女王" }
+night = { plate = "items/makeup/M5", episodes = "", name = "夜场闪钻" }
+tears = { plate = "items/makeup/M6", episodes = "", name = "泪痕妆", when = ["泪", "哭"] }
+
+[characters.gu_chen]
+name = "顾沉"
+detect = ["顾沉"]
+identity_source = "script_lock"
+reference_master = ""                # 男主候选由项目方选定后填写
+
+[characters.chen_yu]
+name = "陈宇"
+detect = ["陈宇"]
+identity_source = "script_lock"
+reference_master = ""
+
+# -------------------------------------------------------------------
+# 六、提示词拼装顺序（《image提示词》§1.2 + 画面说明层）
+# -------------------------------------------------------------------
+[assembly]
+first_frame = ["triggers", "character_dna", "shot_size_angle", "wardrobe_look", "pose_expression_start",
+               "scene", "lighting", "script_img_verbatim", "materials", "shot_rules", "director_boost",
+               "lens", "style_suffix"]
+last_frame_keep = "图1是本镜头的首帧画面。保持图1的场景、机位、景别、光线、人物身份、发型与服装完全不变（同一场景同一人物同一服装），只把画面改为这个镜头动作结束时的瞬间："   # T06：与编译器一致，后接 motion 的结束状态
+script_verbatim = true               # 剧本原文一字不改（§2.2 透传）
+director_boost = "owner_only"        # 导演加强只放项目方写的内容（config/director_boost_*）
+
+# -------------------------------------------------------------------
+# 七、多轮生成与评分（C5）
+# -------------------------------------------------------------------
+[generation]
+candidates_per_round = 3
+max_rounds = 3
+score_weights = { script_facts = 0.35, face = 0.25, realism = 0.15, color = 0.10, sharp_bokeh = 0.15 }
+pass_threshold = 0.72
+nudity_qc_non_adult = "report_only"   # 2026-10-30 取消成人过滤器：只记录，不否决
+
+# -------------------------------------------------------------------
+# 八、成人分类（由项目方启动渲染）
+# -------------------------------------------------------------------
+[classification]
+minor_guard = "未成年人外观"         # 硬规则：所有负面词必须包含，不可覆盖
+overrides = "config/adult_overrides.json"
+keywords_source = "compiler"         # 关键词表暂留在 compiler.py（ADULT_KEYWORDS），下一步迁入此处
+# minor_guard 只能追加不能替换：编译器内置“未成年人外观”永远在负面词里
+
+# -------------------------------------------------------------------
+# 九、造型注入（P2，CONSISTENCY_PLAN；T06）
+# -------------------------------------------------------------------
+[looks]
+# true：每个入镜角色的造型片段（data/looks 解析：角色默认 → 集计划 → 本镜覆盖）接在角色 DNA 锁之后，
+# 去掉剧本原文 / 角色锁 / 材质规则里已有的内容；只对项目方确认过的集（集计划 owner_confirmed_at）生效。
+# 打开前：先 uv run python tools/bible_diff.py <旧版本> 看编译差异，并至少 A/B 一镜（SOP）。
+inject = false
+slots = ["outfit", "shoes", "makeup", "hair"]

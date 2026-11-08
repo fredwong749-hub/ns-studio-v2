@@ -1,0 +1,21 @@
+# 静态情绪：有人在画、不说话、没有位移（最容易“静止”的一类）
+id: static_emotion
+extends: _base
+label: 静态情绪
+status: 确认
+priority: 70
+match:
+  any_visible: true
+  speaking_on_screen: false
+  locomotion: false
+keyframes:
+  last_frame_mode: none
+guidance:
+  require_beats: true
+  min_action_verbs: 2
+fallback: [static_emotion_pika]
+provenance:
+  keyframes.last_frame_mode: {src: "源码：尾帧每步硬注入，首尾帧太像必静止（h3_comfy_expert §0.3）；QCV 只给首帧运动 ×2–5", date: 2026-10-31, status: 确认}
+  guidance.require_beats: {src: "conformance B8：S3/S4/S6/S7/S10 正文缺运动路径 → 静止；refactor_proposal §7.1 分拍", date: 2026-10-31, status: 建议}
+  guidance.min_action_verbs: {src: "conformance B8 系统提示（阈值为推断）", date: 2026-10-31, status: 待验}
+  fallback: {src: "refactor_proposal §7.4", date: 2026-10-31, status: 建议}

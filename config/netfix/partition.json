@@ -1,0 +1,334 @@
+{
+ "_doc": "派单分区（NETFIX 11-01，总调度 fredw-2b 定；规则 K-OPS-N04）。唯一来源：tools/netfix/dispatch.py 按本文件 ∩ data/autopilot/ready_episodes.json 算每个 producer 的 control（only / hold_lanes / paused）。各机只派本机的出图道（服务器上 127.0.0.1 经 fwd.py 到本机 ComfyUI，不经跳板），机器之间不重叠。",
+ "note": "11-01 22:2x 总调度：gpu33 / gpu36 各 3 张可用卡（gpu33 GPU2 坏卡永不用），笔记本 4080 也要跑（项目方原话“全部gpu跑起来”）。离线那次 3 集对 7 集不均，改为 4 / 5 / 1。以后按实测吞吐调整（data/producer 各机 attempts 每小时出图数），改这里要写依据。",
+ "images": {
+  "gpu33": [
+   1,
+   3,
+   5,
+   7,
+   9,
+   10
+  ],
+  "gpu36": [
+   2,
+   4,
+   6,
+   8
+  ],
+  "laptop": []
+ },
+ "video": {
+  "gpu33": [
+   3,
+   5,
+   7,
+   9,
+   10
+  ],
+  "gpu36": [
+   1,
+   2,
+   4,
+   6,
+   8
+  ]
+ },
+ "_video_note": "ep10 的首尾帧 11-02 01:4x 起在 gpu33 出（laptop:0 停派，L-100），视频归 gpu36（首帧通过后推到 gpu36）。⤴ 取代“ep10 首尾帧在笔记本出”。",
+ "lanes": {
+  "gpu33": [
+   "gpu33:0",
+   "gpu33:1",
+   "gpu33:3"
+  ],
+  "gpu36": [
+   "gpu36:0",
+   "gpu36:1",
+   "gpu36:2"
+  ],
+  "laptop": [
+   "laptop:0"
+  ]
+ },
+ "global_pause_ignore_by": [
+  "SERVER_RESIDENT",
+  "OFFLINE",
+  "LAPTOP_IMAGES"
+ ],
+ "_global_pause_note": "笔记本 control.json 的 paused 是总调度 / 项目方的全局暂停开关；paused_by 属于这几种（历史上“笔记本让位给服务器”的标记）时不算全局暂停。",
+ "work_stealing": false,
+ "_work_stealing_note": "跨机接手别人分区的对象：没有跨机共享锁，不安全，先不做（见 tools/netfix/dispatch.py steal_plan 的评估；只有笔记本两台都连得上时才能做两阶段：先撤 A 的 only、确认 A 无租约，再加给 B）。",
+ "note_ep10_move": "11-02 01:4x 总调度定（L-100 后续）：笔记本 4080 改专用看图卡，laptop:0 停派；ep10 图片分区移到 gpu33（[1,3,5,7,10]），ep10 视频仍归 gpu36。FACTORY 执行：先同步笔记本 ep10 出图状态到 gpu33，再推本文件 + server-control。",
+ "retired_lanes": [],
+ "_retired_lanes_note": "退役的道：所有 producer 一律 hold（render_endpoints 里还登记着 gpu36:2，不 hold 会被派单）。gpu36:2 = L-100 改看图卡（11-02 03:1x NETFIX）。",
+ "_lanes_l194": "L-194（11-05 项目方授权 gpu36:0/1/2 全归 NS）：gpu36:2 进 gpu36 的道表（FIX-ORCH O3 11-06；退役道表 retired_lanes 不含它）。gpu33:2 坏卡永不进。",
+ "_lent_lanes": {},
+ "_temp_holds": {},
+ "_images_history": [
+  {
+   "at": "2026-11-02T08:08:08",
+   "from": {
+    "gpu33": [
+     1,
+     3,
+     5,
+     7,
+     10
+    ],
+    "gpu36": [
+     2,
+     4,
+     6,
+     8,
+     9
+    ],
+    "laptop": []
+   },
+   "to": {
+    "gpu33": [
+     1,
+     3,
+     5,
+     7,
+     10
+    ],
+    "gpu36": [
+     2,
+     4,
+     6
+    ],
+    "laptop": []
+   },
+   "why": "阶段1：gpu33 分区（1,3,5,7,10）已无可派的单，gpu36 分区还有约 50 个 ready；两阶段把 ep08、ep09 移到 gpu33",
+   "by": "DEBUG-RSI（总调度 08:0x）"
+  },
+  {
+   "at": "2026-11-02T08:08:46",
+   "from": {
+    "gpu33": [
+     1,
+     3,
+     5,
+     7,
+     10
+    ],
+    "gpu36": [
+     2,
+     4,
+     6
+    ],
+    "laptop": []
+   },
+   "to": {
+    "gpu33": [
+     1,
+     3,
+     5,
+     7,
+     8,
+     9,
+     10
+    ],
+    "gpu36": [
+     2,
+     4,
+     6
+    ],
+    "laptop": []
+   },
+   "why": "阶段2：gpu36 已无 ep08/09 租约，交给 gpu33",
+   "by": "DEBUG-RSI（总调度 08:0x）"
+  },
+  {
+   "at": "2026-11-02T16:30:12",
+   "from": {
+    "gpu33": [
+     1,
+     3,
+     5,
+     7,
+     8,
+     9,
+     10
+    ],
+    "gpu36": [
+     2,
+     4,
+     6
+    ],
+    "laptop": []
+   },
+   "to": {
+    "gpu33": [
+     1,
+     2,
+     3,
+     4,
+     5,
+     6,
+     7,
+     8,
+     9,
+     10
+    ],
+    "gpu36": [],
+    "laptop": []
+   },
+   "why": "gpu33 分区（1,3,5,7,8,9,10）16:02 起无可派的单、三卡空转；gpu36 两条道被 VIDEO10 视频占着，ep02/04/06 的 29 个 ready 首帧 15:46→16:18 只派出 1 单。首帧尾帧全部划给 gpu33，gpu36 留给视频（video 分区不变）。先推 gpu36（only 清空、在途单跑完）再推 gpu33",
+   "by": "FACTORY（总调度 fredw-2b 16:3x 授权）"
+  },
+  {
+   "at": "2026-11-02T17:33:06",
+   "from": {
+    "images": {
+     "gpu33": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10
+     ],
+     "gpu36": [],
+     "laptop": []
+    },
+    "video": {
+     "gpu33": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7
+     ],
+     "gpu36": [
+      8,
+      9,
+      10
+     ]
+    }
+   },
+   "to": {
+    "images": {
+     "gpu33": [
+      1,
+      3,
+      5,
+      7,
+      9,
+      10
+     ],
+     "gpu36": [
+      2,
+      4,
+      6,
+      8
+     ],
+     "laptop": []
+    },
+    "video": {
+     "gpu33": [
+      1,
+      3,
+      5,
+      7,
+      9,
+      10
+     ],
+     "gpu36": [
+      2,
+      4,
+      6,
+      8
+     ]
+    }
+   },
+   "why": "总调度 17:3x 定最终分法（DEBUG-RSI 方案）：集归帧所在的主机，出图和视频同一台；与 night hosts.json 一致，没有任何一集换主机到没有版本的机器（repart_check 通过）。止损 16:31 ep02/04/06 划给 gpu33 后的重复出图",
+   "by": "FACTORY（总调度 fredw-2b 17:3x）",
+   "repart_check": "pass"
+  }
+ ],
+ "_video_history": [
+  {
+   "at": "2026-11-02T17:06:48",
+   "from": {
+    "gpu33": [
+     1,
+     3,
+     5,
+     7
+    ],
+    "gpu36": [
+     2,
+     4,
+     6,
+     8,
+     9,
+     10
+    ]
+   },
+   "to": {
+    "gpu33": [
+     1,
+     2,
+     3,
+     4,
+     5,
+     6,
+     7
+    ],
+    "gpu36": [
+     8,
+     9,
+     10
+    ]
+   },
+   "why": "L-124 + 总调度 17:0x 批：帧在哪台出、视频就在哪台出。ep02/04/06 出图 16:31 已划给 gpu33，视频跟着划；gpu36 只做 ep08/09/10 视频。核对：gpu36 上 ep04/06 视频 17:04 已 EP_RESOLVED（无在出单），ep02 没有视频",
+   "by": "FACTORY（总调度 fredw-2b 17:0x 批准）"
+  },
+  {
+   "at": "2026-11-04T04:32:50",
+   "from": {
+    "gpu33": [
+     1,
+     3,
+     5,
+     7,
+     9,
+     10
+    ],
+    "gpu36": [
+     2,
+     4,
+     6,
+     8
+    ]
+   },
+   "to": {
+    "gpu33": [
+     3,
+     5,
+     7,
+     9,
+     10
+    ],
+    "gpu36": [
+     1,
+     2,
+     4,
+     6,
+     8
+    ]
+   },
+   "why": "项目方 04:0x '两台并行'；gpu33 night 车道策略 yield 让道给首尾帧 → ep01 视频在 gpu33 永远派不出；gpu36 空闲。三前提已齐：W46 relay_video_frames（resident_sync 04:10 起）、W38 hf-01..08 已同步 gpu36、manifest 一致。出图仍归 gpu33，不做跨机共享出图。",
+   "by": "总调度 MASTER-WSL"
+  }
+ ],
+ "note_L165": "L-165 总调度 11-03 14:06：项目方“GPU 一直空闲”，不等 cut B：笔记本 4080 先出 ep01；服务器 code-only 推送 + 热重启后再按原分区（gpu33 加回 1）",
+ "note_L177": "11-03 18:0x 总调度：换代完成（sv-20261103-02 两台 + gpu33 producer 已起），ep01 交还 gpu33 本地出图/打分；笔记本不再出图（L-165 的临时分区撤销）"
+}

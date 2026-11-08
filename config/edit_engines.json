@@ -1,0 +1,13 @@
+{
+  "_doc": "编辑执行层的图像编辑模型（EDITDEL，可插拔；ns_api.edits.build_edit_workflow）。项目方 2026-10-31：Image 2.1 的 edit 不行，BAKEOFF 正在对比 Qwen-Image-Edit 2511 / Klein / FireRed / Krea2 identity edit——结论出来后把 default 改成胜出的那个、enabled 改 true、graph 指向 BAKEOFF 交付的 ComfyUI API 格式工作流。builder=template 的模板占位：{{prompt}} {{negative}} {{image1}}（原图）{{image2}}…（身份 / 参考）{{init_image}} {{seed}} {{width}} {{height}} {{denoise}} {{prefix}}；整串等于占位时按原类型替换（数字仍是数字）。gen_contract：required（REFLOCK 已接入 ns_agent.gen_contract，2026-10-31）= preflight 不过 / 模块不在都不提交；if_available = 模块不在时记“未接入”放行。contract_model = 契约 / 槽位规划用的模型名（ns_agent.asset_refs 槽位数）；project = 槽位规划用的项目（config/recipes/asset_refs.json）。",
+  "default": "qwen_image_2_1_edit",
+  "gen_contract": "required",
+  "_project_doc": "（已废，OVERSIGHT-F P1-5a）槽位规划项目不再写死：ns_api.edits.edit_project 按镜头所在的剧取（runs.json primary / NS_RUN），取不到失败关闭",
+  "engines": {
+    "qwen_image_2_1_edit": {"label": "Qwen-Image 2.1 Edit（现状）", "builder": "qwen_edit", "max_refs": 3, "enabled": true, "contract_model": "qwen_image_2.1"},
+    "qwen_image_edit_2511": {"label": "Qwen-Image-Edit 2511", "builder": "template", "contract_model": "qwen_image_edit_2511", "graph": "comfy/workflows/edit/qwen_image_edit_2511.json", "max_refs": 2, "enabled": false, "note": "等 BAKEOFF 交付工作流"},
+    "flux2_klein": {"label": "FLUX.2 Klein edit", "builder": "template", "contract_model": "flux2_klein", "graph": "comfy/workflows/edit/flux2_klein_edit.json", "max_refs": 3, "enabled": false, "note": "等 BAKEOFF 交付工作流"},
+    "firered_edit": {"label": "FireRed Image Edit", "builder": "template", "graph": "comfy/workflows/edit/firered_edit.json", "max_refs": 2, "enabled": false, "note": "等 BAKEOFF 交付工作流"},
+    "krea2_identity": {"label": "Krea2 identity edit", "builder": "template", "graph": "comfy/workflows/edit/krea2_identity_edit.json", "max_refs": 2, "enabled": false, "note": "等 BAKEOFF 交付工作流"}
+  }
+}

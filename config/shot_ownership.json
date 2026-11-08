@@ -1,0 +1,11 @@
+{
+  "_comment": "镜头首尾帧+视频由哪条流水线负责（一条链原则，docs/audit/shot_readiness_and_continuity.md）。owner=canvas（2026-10-30 夜，项目方：画布交互改图是主链路；唯一调度资源 = gpu3 的 ComfyUI，经隧道 18188/18191）：画布出图 / 精修 / 定稿都放行，gpu3 每镜 status.json 的 owner=gpu3 只作历史。owner=gpu3：笔记本不出任何首尾帧。history 记旧归属。",
+  "projects": {
+    "weita": {
+      "owner": "canvas", "since": "2026-10-30", "note": "项目方 2026-10-30 夜：优先把正常流程做完；画布出图走 gpu3 ComfyUI（fredw-92/W2）",
+      "history": [
+        { "owner": "gpu3", "since": "2026-10-30", "until": "2026-10-30", "note": "为他而骚全部 360 镜；claude-gpu3 会话宣布，项目方当天指示 gpu3 全自动出首尾帧与视频（gpu3 批量渲染器 weita_render 的版本仍在 data/renders_gpu3，只作历史）" }
+      ]
+    }
+  }
+}

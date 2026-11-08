@@ -1,0 +1,4 @@
+{
+  "_comment": "导演加强·用我的模型生成。2026-10-30 夜 fredw-92/W1：模型改由统一配置 config/llm_providers.json 的用途 director_boost 指定（默认 abliteration large-flash；千问撤下），本文件只管 instruction_file（由项目方自己编写）。迁移期读兼容：这里或 .local.json 再写 base_url / model / api_key 会整组覆盖统一配置。",
+  "instruction_file": "config/director_boost_rules.md"
+}

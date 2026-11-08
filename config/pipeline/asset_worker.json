@@ -1,0 +1,29 @@
+{
+ "_doc": "阶段 A 资产作业执行器（tools/pipeline/asset_worker.py，M-AUTOPIPE-01）的开关。常驻服务每一拍都会生成作业（发现缺口 → data/pipeline/asset_jobs/<run>/），但只有下面的开关打开才真的执行：apply_meta = 把 display_name / 造型骨架 / 造型排期从 P1 写进清单与 hub_episode_looks；render = 借空闲 GPU 道出 face / scene / sheet / item 候选（占 GPU，总调度批了再开）；voice = 调 voice_v2 出音色候选（gpu36 CPU）；push = 登记 / 写清单后把文件推到两台并核 sha。golden = 阶段 B 自动出金样首帧（本轮只生成作业，不执行）。",
+ "enabled": true,
+ "apply_meta": true,
+ "render": true,
+ "voice": false,
+ "push": true,
+ "golden": false,
+ "max_parallel": 6,
+ "exclude_lanes": [
+  "gpu33:2"
+ ],
+ "hold_minutes": 15,
+ "job_timeout_min": 90,
+ "_hold_minutes": "FIX-ORCH O6（11-06，L-202 / L-205）：道 hold 90 → 15 分钟，作业活着时 tick 每过半续期一次（hold_renew），子进程收尾即放道（run_job finally + tick 收尸各放一次，release 幂等）；worker 挂了道最多空挂 15 分钟（原 90）。作业超时单独 job_timeout_min=90（原来跟 hold_minutes 走）。free_lanes 各道探针并发。",
+ "max_attempts": 2,
+ "ready_every_s": 300,
+ "candidates": {
+  "face": 8,
+  "scene": 2,
+  "sheet": 3,
+  "item": 2
+ },
+ "voice_host": "gpu36",
+ "sheet_enabled": true,
+ "_master": "11-03 01:1x 总调度：OVERSIGHT-A 第2轮通过；resident 已受控重启(pid 44688)；apply_meta 开、render 开（出 sheet 候选）；voice/golden 仍关；02:3x 项目方要求 GPU 全速：max_parallel 2→5（gpu33:0/1/3 + gpu36:0/1）；03:1x L-140 项目方否决按镜出图与 5 道并行 → max_parallel 回 2",
+ "_exclude_lanes_note": "11-04 03:5x 总调度（项目方：'gpu36 也并行一起跑'）：ep01 冲刺期 gpu33 三条道全给 ep01 出图；资产作业只用 gpu36:0/1（gpu36 producer 分区的集全卡在资产，卡空着）。ep01 整集预览出来后可撤。",
+ "_master_1105": "11-05 PS-MASTER（项目方原话：素材工人怎么提效？全部显卡给他）：max_parallel 2→6（取代 L-140 关于 asset_worker 并行=2 的部分，待 PS-MASTER 记账）；exclude_lanes 只留坏卡 gpu33:2；candidates.face 3→8（ep02 脸候选每人≥8）。ASSET-EP02 临时把 exclude_lanes 收窄到 gpu33:3 的改动已撤销，备份 asset_worker.json.bak_ep02asset_1105 是 max_parallel=2 的旧值。"
+}

@@ -1,0 +1,4 @@
+{
+  "_doc": "data_parity 设置（CLEANUP 11-01，AUDIT P2）：pending_redo（新剧本已导入、出图未跟上）从现行导入时刻起超过这么多小时，data_parity 单列“过期待重做”并写 data/qa/alerts.jsonl 报警 A-PARITY-PENDING（监控看板显示）；清零后自动写 closed。",
+  "pending_redo_max_hours": 12
+}

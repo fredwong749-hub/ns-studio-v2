@@ -1,0 +1,13 @@
+{
+ "_doc": "GPU 道卡死自愈（tools/autopilot/lane_heal.py，MASTER-WSL 11-03 ASSIGN D）。interrupt_own：出图程序自己的 / 无标签孤儿单超过 est_s×factor（夹在 min_s–hard_cap_s）→ 定向打断出队；别人的单只登记。stale_lock_action：report（默认，只登记）| reclaim（锁文件改名收回道，需总调度批准再开）。unknown_lock_s：锁状态读不到多久登记。",
+ "enabled": true,
+ "interrupt_own": true,
+ "own_agents": ["PRODUCER"],
+ "factor": 3.0,
+ "min_s": 600,
+ "hard_cap_s": 5400,
+ "est_s": {"first_frame": 300, "last_frame": 300, "frame": 300, "edit": 300, "sheet": 400, "asset": 400, "video": 1500, "other": 900},
+ "stale_lock_s": 1800,
+ "stale_lock_action": "report",
+ "unknown_lock_s": 900
+}

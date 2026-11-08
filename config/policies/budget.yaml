@@ -1,0 +1,72 @@
+# 费用 / 止损策略（DISTILL 11-02）。写作 = 外部 API（花钱）；本地 GPU / 本地模型不计费。
+schema: nsfs.policy/1
+policy: budget
+items:
+  writing_total_cap_usd:
+    value: 15.0
+    source: L-098（项目方 11-02 01:08“50 美金，尽量少收一点，太贵了”→ 总调度定 r5 总上限 $15）⤴ 取代 L-097 $50
+    enforced_by: tools/script_rsi/hollywood_r5.py:COST_CAP_USD
+    status: drift_checked
+    owner: HOLLYWOOD
+    drift: {kind: py_const, file: tools/script_rsi/hollywood_r5.py, name: COST_CAP_USD}
+  writing_episode_cap_usd:
+    value: 3.0
+    source: L-098（每集 ≤ $3）
+    enforced_by: tools/script_rsi/hollywood_r5.py:EP_CAP_USD
+    status: drift_checked
+    owner: HOLLYWOOD
+    drift: {kind: py_const, file: tools/script_rsi/hollywood_r5.py, name: EP_CAP_USD}
+  no_gain_stop_rounds:
+    value: 1
+    source: L-098（连续 1 轮不涨即停）
+    enforced_by: tools/script_rsi/hollywood_r5.py:NO_GAIN_STOP
+    status: drift_checked
+    owner: HOLLYWOOD
+    drift: {kind: py_const, file: tools/script_rsi/hollywood_r5.py, name: NO_GAIN_STOP}
+  import_score_min:
+    value: 48
+    source: 22:0x“HOLLYWOOD 达到 95 分”→ ≥48/50 且无项 <4 才导入（L-096 目标 50/50）
+    enforced_by: tools/script_rsi/hollywood_r5.py:TARGET_IMPORT
+    status: drift_checked
+    owner: HOLLYWOOD
+    drift: {kind: py_const, file: tools/script_rsi/hollywood_r5.py, name: TARGET_IMPORT}
+  import_best_when_capped:
+    value: {enabled: true, requires: [invariants_pass, p4_block_zero, fact_check_zero]}
+    source: 项目方 22:3x 选“先导入最高分版开工”（预算 / 轮数用完仍未达 import_score_min 时，导入最高分且不变量全过的版本，不空等）
+    enforced_by: tools/autopilot/policy.py:pick_import（编排器 script 段用）；hollywood.py ship / merge 产出候选
+    status: code_reads
+    owner: HOLLYWOOD / DISTILL
+  judge_noise_max_spread:
+    value: 3
+    source: hollywood_r5.score5 unstable（三评审总分极差 > 3）；VQAGATE 00:4x V7 噪声“刷掉的 2 条是噪声凑出来的过”→ 先修尺子
+    enforced_by: tools/script_rsi/hollywood_r5.py（只标 unstable，不停）
+    status: drift_checked
+    owner: HOLLYWOOD
+    drift: {kind: grep, file: tools/script_rsi/hollywood_r5.py, pattern: "max\\(sums\\) - min\\(sums\\) > 3"}
+    plan: 一轮里 unstable 稿 ≥ 一半 → 本轮分数不用于“涨没涨”的判断，停写作、先改评审清单（policy.py:noise_stop 已给判定函数，待 HOLLYWOOD 接入）
+  judge_noise_stop_ratio:
+    value: 0.5
+    source: 同上（“评审噪声先修尺子”，总调度 11-02）
+    enforced_by: tools/autopilot/policy.py:noise_stop
+    status: code_reads
+    owner: HOLLYWOOD
+  prefer_compile_layer:
+    value: true
+    source: 01:1x DIRECTOR“运镜用词改编译层规范化，不花写作费用”；K-REN-706 RL-P1 warn 不改镜头结构
+    enforced_by: services/recipes/ns_recipes/lint.py（编译层规范化）
+    status: code_reads
+    owner: DIRECTOR / HOLLYWOOD
+    note: 能在编译层确定性修的（用词、格式、分隔符）不发回写作模型
+  new_spend_needs_owner:
+    value: true
+    source: 记忆“总调度少问少报”：花钱 / 删除 / 推翻旧规则问项目方；L-098 授权范围只到写作上限
+    enforced_by: tools/autopilot/flow.py（script 段超出 writing_total_cap_usd 记 owner 断点）
+    status: code_reads
+    owner: DISTILL
+  writing_per_run:
+    value: {episode_cap_usd: 3.0, run_cap_usd: 15.0, overrides: {series10_s2: 8.0}}
+    source: L-098（每集 ≤ $3、总上限 $15）按 run 适用；L-104 第二季 series10_s2 预算 $8（overrides）；总调度 02:4x：项目方闸门只保留“填 P0 Brief”和“看预览确认交付”，填 Brief = 授权本 run 在上限内的写作花费
+    enforced_by: tools/autopilot/flow.py start（run_chain --budget-usd = episode_cap_usd，--budget-tag flow-<run_id>）
+    status: code_reads
+    owner: DISTILL / HOLLYWOOD
+    note: 超出 run_cap_usd 即停（code），追加预算才问项目方（new_spend_needs_owner）

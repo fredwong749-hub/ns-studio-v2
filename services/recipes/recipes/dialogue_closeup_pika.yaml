@@ -1,0 +1,28 @@
+# Pika H3 Flex 只给首帧：回退第 3 级（成本低、运动好），flush 类镜头禁用（overlays/flush_risk）
+id: dialogue_closeup_pika
+extends: dialogue_closeup
+label: 对白近景 · Pika Flex 回退（试验）
+status: 待验
+selectable: false
+loras:
+  pika_flex:
+    file: pika_h3_flex_fl2va_comfy_bf16.safetensors
+    strength: 1.0
+    enabled: true
+sampling:
+  steps: 6
+  sampler: lcm
+  scheduler: null
+  sigmas: "1.0, 0.972973, 0.923077, 0.8, 0.571429, 0.333333, 0.0"
+  shift_node: false
+fallback: []
+provenance:
+  status: {src: "v0_pika：运动 OK、泛红严重（S2_C 52%）", date: 2026-10-31, status: 待验}
+  selectable: {src: "只由回退进入", date: 2026-10-31, status: 确认}
+  loras.pika_flex: {src: "config/render_quality.json video_bases pika_flex（sha256 68783e64…，MiniMax H3 Community License）", date: 2026-10-31, status: 确认}
+  sampling.steps: {src: "Pika 官方模板固定 6 步", date: 2026-10-31, status: 确认}
+  sampling.sampler: {src: "Pika 官方模板 lcm", date: 2026-10-31, status: 确认}
+  sampling.scheduler: {src: "ManualSigmas 代替调度器", date: 2026-10-31, status: 确认}
+  sampling.sigmas: {src: "Pika 官方 7 值 sigma（shift 12 已算进表）", date: 2026-10-31, status: 确认}
+  sampling.shift_node: {src: "Pika 模板无 SigmaShift 节点", date: 2026-10-31, status: 确认}
+  fallback: {src: "阶梯末级 → 待项目方", date: 2026-10-31, status: 确认}

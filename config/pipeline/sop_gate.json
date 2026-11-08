@@ -1,0 +1,45 @@
+{
+ "_doc": "SOP 阶段闸门（tools/master/sop_gate.py，HARNESS-O 11-03）。enabled=false 时 require 永远放行（只给排查用）。observe_stages = 进入这些阶段时只记违规（data/pipeline/sop_gate/violations.jsonl，master_check 显示）不抛错；其余阶段一律 enforce（抛 SopGateError，失败关闭）。retro_enforce = 第 N 集复盘没 done 时，第 N+1 集进“出图”及以后一律 enforce（不受 observe 影响）。prompt_probe = 提示词证据的逐镜探针（第一个参数是相对仓库的脚本，{shot}/{ep} 会替换；默认 golden_v2 --summary：唯一编译入口 + preflight，不出图）。",
+ "enabled": true,
+ "observe_stages": [],
+ "retro_enforce": true,
+ "retro_mode": "record",
+ "_retro_mode_1107": "PS-MASTER 11-07 05:0x（L-214 自主 / L-215 开工后 0 等待）：retro_mode=record = 复盘改只记录，不再挡下一集出图——ep01/ep02 未合成完、复盘文件只在笔记本，服务器判 missing，ep03/ep04 整集停摆；复盘照常生成，供 RSI 学习，不作闸门",
+ "retro_parallel": true,
+ "_retro_parallel": "FIX-ORCH O8（L-205 KPI 一集 ≤ 50 min，11-06）：true（默认）= 第 N 集复盘还没 done 时第 N+1 集照样进出图（复盘与下一集并行），复盘最多落后一集——第 N+2 集出图前第 N 集复盘必须 done（retro_enforce 照样 enforce）；false = 旧口径（第 N 集复盘 done 后第 N+1 集才能出图）",
+ "prompt_probe": "build_first+preflight",
+ "probe_timeout_s": 900,
+ "_auto_probe_stale": "FIX-ORCH O1（11-06）：触发也含“还没有证据”（新集自探）与“探针超时”（写超时证据、300→600→1200→2400 s 退避重试）；锁按 pid 判在跑，不叠跑；正常写完后 30 s 即可再探；刷新期间上次 ok 且本镜输入未变的镜照常可派。SLIM-CDE 11-05 E2（K-OPS-I13 自动化）：true = 阻断原因是“提示词证据过期”时 require_backoff 自动后台起 probe-prompts（分离子进程，不出图不占 GPU；每集 5 min 冷却）并把退避封顶 120 s；false / env NS_SOP_AUTO_PROBE=0 = 原行为（等人工 probe，退避 900/1800 s）",
+ "auto_probe_stale": true,
+ "_master": "11-03 03:5x HARNESS-O 首版：总调度要求“sop_gate 不能挡住第 1 集正常往下走”。第 1 集实测卡在导入闸门（02:52 TIMELINE-O 严格时间轴把 gate/import 改成 reopened，11 项 TL-）→ 出图侧（资产就绪 / 提示词 / 出图）先 observe，出图检测 / 尾帧 / 视频 / 整集预览 enforce。第 1 集过导入闸门后由总调度把 observe_stages 清空。",
+ "probe_lane": "gpu36:0",
+ "promote": {
+  "auto": true,
+  "stage": "出图",
+  "_decision": "L-154（项目方 11-03 05:0x “出图自动启动”）：任一集剧本 / 导入闸门 / 资产就绪 / 提示词都过 → producer 自动 preparing→producing（L-195 / L-202 起两者按镜：任一镜能进“出图”即提升），写 runs.json status_history 审计",
+  "_auto_w18": "W18（11-03）：auto 的读取方 = producer.maybe_promote（producer 在跑时每分钟）+ resident_sync.lifecycle_tick（producer 还没起时，每 60 s）；两处都按 sop_gate.promote（judge 出图）判，auto=true 才写 runs.json（status_history by=auto:<谁>），写了同时在 V2_LIVE 记一行；判不可进不动"
+ },
+ "_prodmerge": "PRODMERGE-O 11-03（PLAN_V2_MASTER v4 1-4 / 1-5）：prompt_probe 改为本模块 compile_preflight（唯一编译入口 build_first + preflight.check，隔离子进程，按剧环境 runs.run_env），不再调 golden_v2；probe_lane = preflight I12 判本地专用资产用的道。promote = runs.json preparing → producing 的规则：任一集 judge(stage) 通过即可提升；auto=false 时 producer 只在日志里报“可以提升”，由总调度 sop_gate.py promote --apply（auto=true 时 producer 每拍自动提升并写 status_history）。",
+ "_observe_note": "L-156 项目方 11-03 07:3x 点选：清空、全部 enforce（总调度 MASTER-WSL 执行）",
+ "import_revalidate": {
+  "mode": "enforce",
+  "enforce_from": "出图",
+  "timeout_s": 30,
+  "expected_blocks": {"smoke_v2": ["QW-E2", "QW-E3"]},
+  "_expected_blocks": "11-07 审计 Step 3 / A5：按剧豁免的预期 block。只给冒烟夹具 smoke_v2（3 镜 15 秒，按设计过不了 6–8 镜 / 60–120 秒；与 eval/smoke.py EXPECTED_VALIDATE_BLOCKS 同口径）；正式剧不得加",
+  "_doc": "W-GATE 11-06（tools/master/import_revalidate.py）：导入闸门只在导入那一刻判，之后新加的写作规则（QW-L12/L13/L14，L-201/L-203）不回头查已导入的集。这里按现行规则复验当前导入稿（validate_qwen_script --episode N，缓存键 = 稿 sha + 规则集指纹）。mode：off = 不复验；report（默认）= status / check 显示“导入稿按现行规则复验：block N（…）”，新结果写 data/pipeline/sop_gate/import_revalidate.jsonl 并开一条卡点，不挡任何东西；enforce = block>0 的集不能进 enforce_from 及以后阶段——开 enforce 是项目方决策，未启用"
+ },
+ "whole_episode_prompts": false,
+ "whole_episode_assets": false,
+ "_whole_episode_assets": "L-202（项目方 11-06 08:0x 选 A“按镜判”）取代 L-140 的整集资产齐了才出图：资产就绪阶段按镜判——本镜用到的人物脸 / 造型 / 场景底图齐了就出首帧和视频，缺资产的镜单独等，资产补齐（asset_jobs.generate 重写 _ready_epNN.json shot_gaps）后自动放行；true = 旧口径整集判",
+ "_whole_episode_prompts": "L-195（项目方 11-05 选 B）取代 L-140 的整集判：提示词阶段按镜判，过关的镜先出图，没过的单独卡住；原注（L-140 项目方 11-03 03:1x 否决按镜出图）：任何镜进“出图”及以后，提示词阶段按整集判；L-154 自动提升与 L-155 分道并行都在这条之后",
+ "lifecycle": {
+  "apply": true,
+  "hb_stale_min": 5,
+  "grace_min": 10,
+  "max_fails": 3,
+  "health_max_age_min": 15,
+  "laptop_ps1": "ops/autostart/restart_producer.ps1",
+  "_doc": "W18 PRODUCER-LIFECYCLE（tools/autopilot/resident_sync.py lifecycle_tick，loop 里独立线程 60 s 一拍）：primary 某集阶段 ∈ {出图, 出图检测, 尾帧, 视频} 且 producer 心跳 > hb_stale_min 分钟 → 笔记本 restart_producer.ps1 / 负责该集出图分区的服务器 request_restart（mode=producer-only）；阶段 ≥ 尾帧 → 该集视频分区服务器 night（mode=all）。起后 grace_min 分钟内不重复起；连续 max_fails 次起不来 → report_issue P0。服务器 health 记录超过 health_max_age_min 分钟 = 判不了、不起。apply=false = 只算计划写日志（resident_sync.py lifecycle --dry 同口径）；总调度在 cut B deploy 后改 true"
+ }
+}

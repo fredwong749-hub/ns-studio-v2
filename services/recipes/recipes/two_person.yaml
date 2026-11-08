@@ -1,0 +1,20 @@
+# 双人互动：≥2 个在画露脸角色。默认仍走 I2VA 基模；固定左右站位、每人逐字身份短语
+id: two_person
+extends: _base
+label: 双人互动
+status: 建议
+priority: 30
+match:
+  min_faces: 2
+prompt:
+  anchor_positions: true
+  max_speakers: 1
+acceptance:
+  identity_all_visible: true
+fallback: [two_person_ref2va]
+provenance:
+  status: {src: "chain_audit A1/C1/C4：男角色无参考、站位漂；只给首帧 + 锚点短语是现阶段唯一已验证路径", date: 2026-10-31, status: 建议}
+  prompt.anchor_positions: {src: "co-op 模板 P1 左 / P2 右固定站位（refactor_proposal §7.5）", date: 2026-10-31, status: 建议}
+  prompt.max_speakers: {src: "H3-D7", date: 2026-10-31, status: 确认}
+  acceptance.identity_all_visible: {src: "rubric ①；官方 QC 角色一致性", date: 2026-10-31, status: 建议}
+  fallback: {src: "官方解决多人身份的路径是 Ref2VA（conformance R2）", date: 2026-10-31, status: 待验, experiment: E5}

@@ -1,0 +1,131 @@
+# 闸门 / 看图口径策略（DISTILL 11-02）：哪些检测拦、由谁判、什么时候交项目方。
+# 看图检查项的具体问法在 config/prompts/vqa_inspect.md（本地 VLM）与 config/prompts/asset_sheet_inspect.md（设定图完整性）。
+schema: nsfs.policy/1
+policy: gates
+items:
+  image_gate_enforce:
+    value: true
+    source: L-080（项目方 11-01 16:10“一旦发现不对，叫系统重写做”）；D-VQA-01
+    enforced_by: config/vqa.json judge.enforce → services/agent/ns_agent/vqa/contract.py
+    status: drift_checked
+    owner: VQAGATE
+    drift: {kind: json, file: config/vqa.json, path: [judge, enforce]}
+  video_requires_q9:
+    value: true
+    source: L-081（视频只派过了看图检查的首帧）；L-137（项目方 11-03 03:1x：V2 并回 V1，看图闸门先于视频）由 MERGE-VID-O 打开（ISS-1103-024206-4b21）
+    enforced_by: config/vqa.json gate.video_requires_q9
+    status: drift_checked
+    owner: VQAGATE
+    drift: {kind: json, file: config/vqa.json, path: [gate, video_requires_q9]}
+    plan: 已打开（11-03 MERGE-VID-O，与 vqa.json 一起改）
+  blocking_checks:
+    value: [brand_logo, continuity_break, extra_person, eye_contact, framing_mismatch, hair_mismatch, underage_look]
+    source: GATE_CALIBRATION（标定一致率 ≥0.93 的项才拦）；L-090 不看镜头；01:02 ep05-S3 驳回（局部特写拉成人像、发色丢 → framing / hair）；brand_logo = W-40（总调度 11-02 21:1x 直接定阻断：出图永远不画品牌标志，K-REN-959，未走标定）
+    enforced_by: config/vqa.json checks.<id>.blocking
+    status: drift_checked
+    owner: VQAGATE
+    drift: {kind: json_blocking, file: config/vqa.json}
+  calibration_min_agreement:
+    value: 0.93
+    source: VQAGATE 11-01 22:5x 口径 B 对照（阻断项逐项一致率 ≥0.93；extra_limbs 0.828 不拦）；23:4x Q2 外套探针重标未达标 → 只记录
+    enforced_by: docs/vqa/GATE_CALIBRATION.md（标定流程，人工执行）
+    status: pending
+    owner: VQAGATE
+    plan: tools/vqa 标定脚本输出 report.json 后，自动按本阈值生成 blocking 建议；低于阈值的项禁止设 blocking=true（加到 policy_check）
+  extra_limbs_rule:
+    value: "V6 手数 > 人数×2 AND 看图 extra_limbs=defect"
+    source: VQAGATE 23:4x（单独拦会来回重出）；早报 18:2x V6 阈值落定
+    enforced_by: tools/series10_video/score_clip.py:gate
+    status: code_reads
+    owner: VQAGATE
+  back_view_stranger_recheck:
+    value: true
+    source: 总调度 11-02 01:02（背影后脑被 retinaface 认成多一张脸 → Q1 误挡）→ 本地 VLM 复核后再挡（K-REV-V14）
+    enforced_by: services/agent/ns_agent/gen_contract/postflight.py stranger_boxes + vqa contract 复核
+    status: code_reads
+    owner: VQAGATE
+  gaze_rules:
+    value: {pitch_max: 0.2, exclude_eyes_down_or_closed: true, first_frame_no_camera: true}
+    source: L-090（演员不看镜头）；早报 18:2x MediaPipe 垂眼 / 闭眼排除、俯仰上限 0.12→0.2；VIDEO-RCA r1（片头看镜头 49/54 来自首帧看镜头）
+    enforced_by: ns_qc.gaze_mp + vqa eye_contact(blocking)
+    status: code_reads
+    owner: VQAGATE
+  video_stutter_j4_gt:
+    value: 1.2
+    source: K-REV-705（VIDEO-RCA r2：1.25 → 1.2）；19:1x 总调度“Pika 无顿挫”判断更正为 4 帧一顿
+    enforced_by: config/pipeline/video_policy.json:dejudder.j4_gt
+    status: drift_checked
+    owner: VIDEO-RCA / WORKFLOW
+    drift: {kind: json, file: config/pipeline/video_policy.json, path: [dejudder, j4_gt]}
+  asset_sheet_complete_before_use:
+    value: {checks: [both_sleeves, outer_layer_all_panels, deltaE_max: 6, outside_mask_unchanged, q1_not_lower]}
+    source: 01:02 总调度亲看设定图发现造型 A 正面栏缺左臂袖（导致首帧单袖、视频外套漂移）；L-101 候选按 sleeve_check 5 项过契约后采用
+    enforced_by: services/agent/ns_agent/sheet_intake.py（K-AST-264：IN1 左右袖镜像、IN2 外层 Q2 探针；接进 character_hub.set_sheet）+ config/prompts/asset_sheet_inspect.md（本地 VLM 补充逐栏检查）
+    status: code_reads
+    owner: IMGFIX / VQAGATE
+    plan: 补“同一缺陷跨 ≥3 镜 → 复查该造型设定图”的触发
+  asset_auto_adopt:
+    value: {rule: "全部候选过契约 → 取 Q1 最高且框外像素 0 差的一张", decider: code, owner_notify: true}
+    source: L-098（全权委托：资产候选点选由总调度按契约定）→ L-101 实例（候选 1：双袖、框外 0 差、Q1 0.962）
+    enforced_by: tools/asset_repair/repair.py（契约 R1–R7 全代码 + 自动选图；spec 例 config/asset_repair/lin_wan_lookA_sleeve.json；K-AST-265 待验）
+    status: code_reads
+    owner: IMGFIX
+    plan: sleeve_check / sheet 候选检查输出 check.json 后，policy.py:pick_asset 选一张、走中枢 set_sheet（审计 by=POLICY），不推翻已定审美决定（S★ R0、look A 脸身）
+  canary_after_redo:
+    value: {first_n: 6, max_fail_ratio: 0.34, action: pause_dispatch, reason_kind: canary, version_key: [config/gen_contract.json, config/vqa.json, config/recipes/asset_refs.json]}
+    source: 19:41 总调度亲审全量重做首批（ep01-S1 v15 / S2 v7 单人看镜头 + 缺外套）→ 暂停 producer 派 IMGFIX；VQAGATE 11-02 08:0x 落地
+    enforced_by: services/agent/ns_agent/vqa/canary.py（producer 每张打完分调用；三份配置内容哈希判换版；前 6 个不同镜头同一阻断项 >34% → set_paused(kind=canary, by=POLICY_CANARY)，不自动恢复）
+    status: drift_checked
+    owner: VQAGATE
+    drift: {kind: grep, file: services/agent/ns_agent/vqa/canary.py, pattern: "canary"}
+  missed_defect_to_regression:
+    value: true
+    source: 01:3x s20261304 顾沉看镜头被总调度目检发现、自动检查漏检 → 交 VQAGATE 加回归
+    enforced_by: tools/vqa/regression_check.py + data/vqa/regression/（VQAGATE；12/12 PASS）；iter_gate Q2 项（SYSARCH）；cut 闸门待 FACTORY 接
+    status: code_reads
+    owner: VQAGATE
+  only_show_passing:
+    value: true
+    source: 记忆 feedback-only-show-passing；ITERATION_PROTOCOL OT9（契约逐项 + master_review 签字后才给项目方）
+    enforced_by: tools/qa/iter_gate.py --for-owner --review-dir
+    status: code_reads
+    owner: ITERAUDIT
+  stale_candidates_hidden:
+    value: true
+    source: 00:0x 项目方截图（旧剧本候选挂在新镜号下）→ 候选按剧本版本过滤（UIRSI r40 / r41）
+    enforced_by: services/api/ns_api/takes_ui.py
+    status: code_reads
+    owner: UIRSI
+  delivery_gate:
+    value:
+      scope: preview
+      film_score_floor: 30
+      ratchet_minus: 1
+      hard: [lip_redo_zero, a1_no_zero_shot]
+      owner_confirm: true
+    source: 总调度批复 DISTILL r1（11-02）：棘轮规则；项目方定过成片只出预览、不定稿，本闸门管预览交付；DIRECTOR r1 成片分 /50
+    enforced_by: tools/autopilot/policy.py:delivery_check + tools/autopilot/flow.py delivery 段（最好分由代码记在 data/autopilot/flow/film_best.json，出了更好的成片自动抬高）
+    status: code_reads
+    owner: DISTILL
+    note: 最低线 = max(30, 该集历史最好分 − 1)；硬条件：data/director/redo_requests.json 本集 pending = 0；成片分 A1（视线）测到时不为 0 分，A1.3（MediaPipe 疑似看镜头）不为“不过”；代码过了再等项目方看预览确认
+  post_layer_enabled:
+    value: {rule: "成片分 A/B 后期版 ≥ 原版 才用后期版"}
+    source: 01:1x DIRECTOR r1 后期层 A/B 27.8→31.2 → 总调度批准接进合成链（先 ep01）
+    enforced_by: tools/autopilot/flow.py post / film_score 段（比较 epNN_vX 与 epNN_vX_post 的 total_50）
+    status: code_reads
+    owner: DIRECTOR
+  best_effort_policy:
+    value: {to_assembly: false, auto_force_only_contract_passed: true, auto_reset_on_rule_or_asset_change: true, counted: false}
+    source: 总调度 11-02 02:2x 定（发 DEBUG-RSI）；ITERATION_PROTOCOL §3（不合格不进合成、不给项目方）
+    enforced_by: tools/autopilot/producer.py（K-OPS-E11 尽力版按规则 / 资产版本自动重置；K-OPS-E12 含尽力镜的集不整集 force_eps、尽力镜不进视频 / 合成；DEBUG-RSI，随 sv-05 部署）
+    status: code_reads
+    owner: DEBUG-RSI
+    plan: 已落地（K-OPS-E11 / E12）；sv-05 部署后在服务器核一次
+  identity_faces:
+    value:
+      pinned: {lin_wan: assets/characters/lin_wan/refs/lin_wan/ar-c2351c9dcf.png}
+      inherit_must_match_parent: true
+    source: L-122（项目方 11-02 15:45 资产页“设为当前身份脸”+16:0x 点选“是我要换的”：林晚身份脸 = ar-c2351c9dcf 母版脸，取代 L-086 的 A-s202 高清裁）；总调度 11-02 03:0x（同类事故第二次：01:24 服务器缺 face_overrides、03:0x 第二季继承链漏 face_overrides，都解析成 ref2va）
+    enforced_by: tools/qa/identity_face_check.py（生产入口 ns_agent.asset_refs.face_of 逐 run 逐角色解析）→ owner_decisions D-AST-86d（decision_check / cut 闸门）+ SENTINEL 每拍
+    status: code_reads
+    owner: DISTILL（断言）/ WORKFLOW（继承链）/ SENTINEL（每拍）

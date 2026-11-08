@@ -1,0 +1,24 @@
+{
+ "_doc": "L-202 ②（项目方 11-06 08:0x：“依然 gpu 没有全开，我说过很多遍 gpu 资源不能空闲”）：空卡巡检 tools/autopilot/idle_watch.py 的开关与阈值（常驻线程每拍重读，改这里不用重启）。idle = 卡利用率 < util_idle_pct 且该道 ComfyUI 队列 running+pending == 0；有活 = 登记表有 ready 首尾帧 / 服务器有可派视频镜 / 资产作业 pending。某道空闲 ≥ idle_min 分钟且有活 → 记卡点 + 现成安全动作（night --once 重派、过期 hold 点名、心跳过期走 restart_queue）；从不杀进程、不碰 gpu33:2、不删。dry_run=true = 只写决定不动手。",
+ "enabled": true,
+ "interval_s": 60,
+ "idle_min": 5,
+ "util_idle_pct": 5,
+ "dry_run": false,
+ "act_gap_s": 600,
+ "restart_gap_s": 1800,
+ "report_repeat_min": 60,
+ "issue_blocking": false,
+ "producer_stale_min": 5,
+ "night_stale_min": 10,
+ "probe_timeout_s": 40,
+ "queue_timeout_s": 6,
+ "night_once_timeout_s": 180,
+ "actions": {
+  "night_once": false,
+  "restart_request": true,
+  "report_issue": true,
+  "channel": true
+ },
+ "_night_once_off": "PS-MASTER 11-06 17:5x：AUDIT-NIGHT 发现 night --once 与常驻 night 并发写 jobs/state/control（REOPEN×2、半截 JSON）；关掉"
+}

@@ -1,0 +1,6 @@
+{
+  "_comment": "强制判为成人的镜头：QC 在所有模型/种子下都检出裸露。值为原因。",
+  "per_shot": false,
+  "_per_shot_comment": "false（默认，项目方 2026-10-30 定“恢复整集判定”）= 集标题 🔴 整集每镜 adult；true = 逐镜看【亲密声】/ 关键词 / force_adult",
+  "force_adult": {}
+}

@@ -1,0 +1,48 @@
+# WORKFLOW（fredw-2b 派，2026-11-01 ~16:20）：series10 重出视频的默认基底改为 Pika H3 Flex。
+# 项目方原话（AskUserQuestion，总调度转）：选“改用 Pika Flex (Recommended)”——“之后重出的镜头都走 Pika，已经通过的镜头不动”。
+# 参数 = config/render_quality.json video_bases.bases.pika_flex（官方模板 video_pika_h3_flex_fl2va.json）：6 步、lcm、官方 7 值 sigma、
+# 无 SigmaShift、LoRA 1.0、首尾帧都给（有定稿尾帧就送，没有就只给首帧）。单段出图（不两段式、不叠 PDD / Turbo）。
+# 泛红防护：overlays/flush_risk 禁本配方 → compiler.hold_reason 让这一镜 hold（“等 Pika 方案（泛红防护）”），不回退 i2va_pdd2（L-088，⤴ 取代 16:2x 的回退）。
+id: i2va_pika_flex
+extends: _base
+label: 首帧（+尾帧）· Pika H3 Flex 6 步
+status: 待验
+experiment: PIKA-S10
+priority: 24
+selectable: false
+mode: i2va
+keyframes:
+  last_frame_mode: use
+loras:
+  pika_flex:
+    file: pika_h3_flex_fl2va_comfy_bf16.safetensors
+    strength: 1.0
+    enabled: true
+sampling:
+  steps: 6
+  sampler: lcm
+  scheduler: null
+  sigmas: "1.0, 0.972973, 0.923077, 0.8, 0.571429, 0.333333, 0.0"
+  shift_node: false
+prompt:
+  acting_micro_beats: false        # K-PRM-310：分拍微表情（VIDLAB vl_r1 ACT2 通过）；V7 / SFace 护栏补测通过后再开
+  acting_scope: closeup_single     # 只对近景及更紧、单人画内的镜（双人中景无效，另议）
+blocked_action: hold
+fallback: []
+provenance:
+  status: {src: "项目方 11-01 ~16:20 选“改用 Pika Flex (Recommended)”（总调度 fredw-2b 转）；series10 竖屏 768×1344 首帧路线未实测，冒烟见 docs/CHANGELOG_AGENTS.md WORKFLOW 条", date: 2026-11-01, status: 待验, experiment: PIKA-S10}
+  experiment: {src: "同上", date: 2026-11-01, status: 待验}
+  priority: {src: "selectable false，只由 recipe_choice.json 指定", date: 2026-11-01, status: 确认}
+  selectable: {src: "同上", date: 2026-11-01, status: 确认}
+  mode: {src: "首帧路线（K-REN-301）；有尾帧时 compiler._mode 自动转 fl2va", date: 2026-11-01, status: 确认}
+  keyframes.last_frame_mode: {src: "config/render_quality.json default_change_pf：Flex 没有 default_last_frame_mode → 首尾帧都给（use）", date: 2026-11-01, status: 确认}
+  loras.pika_flex: {src: "config/render_quality.json video_bases pika_flex（sha256 68783e64…，MiniMax H3 Community License）；六道 object_info 都有（CHANGELOG fredw-92/PF）", date: 2026-11-01, status: 确认}
+  sampling.steps: {src: "Pika 官方模板固定 6 步", date: 2026-11-01, status: 确认}
+  sampling.sampler: {src: "Pika 官方模板 lcm", date: 2026-11-01, status: 确认}
+  sampling.scheduler: {src: "ManualSigmas 代替调度器", date: 2026-11-01, status: 确认}
+  sampling.sigmas: {src: "Pika 官方 7 值 sigma（shift 12 已算进表）", date: 2026-11-01, status: 确认}
+  sampling.shift_node: {src: "Pika 模板无 SigmaShift 节点", date: 2026-11-01, status: 确认}
+  blocked_action: {src: "项目方 11-01 18:0x L-088“视频全部用皮卡来做，皮卡做不了就等”：flush_risk 命中 → hold（原因“等 Pika 方案（泛红防护）”），⤴ 取代 16:2x 的换回 i2va_pdd2", date: 2026-11-01, status: 确认}
+  prompt.acting_micro_beats: {src: "VIDLAB vl_r1 ACT2 配对 A/B（data/rsi/vidlab/ab_vl_r1_act2.json）：S5 近景单人 +47% / +45% 表演活跃度、眨眼 0→16 次/分；S4 双人中景 +1% / −4%；总调度 11-02 12:3x 批：默认关，护栏补测通过后开近景单人", date: 2026-11-02, status: 待验, experiment: VL-R1-ACT2}
+  prompt.acting_scope: {src: "同上：只对近景单人生效", date: 2026-11-02, status: 待验, experiment: VL-R1-ACT2}
+  fallback: {src: "L-088：不回退旧配方（⤴ 取代 fallback [i2va_pdd2]）", date: 2026-11-01, status: 确认}

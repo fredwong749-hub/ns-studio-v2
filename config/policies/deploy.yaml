@@ -1,0 +1,50 @@
+# 发版 / 部署策略（DISTILL 11-02）
+schema: nsfs.policy/1
+policy: deploy
+items:
+  cut_every_iteration:
+    value: true
+    source: L-095（每次迭代收轮后 cut sv-YYYYMMDD-NN 并 deploy 两台）
+    enforced_by: tools/qa/system_version.py、iter_gate V2
+    status: code_reads
+    owner: CODE-RSI
+  cut_gates:
+    value: [syntax_guard, "compile.py --check", "decision_check 0 ❌", decision_propagation, targeted_pytest]
+    source: L-095 / CODE-RSI r3
+    enforced_by: tools/qa/system_version.py:cut
+    status: drift_checked
+    owner: CODE-RSI
+    drift: {kind: grep, file: tools/qa/system_version.py, pattern: "decision_propagation"}
+  push_tag_files_only:
+    value: true
+    source: L-099b D9（部署只发 tag 里的文件，工作树 drift 只报不拦）；01:2x gpu36 被推送闸拦（cut 后新建 2 个文件判“没推到”）
+    enforced_by: tools/qa/system_version.py:deploy_host（export_tag 快照推 + 快照做推送前检查；工作树多出的只报 drift_local / drift_files；K-OPS-F06，FACTORY 11-02）
+    status: drift_checked
+    owner: FACTORY / CODE-RSI
+    drift: {kind: grep, file: tools/qa/system_version.py, pattern: "export_tag"}
+  cut_failed_no_deploy:
+    value: true
+    source: K-OPS-F07（FACTORY 11-02：cut 失败不许 deploy）
+    enforced_by: tools/qa/system_version.py（K-OPS-F07）
+    status: code_reads
+    owner: FACTORY
+  min_code_sv_in_inbox:
+    value: true
+    source: L-099b（声明式 inbox 带 min_code_sv）
+    enforced_by: （待落）FACTORY inbox
+    plan: 同 handback.min_code_sv；FACTORY 方案 C inbox 落地时一起做
+    status: pending
+    owner: FACTORY
+  deploy_per_host:
+    value: true
+    source: 01:2x（gpu33 成功、gpu36 被拦 → 总调度 cut sv-03 单独 deploy gpu36）
+    enforced_by: tools/qa/system_version.py deploy --hosts
+    status: code_reads
+    owner: CODE-RSI
+  restart_api_when_idle:
+    value: true
+    source: 01:23 UIRSI（/api/jobs queued/running 0 时才用 ops/restart_api.ps1 重启 :8800）
+    enforced_by: tools/uirsi/api_restart_guard.py tick（/api/jobs 空闲 + 距上次 ≥10 分钟 + 接重启队列）← tools/autopilot/flow.py tick
+    status: code_reads
+    owner: UIRSI
+    plan: restart_api.ps1 先查 /api/jobs，非空闲拒绝（加 -Force 才重启）

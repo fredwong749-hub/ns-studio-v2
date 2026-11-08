@@ -1,0 +1,63 @@
+{
+ "id": "sleevefix",
+ "note": "林晚造型 A 设定图 v2_s202 正面栏画面右侧那只手臂（她的左臂）是米白衬衫袖，补成深灰西装外套袖、露米白袖口（IMGFIX r5 / L-101）",
+ "asset": "data/assetmaster/sheets_v2/adopted/lin_wan_lookA_v2_s202.png",
+ "character": "lin_wan",
+ "look": "A",
+ "panel": "front",
+ "defect_box": [
+  250,
+  182,
+  350,
+  548
+ ],
+ "fill_until_y": 478,
+ "target_box": [
+  262,
+  230,
+  330,
+  460
+ ],
+ "mirror_x": 187.5,
+ "select": {
+  "rgb_min": [
+   125,
+   110,
+   80
+  ],
+  "r_minus_b_min": 6,
+  "exclude_white": true
+ },
+ "color_from": [
+  60,
+  300,
+  100,
+  420
+ ],
+ "prompt": "图1是同一个人的全身正面设定图。只修改画面右侧那只手臂（人物的左臂）的袖子：把现在的米白衬衫袖子改成深灰西装外套的袖子，和画面左侧那只手臂的外套袖子完全对称、同色同面料（深灰细格羊毛西装面料），袖口处露出一截米白衬衫袖口，长度到手腕；手、指甲、手臂姿势不变。其余全部与图1完全一致：脸、头发、身材、外套前片与翻领、米白衬衫前襟、项链、深灰铅笔裙、透明高跟鞋、纯白背景、光线和调色都不改。真实摄影质感，无文字。",
+ "seeds": [
+  20261102,
+  20261202,
+  20261302
+ ],
+ "denoises": [
+  0.85,
+  0.92
+ ],
+ "out_dir": "data/assetmaster/sheets_v2/candidates/lookA_sleeve_fix",
+ "checks": {
+  "target_dark_min": 0.85,
+  "target_light_max": 0.03,
+  "de_max": 6.0,
+  "fringe_max": 0.02,
+  "q1_drop_max": 0.005,
+  "intake": true,
+  "halo_ratio_max": 1.5
+ },
+ "halo_box": [
+  262,
+  182,
+  340,
+  478
+ ]
+}

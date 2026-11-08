@@ -1,0 +1,286 @@
+{
+  "_comment": "T38 配音：每个角色一个固定的合成音色（Kokoro 通用音色，不克隆任何真人）。sid = voices.bin 里的说话人编号；name 按 sherpa-onnx 模型卡的顺序标注。f0_hz 为 2026-10-30 本机试音（同一句台词）测得的中位基频，SenseVoice 回听全部 CER 0。改音色只改这里；line_overrides 用于纠正某一句的说话人（键：epXX-SN#行号，从 0 起）。",
+  "tts_model": {
+    "id": "kokoro-multi-lang-v1_1",
+    "upstream": "hexgrad/Kokoro-82M-v1.1-zh (sherpa-onnx 导出 kokoro-multi-lang-v1_1)",
+    "licence": "Apache-2.0",
+    "env_dir": "NS_KOKORO_DIR",
+    "default_dir": "C:\\Users\\fredw\\Documents\\Codex\\Apps\\H3Storyboard\\data\\speech\\models\\kokoro-multi-lang-v1_1",
+    "default_dir_posix": "/root/work/fredw/speech/models/kokoro-multi-lang-v1_1"
+  },
+  "asr_model": {
+    "id": "sherpa-onnx-sense-voice-zh-en-ja-ko-yue-int8-2024-07-17",
+    "licence": "FunASR model licence (SenseVoice)",
+    "env_dir": "NS_SENSEVOICE_DIR",
+    "default_dir": "C:\\Users\\fredw\\Documents\\Codex\\Apps\\H3Storyboard\\data\\speech\\models\\sherpa-onnx-sense-voice-zh-en-ja-ko-yue-int8-2024-07-17",
+    "default_dir_posix": "/root/work/fredw/speech/models/sherpa-onnx-sense-voice-zh-en-ja-ko-yue-int8-2024-07-17"
+  },
+  "speech_python": {
+    "env": "NS_TTS_PYTHON",
+    "default": "D:\\kimi-ns-storyboard\\speech-venv\\Scripts\\python.exe",
+    "note": "独立解释器，只装 sherpa-onnx==1.13.8；本仓库不依赖 sherpa-onnx",
+    "default_posix": "/root/work/fredw/speech/venv/bin/python",
+    "note_posix": "VOICE10 11-01：服务器常驻合成（gpu33 / gpu36）用的独立解释器，同样只装 sherpa-onnx==1.13.8（tools/voice10/speech_setup.sh 安装）"
+  },
+  "series": "series10_v1",
+  "characters": {
+    "lin_wan": {
+      "name": "林晚",
+      "gender": "female",
+      "age": 22,
+      "series": "series10_v1",
+      "engine": "cosyvoice3_zs",
+      "voice": "lin_wan_cand/c2",
+      "speed": 1.0,
+      "vo_speed": 1.0,
+      "speed_owner_decision": "项目方 2026-10-31 原话“改成正常节奏”：speed 0.9 → 1.0、vo_speed 0.86 → 1.0（FIX；docs/ep02_iter/writer_rules_addendum.md §12 第 5 条）",
+      "f0_hz": 231,
+      "asset": "data/assets/voices/lin_wan_cand/c2/meta.json",
+      "ref_wav": "data/assets/voices/lin_wan_cand/c2/ref.wav",
+      "ref_sha256": "d192578e1bb24e0e2dcdab6113fc30684323a9587ba9b01e11e3200ddd8fb2e4",
+      "note": "series10 音色：Qwen3-TTS VoiceDesign 文字设计（female, 22 years old, a mid-high sweet breathy voice, natural pace，seed 20261308，不克隆任何真人）+ Fun-CosyVoice3 zero-shot 复刻；候选 c2（按自动检查自动选）",
+      "owner_decision": {
+        "by": "owner",
+        "auto": true,
+        "quote": "音色问题,采取qad类似模型给林晚,和其他男人的,我来不及筛选",
+        "quote_date": "2026-11-01",
+        "how": "tools/voice10/voice10.py autopick（项目方原话授权按检查自动选；声音页可一键换成其他候选）",
+        "reason": "4 个过检候选里按 回听字错率最低 → 削波最少 → 复刻音高最贴近设计 ref 选 c2：CER 0.0、时长 7.15 s、f0 230.8 Hz（150–400（female））、HNR 9.6 dB、峰值 0.4754；其余：c3 CER 0.0 f0 221.2；c4 CER 0.0 f0 200.0；c1 CER 0.0 f0 237.6",
+        "at": "2026-11-01T02:57:02",
+        "reason_updated": {
+          "at": "2026-11-01",
+          "by": "VOICE10（总调度 fredw-2b 授权）",
+          "why": "CER 比对改为先统一数字写法（K-EDT-017，canon_numerals）后重跑 tools/voice10/voice10.py check + autopick --dry：4 个候选 CER 0.182 → 0.0，选择不变（仍 c2）",
+          "was": "4 个过检候选里按 回听字错率最低 → 削波最少 → 复刻音高最贴近设计 ref 选 c2：CER 0.182、时长 7.15 s、f0 230.8 Hz（150–400（female））、HNR 9.6 dB、峰值 0.4754；其余：c3 CER 0.182 f0 221.2；c4 CER 0.182 f0 200.0；c1 CER 0.182 f0 237.6"
+        }
+      },
+      "owner_selections": [
+        {
+          "at": "2026-11-01T02:57:02",
+          "from": {
+            "name": "林晚",
+            "gender": "female",
+            "age": 22,
+            "sid": 36,
+            "voice": "zf_067",
+            "speed": 1.0,
+            "f0_hz": 262,
+            "hnr_db": 7.2,
+            "note": "女主。按剧本声音规则（中高音区、甜而带气声、自然语速、尾音软）：中高音区里气声最明显（HNR 低）且音高起伏大的一档；独白🎙同一音色",
+            "vo_speed": 1.0,
+            "speed_owner_decision": "项目方 2026-10-31 原话“改成正常节奏”：speed 0.9 → 1.0、vo_speed 0.86 → 1.0（FIX；docs/ep02_iter/writer_rules_addendum.md §12 第 5 条）"
+          },
+          "to": {
+            "voice": "lin_wan_cand/c2"
+          },
+          "note": "按自动检查自动选"
+        }
+      ]
+    },
+    "gu_chen": {
+      "name": "顾沉",
+      "gender": "male",
+      "age": 34,
+      "series": "series10_v1",
+      "engine": "cosyvoice3_zs",
+      "voice": "gu_chen_cand/c4",
+      "speed": 1.0,
+      "speed_owner_decision": "项目方 2026-10-31 原话“改成正常节奏”：speed 0.92 → 1.0（FIX）",
+      "f0_hz": 105,
+      "asset": "data/assets/voices/gu_chen_cand/c4/meta.json",
+      "ref_wav": "data/assets/voices/gu_chen_cand/c4/ref.wav",
+      "ref_sha256": "e3b4a121bf3cd1d6f69610c67505ecb122172db53037b10d646cc3f0d43f227a",
+      "note": "series10 音色：Qwen3-TTS VoiceDesign 文字设计（male, 34 years old, a low restrained voice, natural pace，seed 20261508，不克隆任何真人）+ Fun-CosyVoice3 zero-shot 复刻；候选 c4（按自动检查自动选）",
+      "owner_decision": {
+        "by": "owner",
+        "auto": true,
+        "quote": "音色问题,采取qad类似模型给林晚,和其他男人的,我来不及筛选",
+        "quote_date": "2026-11-01",
+        "how": "tools/voice10/voice10.py autopick（项目方原话授权按检查自动选；声音页可一键换成其他候选）",
+        "reason": "4 个过检候选里按 回听字错率最低 → 削波最少 → 复刻音高最贴近设计 ref 选 c4：CER 0.0、时长 8.15 s、f0 107.6 Hz（70–190（male））、HNR 3.1 dB、峰值 0.423；其余：c1 CER 0.045 f0 95.0；c2 CER 0.045 f0 98.2；c3 CER 0.045 f0 112.7",
+        "at": "2026-11-01T02:57:02"
+      },
+      "owner_selections": [
+        {
+          "at": "2026-11-01T02:57:02",
+          "from": {
+            "name": "顾沉",
+            "gender": "male",
+            "age": 34,
+            "sid": 68,
+            "voice": "zm_029",
+            "speed": 1.0,
+            "f0_hz": 107,
+            "note": "最低沉的男声（克制靠音色，不再靠放慢）",
+            "speed_owner_decision": "项目方 2026-10-31 原话“改成正常节奏”：speed 0.92 → 1.0（FIX）"
+          },
+          "to": {
+            "voice": "gu_chen_cand/c4"
+          },
+          "note": "按自动检查自动选"
+        }
+      ]
+    },
+    "chen_yu": {
+      "name": "陈宇",
+      "gender": "male",
+      "age": 23,
+      "series": "series10_v1",
+      "engine": "cosyvoice3_zs",
+      "voice": "chen_yu_cand/c2",
+      "speed": 1.0,
+      "f0_hz": 154,
+      "asset": "data/assets/voices/chen_yu_cand/c2/meta.json",
+      "ref_wav": "data/assets/voices/chen_yu_cand/c2/ref.wav",
+      "ref_sha256": "62a3922965fc7247bf40300d98d60822391cf9d59b0e23b66cf324c221928a48",
+      "note": "series10 音色：Qwen3-TTS VoiceDesign 文字设计（male, 23 years old, a warm bright voice, natural pace，seed 20261308，不克隆任何真人）+ Fun-CosyVoice3 zero-shot 复刻；候选 c2（按自动检查自动选（重写：去掉旧 Kokoro 语速 1.03））",
+      "owner_decision": {
+        "by": "owner",
+        "auto": true,
+        "quote": "音色问题,采取qad类似模型给林晚,和其他男人的,我来不及筛选",
+        "quote_date": "2026-11-01",
+        "how": "tools/voice10/voice10.py autopick（项目方原话授权按检查自动选；声音页可一键换成其他候选）",
+        "reason": "1 个过检候选里按 回听字错率最低 → 削波最少 → 复刻音高最贴近设计 ref 选 c2：CER 0.0、时长 3.87 s、f0 148.2 Hz（70–190（male））、HNR 7.1 dB、峰值 0.4429；其余：",
+        "at": "2026-11-01T02:57:23"
+      },
+      "owner_selections": [
+        {
+          "at": "2026-11-01T02:57:02",
+          "from": {
+            "name": "陈宇",
+            "gender": "male",
+            "age": 23,
+            "sid": 77,
+            "voice": "zm_050",
+            "speed": 1.03,
+            "f0_hz": 152,
+            "note": "偏高、明亮 = 温暖阳光"
+          },
+          "to": {
+            "voice": "chen_yu_cand/c2"
+          },
+          "note": "按自动检查自动选"
+        },
+        {
+          "at": "2026-11-01T02:57:23",
+          "from": {
+            "name": "陈宇",
+            "gender": "male",
+            "age": 23,
+            "series": "series10_v1",
+            "engine": "cosyvoice3_zs",
+            "voice": "chen_yu_cand/c2",
+            "speed": 1.03,
+            "f0_hz": 154,
+            "asset": "data/assets/voices/chen_yu_cand/c2/meta.json",
+            "ref_wav": "data/assets/voices/chen_yu_cand/c2/ref.wav",
+            "ref_sha256": "62a3922965fc7247bf40300d98d60822391cf9d59b0e23b66cf324c221928a48",
+            "note": "series10 音色：Qwen3-TTS VoiceDesign 文字设计（male, 23 years old, a warm bright voice, natural pace，seed 20261308，不克隆任何真人）+ Fun-CosyVoice3 zero-shot 复刻；候选 c2（按自动检查自动选）",
+            "owner_decision": {
+              "by": "owner",
+              "auto": true,
+              "quote": "音色问题,采取qad类似模型给林晚,和其他男人的,我来不及筛选",
+              "quote_date": "2026-11-01",
+              "how": "tools/voice10/voice10.py autopick（项目方原话授权按检查自动选；声音页可一键换成其他候选）",
+              "reason": "1 个过检候选里按 回听字错率最低 → 削波最少 → 复刻音高最贴近设计 ref 选 c2：CER 0.0、时长 3.87 s、f0 148.2 Hz（70–190（male））、HNR 7.1 dB、峰值 0.4429；其余：",
+              "at": "2026-11-01T02:57:02"
+            }
+          },
+          "to": {
+            "voice": "chen_yu_cand/c2"
+          },
+          "note": "按自动检查自动选（重写：去掉旧 Kokoro 语速 1.03）"
+        }
+      ]
+    },
+    "narrator": {
+      "name": "旁白",
+      "gender": "female",
+      "age": 25,
+      "engine": "cosyvoice3_zs",
+      "voice": "narrator_qag",
+      "speed": 1.0,
+      "vo_speed": 1.0,
+      "f0_hz": 226,
+      "asset": "data/assets/voices/narrator_qag/voice.json",
+      "ref_wav": "data/assets/voices/narrator_qag/ref.wav",
+      "ref_sha256": "46f69b0ac88463ecb009d27ed10b5b2dcc91bef32ed47775a4090f18fe9160ec",
+      "note": "旁白 / 独白🎙 专用：Qwen3-TTS VoiceDesign 文字设计的合成声（QAg 深夜电台·温柔，不克隆任何真人），所有句子以固定 ref.wav 经 Fun-CosyVoice3 zero-shot 复刻（3 句实测说话人相似度均值 0.954）；gpu36 venv_tts 远程批处理（ns_post.tts.RemoteCloneBackend）",
+      "owner_decision": {
+        "by": "owner",
+        "at": "2026-10-31",
+        "quote": "oag音色；QAg（深夜电台·温柔）；采取",
+        "note": "第二轮挑选页 data/review_pages/narrator_pick/；此前原话“旁白的声音一定要更加年轻”“像广播电台主持人讲故事那种声音”"
+      }
+    },
+    "ch_a_lan": {
+      "name": "阿岚",
+      "gender": "female",
+      "age": 26,
+      "series": "series10_v1",
+      "engine": "cosyvoice3_zs",
+      "voice": "ch_a_lan_cand/c1",
+      "speed": 1.0,
+      "f0_hz": 148,
+      "asset": "data/assets/voices/ch_a_lan_cand/c1/meta.json",
+      "ref_wav": "data/assets/voices/ch_a_lan_cand/c1/ref.wav",
+      "ref_sha256": "dce892bca58f93e5141548ab5ca54d81947d5de26d4e763bc4f4eb8ef0cf70ba",
+      "note": "series10 音色：Qwen3-TTS VoiceDesign 文字设计（female, 26 years old, a low husky alto voice, natural pace，seed 20261209，不克隆任何真人）+ Fun-CosyVoice3 zero-shot 复刻；候选 c1（按自动检查自动选）",
+      "owner_decision": {
+        "by": "owner",
+        "auto": true,
+        "quote": "音色问题,采取qad类似模型给林晚,和其他男人的,我来不及筛选",
+        "quote_date": "2026-11-01",
+        "how": "tools/voice10/voice10.py autopick（项目方原话授权按检查自动选；声音页可一键换成其他候选）",
+        "reason": "4 个过检候选里按 回听字错率最低 → 削波最少 → 复刻音高最贴近设计 ref 选 c1：CER 0.0、时长 4.91 s、f0 150.0 Hz（150–400（female））、HNR 11.7 dB、峰值 0.6724；其余：c3 CER 0.0 f0 183.2；c4 CER 0.077 f0 164.4；c2 CER 0.154 f0 165.5",
+        "at": "2026-11-01T02:57:02"
+      },
+      "owner_selections": [
+        {
+          "at": "2026-11-01T02:57:02",
+          "from": null,
+          "to": {
+            "voice": "ch_a_lan_cand/c1"
+          },
+          "note": "按自动检查自动选"
+        }
+      ]
+    }
+  },
+  "voiceover_speaker": "narrator",
+  "voiceover_speaker_owner_decision": {
+    "by": "owner",
+    "at": "2026-10-31",
+    "quote": "oag音色；QAg（深夜电台·温柔）；采取",
+    "note": "系统默认旁白 lin_wan → narrator（ns_post.speakers 读本键）；林晚等角色的对白兜底仍用 Kokoro"
+  },
+  "remote_tts": {
+    "host": "gpu36",
+    "base_dir": "/root/work/fredw/narrator_tts",
+    "venv": "/root/work/fredw/venv_tts",
+    "gpus": [
+      2
+    ],
+    "max_used_mb": 13500,
+    "note": "VOICE 2026-10-31：只在 gpus 列表里、已用显存 < max_used_mb 且本卡锁空闲时用 GPU（每卡排队 ≤1；GPU2 经 PLANB 同意可与长镜头道并存），否则 CPU。GPU0/1 是 H3 出片道，不列入",
+    "model_dirs": {
+      "cosyvoice3_zs": "/root/work/fredw/hf/hub/models--FunAudioLLM--Fun-CosyVoice3-0.5B-2512/snapshots/29e01c4e8d000f4bcd70751be16fa94bf3d85a18",
+      "qwen3_clone": "/root/work/fredw/hf/hub/models--Qwen--Qwen3-TTS-12Hz-1.7B-Base/snapshots/fd4b254389122332181a7c3db7f27e918eec64e3"
+    },
+    "timeout_s": 3600,
+    "seed": 20261031,
+    "local_hosts": [
+      "gpu36",
+      "gpu33"
+    ],
+    "gpus_by_host": {
+      "gpu36": [
+        2
+      ],
+      "gpu33": []
+    },
+    "note_local": "VOICE10 11-01（总调度方案 b）：常驻合成时 OFFLINE_SELF 在 local_hosts 里就本机跑 venv_tts（gpu33 自装一套，tools/voice10/cosy_setup.sh；两台服务器刻意不互相登录）。gpus_by_host：gpu33 GPU2 坏卡、0/1/3 是出片道 → 空表 = CPU"
+  },
+  "groups": {},
+  "line_overrides": {}
+}

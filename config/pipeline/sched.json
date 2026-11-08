@@ -1,0 +1,90 @@
+{
+ "_doc": "SCHED-CORE（11-06，L-205 KPI 一集 ≤ 50 min；L-206 工位 / L-207 三段）：全局工作板 tools/sched/core.py 的唯一配置。enabled=false = 现有 producer / night / vidgen 各自调度（默认）；true = 它们在派单前先问工作板（tools/sched/README.md 接入计划）。坏卡 gpu33:2 写了也剔除。",
+ "enabled": false,
+ "kpi": {
+  "episode_s": 3000,
+  "_episode_s": "L-205：一集 ≤ 50 分钟（单段视频 ≈ 5 分钟）"
+ },
+ "lanes": {
+  "gpu33:0": {
+   "host": "gpu33",
+   "speed": 1.0
+  },
+  "gpu33:1": {
+   "host": "gpu33",
+   "speed": 1.0
+  },
+  "gpu33:3": {
+   "host": "gpu33",
+   "speed": 1.0,
+   "vqa_slots": 3
+  },
+  "gpu36:0": {
+   "host": "gpu36",
+   "speed": 1.25
+  },
+  "gpu36:1": {
+   "host": "gpu36",
+   "speed": 1.25
+  },
+  "gpu36:2": {
+   "host": "gpu36",
+   "speed": 1.25
+  },
+  "_speed": "耗时倍率（11-06 实测：首尾帧 base35 gpu_s 中位 gpu33 ≈ 310 s、gpu36 ≈ 400 s；视频 gpu33 404 s、gpu36 415 s）",
+  "_vqa_slots": "该道同时能跑几个看图 / 打分作业（L-206 审图位 gpu33:3 三实例；L-207 视频阶段缩到 1，由 set_lane_role 事件改）"
+ },
+ "switch_penalty_s": {
+  "image->video": 90,
+  "video->image": 90,
+  "none->image": 60,
+  "none->video": 90,
+  "vqa->image": 60,
+  "vqa->video": 90,
+  "image->vqa": 45,
+  "video->vqa": 45,
+  "_doc": "换模型代价（秒）：道上已载模型 ≠ 任务模型时计入 cost；同模型 0"
+ },
+ "duration_prior_s": {
+  "first": 310,
+  "last": 310,
+  "video": 410,
+  "assembly": 360,
+  "face": 120,
+  "sheet": 180,
+  "scene": 200,
+  "_doc": "各任务类型耗时先验（gpu33 基准，× 道 speed）；真实完成后按 EWMA 更新（key = 类型|道）"
+ },
+ "score_prior_s": {
+  "image": 90,
+  "video": 65,
+  "_doc": "出图后看图契约 contract_s 中位 91 s；视频打分 DONE→SCORE 约 65 s"
+ },
+ "expected_attempts": {
+  "first": 2.4,
+  "last": 1.9,
+  "video": 1.4,
+  "_doc": "关键路径估算用的期望尝试次数（11-06 实测：首帧每次不过率 77%、尾帧 57%、视频约 30%，上限 3 次）"
+ },
+ "ewma_alpha": 0.3,
+ "policies": {
+  "max_attempts": 3,
+  "auto_adopt": true,
+  "_auto_adopt": "L-196 / L-204 (2)：3 次用尽自动采用最好一版，下游放行",
+  "phase_gate": "strict",
+  "_phase_gate": "L-207 三段：strict = 下一集首尾帧要等本集视频全部落定；fill_idle = 同上，但道空且无别的活时放行下一集首尾帧（L-202 空卡巡检）；off = 纯关键路径",
+  "assets_bypass_phase_gate": true,
+  "episode_order_penalty_s": 100000,
+  "_episode_order_penalty_s": "越早的集优先：每晚一集扣这么多秒的优先级；很大 = 严格按集序，0 = 纯 HEFT",
+  "lease_ttl_s": 1500,
+  "score_lease_ttl_s": 600,
+  "heartbeat_s": 30,
+  "lane_stale_s": 120,
+  "lane_down_after_timeouts": 2,
+  "requeue_avoid_same_lane": true
+ },
+ "sim": {
+  "server_repo": "/root/work/fredw/offline_20261101/repo",
+  "_doc": "sim.py --fetch 只读取数用的服务器仓库路径（两台相同）"
+ }
+}

@@ -1,0 +1,112 @@
+{
+ "schema": "nsfs.music_library/1",
+ "run": "series10_v2",
+ "_doc": "V2 配乐曲库（L-131，项目方 11-02 21:2x 选定，总调度转；STYLE-V2 登记）。剪辑锁定后的整集配乐（L-118）装配器只从本曲库取；幻想段用 use=幻想段 的曲、现实段用 use=现实段 的曲。sha256 对不上 = 不许用。",
+ "decision": "L-131",
+ "source": "data/music/v2_style/themes.json（tools/v2style/bgm_themes.py 生成；ACE-Step 1.5 XL SFT，gpu33）；试听页 data/review_pages/v2_style/music.html",
+ "note_B": "B 现实编配和 B 幻想编配的动机相似度只有 0.628（不同主题之间的对照均值 0.62），但项目方仍选了它（总调度：照选）",
+ "tracks": [
+  {
+   "id": "v2_bgm_A_reality",
+   "theme": "外滩夜光 · Nu-Disco / French House",
+   "arrangement": "reality",
+   "use": "现实段",
+   "file": "data/music/v2_style/A_reality.flac",
+   "sha256": "98375ada3f62018ec66fe848e3acef1f096b9942e4252a2e40e412bc3187819a",
+   "bpm": 118,
+   "bpm_measured": 58.7,
+   "key": "F minor",
+   "duration_s": 48.0,
+   "lufs_integrated": -16.1,
+   "true_peak_dbtp": -1.5,
+   "sr": 48000,
+   "cover_strength": 0.5,
+   "seed": 83661850,
+   "model": "acestep-v15-xl-sft",
+   "gates": {
+    "vocal_rel_db": -34.1,
+    "clip_ratio": 0.0,
+    "longest_gap_s": 0.6,
+    "clap": 0.3099
+   },
+   "motif_sim_to_fantasy": 0.887
+  },
+  {
+   "id": "v2_bgm_B_reality",
+   "theme": "静安秀场 · Runway Deep House",
+   "arrangement": "reality",
+   "use": "现实段",
+   "file": "data/music/v2_style/B_reality.flac",
+   "sha256": "eb28d261388eec2f7a3102f8e99613d823f5ab91aa157f10559e832b4f731b32",
+   "bpm": 122,
+   "bpm_measured": 61.5,
+   "key": "A minor",
+   "duration_s": 48.0,
+   "lufs_integrated": -16.3,
+   "true_peak_dbtp": -1.3,
+   "sr": 48000,
+   "cover_strength": 0.55,
+   "seed": 209238386,
+   "model": "acestep-v15-xl-sft",
+   "gates": {
+    "vocal_rel_db": -28.5,
+    "clip_ratio": 0.0,
+    "longest_gap_s": 0.0,
+    "clap": 0.1008
+   },
+   "motif_sim_to_fantasy": 0.628
+  },
+  {
+   "id": "v2_bgm_C_fantasy",
+   "theme": "海派霓虹 · Shanghai City Pop × Jazz",
+   "arrangement": "fantasy",
+   "use": "幻想段",
+   "file": "data/music/v2_style/C_fantasy.flac",
+   "sha256": "c066fc317f61cd4cf0e9e7375acfaa33831dadc274aa546ab627e5468ce1b771",
+   "bpm": 104,
+   "bpm_measured": 103.4,
+   "key": "Eb major",
+   "duration_s": 48.0,
+   "lufs_integrated": -16.0,
+   "true_peak_dbtp": -2.1,
+   "sr": 48000,
+   "cover_strength": null,
+   "seed": 191370046,
+   "model": "acestep-v15-xl-sft",
+   "gates": {
+    "vocal_rel_db": -36.0,
+    "clip_ratio": 0.0,
+    "longest_gap_s": 0.9,
+    "clap": 0.2523
+   },
+   "motif_sim_to_fantasy": null
+  }
+ ],
+ "archived": [
+  {
+   "id": "A_fantasy",
+   "file": "data/music/v2_style/A_fantasy.flac",
+   "why": "L-131 未选，归档（不删）"
+  },
+  {
+   "id": "B_fantasy",
+   "file": "data/music/v2_style/B_fantasy.flac",
+   "why": "L-131 未选，归档（不删）"
+  },
+  {
+   "id": "C_reality",
+   "file": "data/music/v2_style/C_reality.flac",
+   "why": "L-131 未选，归档（不删）"
+  },
+  {
+   "id": "B_reality_s75",
+   "file": "data/music/v2_style/B_reality_s75.flac",
+   "why": "L-131 未选，归档（不删）"
+  },
+  {
+   "id": "C_reality_s75",
+   "file": "data/music/v2_style/C_reality_s75.flac",
+   "why": "L-131 未选，归档（不删）"
+  }
+ ]
+}

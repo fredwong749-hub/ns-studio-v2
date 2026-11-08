@@ -1,0 +1,8 @@
+{
+ "_doc": "K-REN-959（PROMPTFIX 11-02，V2 manifest SH2 参考图带品牌 logo，项目方：只取款式、不出现任何品牌字样）：资产包模式下出图提示词里出现这些词 → preflight I13 挡。人写配置，按需补；大小写不敏感",
+ "words": ["Louboutin", "Christian Louboutin", "红底鞋", "红鞋底", "Jimmy Choo", "Manolo", "Blahnik", "Gucci", "Prada", "Chanel", "香奈儿",
+           "Dior", "迪奥", "YSL", "Saint Laurent", "圣罗兰", "Versace", "范思哲", "Balenciaga", "巴黎世家", "Hermès", "Hermes", "爱马仕",
+           "Louis Vuitton", "LV", "路易威登", "Fendi", "芬迪", "Valentino", "华伦天奴", "Miu Miu", "缪缪", "Givenchy", "纪梵希",
+           "Burberry", "博柏利", "Bottega", "葆蝶家", "Celine", "思琳", "Stuart Weitzman", "Aquazzura", "Gianvito Rossi", "Amina Muaddi",
+           "Nike", "Adidas", "logo", "LOGO", "商标", "品牌标志"]
+}

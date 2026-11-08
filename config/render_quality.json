@@ -1,0 +1,1061 @@
+{
+  "schema": "nsfs.render_quality/v1",
+  "note": "fredw-92/Q1：画布出图两档。预览档 = Image 2.1 Turbo 单遍（快，现状不变）；定稿档 = gpu3 生产渲染器 weita_render.py（WR）realism_graph / identity_graph 的同一组值。每个值后面的 src 是 docs/research_adoption.md 的行号 + gpu3 出处。代码只从这里读（ns_render.final_tier.quality()）。",
+  "default_tier": "preview",
+  "tiers": {
+    "preview": {
+      "src": "D1：Turbo 只做预览；NR pipeline.QWEN_TURBO（8 步官方 sigma、cfg 1）",
+      "unet": "qwen_image_2.1_turbo_int8_convrot.safetensors",
+      "steps": 8,
+      "cfg": 1.0
+    },
+    "final": {
+      "unet": "qwen_image_2.1_int8_convrot.safetensors",
+      "unet_src": "D1；WR IMG_FILES['base']",
+      "clip": "qwen3vl_8b_int8_convrot.safetensors",
+      "clip_src": "WR CLIP",
+      "vae": "texture_fix_vae_for_qwen_image_2.1_bf16.safetensors",
+      "vae_src": "D3/[realism].vae；WR QVAE_TEXTURE_FIX（realism_graph 默认 VAE）",
+      "steps": 35,
+      "cfg": 3.0,
+      "sampler": "euler",
+      "scheduler": "simple",
+      "steps_src": "D1（30–40 步真 CFG）；WR BASE_CFG=3.0、weita_series frames_fast base_steps 默认 35、sampler euler / scheduler simple",
+      "pass1_size": [
+        928,
+        1632
+      ],
+      "pass1_src": "D2（≈1.5 MP 第一遍）；WR PASS1_W/PASS1_H",
+      "init_from_parent": true,
+      "init_denoise": 0.5,
+      "init_src": "WR identity_graph：以候选图 latent 为底、IDENTITY_DENOISE=0.5 保留构图；画布上底图 = 被定稿的预览版（同时作 图1 参考）",
+      "pass2_size": [
+        1152,
+        2016
+      ],
+      "pass2_denoise": 0.3,
+      "pass2_steps_ratio": 0.4,
+      "pass2_min_steps": 8,
+      "pass2_seed_offset": 1,
+      "pass2_src": "D2（lanczos 放大 + denoise 0.30 第二遍，>0.4 脸漂）；WR realism_graph 节点 50–55：ImageScale lanczos → GEN_W×GEN_H 1152×2016，steps max(8, int(steps×0.4)) = 14，噪声种子 +1",
+      "realism_loras": [
+        [
+          "krea2_film_texture_qwen21.safetensors",
+          0.5
+        ]
+      ],
+      "realism_src": "D3；WR REALISM_IMG_LORA（只在 ComfyUI 有该文件时加）",
+      "banned_loras": [
+        "glamour_realism_qwen21.safetensors"
+      ],
+      "banned_src": "D3；config/visual_bible.toml [realism].banned_loras",
+      "identity_loras": {},
+      "identity_src": "RECALL 2026-11-01：原 lin_wan_qi_v1 0.8 已撤（项目方 2026-10-31“A. 去掉”；契约 I8 lora_banned；文件已隔离到 _quarantine_20261101）。身份改由身份脸参考图（frame_v9）负责",
+      "lora_cap": 1.6,
+      "lora_cap_src": "D4（部分）：WR LORA_CAP=1.6，按比例缩放写实 LoRA 以外的全部 LoRA（WR gen_image_route 先 cap 再由 realism_graph 前置 krea2）；研究建议的 ≤1.2 待 X12 A/B",
+      "grade": {
+        "method": "reinhard_lab",
+        "strength": 0.6,
+        "reference": "assets/style/color_reference_01.png"
+      },
+      "grade_src": "B5：Reinhard LAB → 色调参考 0.6；暗场由 grade.transfer 处理（色度 ×0.5 = 0.3、亮度不动不提亮）；WR colour_match(…, COLOUR_REF, 0.6)，weita_adult 对尾帧同样 0.6 → 参考图",
+      "grain": false,
+      "grain_src": "D7：颗粒只在 4K 成片 finish 加，关键帧不加",
+      "timeout_s": 1800
+    }
+  },
+  "video_bases_note": "fredw-92/PF：视频“基底”（项目方原话：Pika H3 Flex 下载体验一下，画面可以选择基底）。POST /api/shots/{id}/video-jobs body.base 选一个 id；不传 = default。代码只从这里读（ns_render.h3_video.video_bases()）；所有值记进 take.params.base / params.model。",
+  "video_bases": {
+    "default": "pika_flex",
+    "default_change_pf": {"by": "fredw-92/PF（项目方本人在会话里直接下令）", "at": "2026-11-01", "owner_quote": "把 Flex 设成默认基底", "previous_default": "official_base（RR 2026-10-31：基模 24 步 + 只给首帧，见下面 default_decision，保留为历史记录）", "new_default": "pika_flex（6 步、lcm、官方 7 值 sigma；没有 default_last_frame_mode → 首尾帧都给 use，与 data/ab/pika_flex A/B 相同）", "revert": "把 default 改回 \"official_base\"（局部改这一行）并在 /api/jobs 空闲时重启 :8800；单次请求 body {\"base\": \"official_base\"} 也可用"},
+    "default_decision": {
+      "by": "RR（fredw-92 委派，项目方授权全权处理）",
+      "at": "2026-10-31",
+      "owner_quote": "现在整个rendering出来的video无法使用，完全是废品……你采取任何方式都要搞定，video太差了，无法接受",
+      "previous_default": "official_turbo（Turbo 8 步 + 首尾帧）",
+      "new_default": "official_base 24 步 + 只给首帧（基底自带 default_last_frame_mode: none）",
+      "evidence": "MOT data/ab/motion_fix/best/metrics.md、docs/QC_ep02_20261031.md、docs/h3_research_quality.md：4 帧一顿来自 H3 采样（VAE 往返 J4 1.003，不是 VAE）；脚重影来自 Turbo 8 步；结尾定住来自首帧≈尾帧。ep02-S1：现行 J4 1.34（z 3.6）+ 脚重影 → 基模 24 步只给首帧 J4 1.12（z 0.7）、无重影；S2 运动 0.18 → 0.51 px/帧（×2.8）。代价：3090 上每镜 192 帧约 41 min（现行 13–16 min）",
+      "revert": "把上面 default 改回 \"official_turbo\"（局部改这一行）并重启 :8800 API 即恢复旧配方（official_turbo 的 default_last_frame_mode 是 use = 首尾帧都给）；不改默认时，单次请求 body {\"base\": \"official_turbo\"} 即用旧配方。快速兜底：base pika_flex + last_frame_mode none + tools/dejudder.py"
+    },
+    "bases": [
+      {
+        "id": "official_turbo",
+        "label": "官方 8 步（旧默认·首尾帧）",
+        "short": "官方8步",
+        "default_last_frame_mode": "use",
+        "lora": "minimax_h3_fl2v_turbo_8step_v1.1_768p_comfyui_bf16.safetensors",
+        "lora_strength": 1.0,
+        "steps": 8,
+        "sampler": "euler",
+        "scheduler": "simple",
+        "sigmas": null,
+        "shift": [
+          6.0,
+          3.0
+        ],
+        "shift_node": true,
+        "cfg": 1.0,
+        "guider": "BasicGuider",
+        "steps_adjustable": true,
+        "note": "现链：lightx2v FL2V Turbo 8step v1.1 768p @1.0、euler/simple 8 步、MiniMaxH3SigmaShift 6/3",
+        "source_url": "https://huggingface.co/lightx2v/Minimax-h3-Turbo",
+        "license": "LoRA 随 lightx2v 仓库；底模 MiniMax H3 Community License",
+        "src": "ns_render.workflows.H3Model 默认（P-A3/P-A4，与 gpu3 weita_render 一致）"
+      },
+      {
+        "id": "pika_flex",
+        "label": "Pika H3 Flex（6 步·试验）",
+        "short": "Pika Flex",
+        "experimental": true,
+        "lora": "pika_h3_flex_fl2va_comfy_bf16.safetensors",
+        "lora_strength": 1.0,
+        "steps": 6,
+        "sampler": "lcm",
+        "scheduler": null,
+        "sigmas": "1.0, 0.972973, 0.923077, 0.8, 0.571429, 0.333333, 0.0",
+        "sigma_knots": [
+          1000,
+          750,
+          500,
+          250,
+          100,
+          40,
+          0
+        ],
+        "shift": [
+          12.0,
+          3.0
+        ],
+        "shift_node": false,
+        "cfg": 1.0,
+        "guider": "BasicGuider",
+        "steps_adjustable": false,
+        "note": "换掉 Turbo LoRA（不能叠），lcm + 官方 7 值 sigma（6 步），shift 12/3 已算进 sigma 表（模板里没有 SigmaShift 节点）；同底模 fl2va_pruned_int8_convrot、同首尾帧、同提示词",
+        "hint": "换成 Pika 的蒸馏 LoRA：6 步、lcm 采样、官方 sigma 表；步数和 LoRA 强度固定，不能改",
+        "sha256": "68783e6447696ec365d13c0554941e070bee4cfea13c37da52498ec4f9a53f89",
+        "size_bytes": 1956172176,
+        "source_url": "https://huggingface.co/Pika-Labs/Pika-H3-Flex/blob/main/comfy/loras/pika_h3_flex_fl2va_comfy_bf16.safetensors",
+        "sha256_src": "https://huggingface.co/Pika-Labs/Pika-H3-Flex/blob/main/comfy/SHA256SUMS（gpu3 sha256sum 一致，2026-10-31）",
+        "template_url": "https://github.com/Comfy-Org/workflow_templates/blob/main/templates/video_pika_h3_flex_fl2va.json",
+        "docs_url": "https://docs.comfy.org/tutorials/video/pika/pika-h3-flex",
+        "license": "MiniMax H3 Community License Agreement（Model Derivative of MiniMax H3，Mellis, Inc.）；地域 / 商用条款见 https://huggingface.co/MiniMaxAI/MiniMax-H3/blob/main/LICENSE",
+        "settings_src": "官方模板 video_pika_h3_flex_fl2va.json：LoraLoaderModelOnly 1.0、KSamplerSelect lcm、ManualSigmas \"1.0, 0.972973, 0.923077, 0.8, 0.571429, 0.333333, 0.0\"、BasicGuider、SamplerCustomAdvanced、无 SigmaShift；comfy/README.md：knots 1000/750/500/250/100/40/0、video shift 12、audio shift 3、strength 1.0；Comfy 文档：不要叠 Turbo / Lightning、不要改步数、sigma 少于 7 个值会坏。模板用 Comfy-Org 重打包名 pika_h3_flex_fl2va_v1_bf16（1956172304 B，多 128 B 头），我们用 Pika 原件（有官方 sha256）",
+        "caveats": "官方：ComfyUI 端到端未验证（no end-to-end ComfyUI render was verified）；竖屏 768×1344 首尾帧无社区实测（docs/research/h3_latest_models_20261031.md §4）"
+      },
+      {
+        "id": "official_base",
+        "label": "官方基模 24 步·只给首帧（默认·慢约 3 倍）",
+        "short": "基模24步",
+        "experimental": false,
+        "no_lora": true,
+        "lora": null,
+        "lora_strength": null,
+        "steps": 24,
+        "steps_note": "RR 2026-10-31：25 → 24 = MOT 实测最好的配方（ep02-S1 J4 1.12、无脚重影，S2 运动 ×2.8；3090 每镜 192 帧约 41 min）",
+        "long_patch_lora": {
+          "name": "pika_h3_flex_fl2va_comfy_bf16.safetensors",
+          "strength": 0.0001,
+          "min_frames": 261,
+          "note": "RR 2026-10-31：无 LoRA 时长镜头道 gpu36:2（--novram）294 帧在 SamplerCustomAdvanced 的 int8_linear 处 OOM（ep02-S8 两次，18.73 GiB + 4.86 GiB）；挂这个 1e-4 强度的 LoRA 走 LoRA 补丁权重路径（与 Turbo 同路径）即可出片，对画面数值影响可忽略。只在帧数 ≥ min_frames、请求和剧本都没别的视频 LoRA、道上有该文件时自动加；记在 take.params.model.extra_loras"
+        },
+        "sampler": "euler",
+        "scheduler": "simple",
+        "sigmas": null,
+        "shift": [
+          12.0,
+          3.0
+        ],
+        "shift_node": true,
+        "cfg": 1.0,
+        "guider": "BasicGuider",
+        "steps_adjustable": true,
+        "default_last_frame_mode": "none",
+        "note": "MOT 2026-10-31：默认只给首帧（请求写 last_frame_mode 可改）。ep02-S1 实测：基模 24 步 + 只给首帧 = 无 4 帧一顿（J4 1.12，现行 1.34）、脚无重影；基模 + 首尾帧仍有 4 帧一顿。不挂任何蒸馏 LoRA，同底模 fl2va_pruned_int8_convrot、euler/simple 25 步、MiniMaxH3SigmaShift 12/3、BasicGuider cfg 1（官方权重 CFG 蒸馏，无 guider / negative）。对照见 data/ab/motion_fix/、docs/QC_ep02_20261031.md §MOT",
+        "hint": "不用加速 LoRA 的官方原始采样：动作更完整；每镜时间约是官方 8 步的 3 倍",
+        "settings_src": "HF MiniMaxAI/MiniMax-H3 scheduler_config shift 12（视频）/ 3（音频）；README：CFG-distilled、24 FPS、17n+5 帧；ComfyUI 文档 Default 20 steps，Raise steps (e.g. 25) for motion quality（RES 2026-10-31）",
+        "source_url": "https://huggingface.co/MiniMaxAI/MiniMax-H3",
+        "license": "MiniMax H3 Community License"
+      }
+    ]
+  },
+  "optional_video_loras": [
+    {
+      "id": "vbvr",
+      "name": "H3-Licon-VBVR-I2V.safetensors",
+      "label": "VBVR（道具 / 首饰的数量与位置）",
+      "stage": "video",
+      "license": "CC BY-NC",
+      "usage": "仅非商用技术研究（项目方 2026-10-31）",
+      "owner_decision": "加，不商用，纯粹自己研究技术",
+      "tag": "仅研究·非商用",
+      "recommended_strength": 0.7,
+      "strength_range": [
+        0.0,
+        1.5
+      ],
+      "sha256": "19ba9d18c06eaecebd11c1ca1d27a0277f414d43370124e3cfcb33a113e9f886",
+      "src": "docs/research_adoption.md E8；docs/research/quality_deep/02_h3_loras_guidance.md §1（官方无推荐强度；R3 档 0/0.4/0.7/1.0，叠加检查用 0.7）。LoRA 标 apache-2.0，训练数据 VBVR-Pro-SFT-Video 为 CC BY-NC 4.0；gpu3 GPU1/GPU3 object_info 均在列（2026-10-31）",
+      "default_on": false
+    }
+  ],
+  "image_presets_note": "fredw-92/PX：画布「出图参数」的命名预设（ns_render.image_params）。params 只写和现状（DEFAULTS：Turbo 8 步官方 sigma、cfg 1、普通 VAE、LoRA 按剧本自动、1088×1920、调色按现状、带系统规格词）不同的项；loras 里 \"@identity\" = 本镜自动带的身份 LoRA（林晚 lin_wan_qi_v1），强度用这一行的；loras 不写 = 按剧本自动（定稿档 = 定稿档 LoRA 规则）。B–F 来自 data/ab/texture_ep02_S4/settings.json（A/B 原图 768×1344，这里保留画布 1088×1920，要对齐 A/B 时改宽高）。user_presets 由画布「存为我的预设」写入（POST /api/render/image-presets）。",
+  "motion_qc": {
+    "still_diff": 0.35,
+    "fail_mean": 0.5,
+    "fail_p90": 0.9,
+    "fail_min_still": 0.5,
+    "fail_still_frac": 0.9,
+    "warn_mean": 1.0,
+    "frozen_tail_s": 1.0,
+    "frozen_head_s": 1.5,
+    "keyframe_warn": 10.0,
+    "note": "fredw-92/QCV 2026-10-31：视频运动量质检阈值（ns_render.motion_qc；相邻帧 96×168 灰度平均差，0–255）。不合格 = (mean < fail_mean 且 p90 < fail_p90 且 静止帧占比 ≥ fail_min_still) 或 静止帧占比 ≥ fail_still_frac；mean < warn_mean = 动作偏弱；结尾 / 开头连续静止 ≥ frozen_tail_s / frozen_head_s 秒 = 结尾 / 开头定住；出片前首尾帧平均差 < keyframe_warn = 提示“尾帧和首帧几乎一样”。按 ep02 现有 26 个视频版本校准（S1 mean 3.7 通过；S2/3/4/6/7/10 mean 0.15–0.32 不合格；首尾帧差 静止 4.2–6.8、有动作 13.4–47.8），见 docs/QC_ep02_20261031.md §6。只改数值键，删掉本段 = 用代码默认值。"
+  },
+  "default_preset": "leica_sstar",
+  "default_preset_note": "项目方 2026-10-31 选定 S★（fredw-92 转，LCA 接入）。项目方原话：“leica_sharp效果最好，用他”；后续选择“S★ 全套组合”作为以后出图的默认。frame-jobs 预览档不传 preset / params 时用这个预设（首帧 / 尾帧 / 指令改图 / 换参考同样）；定稿档不受影响。之前的默认 C = c_turbo_texture（仍可选）；改回 = 设成 c_turbo_texture，旧 A = preview_turbo",
+  "image_presets": [
+    {
+      "id": "leica_sstar",
+      "label": "徕卡 S★",
+      "tier": "preview",
+      "params": {
+        "unet": "turbo",
+        "sampler": "euler",
+        "vae": "texture_fix",
+        "width": 768,
+        "height": 1344,
+        "spec_words": true,
+        "loras": [
+          {
+            "name": "krea2_film_texture_qwen21.safetensors",
+            "strength": 0.5
+          }
+        ],
+        "loras_owner_decision": "2026-10-31 项目方决定（总调度转，REFLOCK 改）：默认出图预设“徕卡 S★”里的林晚出图 LoRA（0.6）还要不要用？——“A. 去掉”。原 {\"name\": \"@identity\", \"strength\": 0.6}（= lin_wan_qi_v1）已删；证据 RSI_LEDGER B6 / knowledge K-AST-R04：同流程挂 lin_wan_qi_v1 0.6 身份 0.926→0.823（把脸往外拉）。身份改由参考图锁定（ns_agent.asset_refs，契约 I2/I8）",
+        "render_scale": 1.5,
+        "sharpen": {
+          "enabled": true,
+          "radius": 1.2,
+          "amount": 0.6,
+          "threshold": 2
+        },
+        "style_suffix": "专业电影画面，徕卡M 50mm f/2镜头，焦点锐利，微反差强，皮肤纹理清晰，自然高光，暖调通透，干净真实"
+      },
+      "note": "项目方 2026-10-31 选定（fredw-92 转）：“leica_sharp效果最好，用他”，默认用“S★ 全套组合”。= C 原样（Turbo 8 步官方 sigma、cfg 1、euler、texture_fix VAE、krea2 0.5 + 身份 lin_wan_qi_v1 0.6）+ 1.5 倍出图 1152×2016 → PIL lanczos 缩回 768×1344（放大原图保留）+ PIL UnsharpMask 半径 1.2 / percent 60 / 阈值 2 + 风格后缀（写作模型候选1 原样，前加“，”接在提示词末尾）。带底图的改图（指令改图 / 换参考底图重绘）按交付尺寸出、不放大，后缀和锐化照做",
+      "src": "data/ab/leica_sharp/settings.json variants.Sstar（= Sstar_g + unsharp）；后缀 data/ab/leica_sharp/style_suffix_candidates.md 候选1；tools/ab/leica_sharp.py"
+    },
+    {
+      "id": "c_turbo_texture",
+      "label": "C·Turbo 质感（S★ 之前的默认）",
+      "tier": "preview",
+      "params": {
+        "unet": "turbo",
+        "sampler": "euler",
+        "vae": "texture_fix",
+        "width": 768,
+        "height": 1344,
+        "spec_words": true,
+        "loras": [
+          {
+            "name": "krea2_film_texture_qwen21.safetensors",
+            "strength": 0.5
+          },
+          {
+            "name": "@identity",
+            "strength": 0.6
+          }
+        ]
+      },
+      "note": "项目方 2026-10-31 选定（fredw-92 转）：Turbo 8 步官方 sigma、cfg 1、euler、texture_fix VAE、krea2 0.5 + 身份 lin_wan_qi_v1 0.6、768×1344、单遍、保留规格词；画布 frame-jobs 预览档默认",
+      "src": "data/ab/texture_ep02_S4/settings.json variants.C"
+    },
+    {
+      "id": "preview_turbo",
+      "label": "预览·Turbo（旧 A）",
+      "tier": "preview",
+      "params": {},
+      "note": "旧默认（2026-10-31 前）：Turbo 8 步官方 sigma、cfg 1、普通 VAE、LoRA 按剧本、首帧不调色、尾帧向定稿首帧调色 0.7",
+      "src": "Q1 tiers.preview；A/B A"
+    },
+    {
+      "id": "final_base_2pass",
+      "label": "定稿·Base 两段式",
+      "tier": "final",
+      "params": {
+        "unet": "base",
+        "steps": 35,
+        "cfg": 3.0,
+        "sampler": "euler",
+        "scheduler": "simple",
+        "vae": "texture_fix",
+        "two_stage": {
+          "enabled": true,
+          "first_size": [
+            928,
+            1632
+          ],
+          "upscale_size": [
+            1152,
+            2016
+          ],
+          "denoise": 0.3,
+          "steps": 14
+        },
+        "strength": 0.5,
+        "grade": {
+          "enabled": true,
+          "strength": 0.6
+        }
+      },
+      "note": "Q1 定稿档：在父版本上出（底图重绘 0.5 + 图1）；LoRA 不写 = 定稿档规则（krea2 0.5 前置、身份 0.8、合计上限 1.6）",
+      "src": "tiers.final（D1–D4、B5）"
+    },
+    {
+      "id": "ab_B_turbo_texture_vae",
+      "label": "Turbo + 纹理 VAE（A/B B）",
+      "tier": "preview",
+      "params": {
+        "vae": "texture_fix"
+      },
+      "src": "data/ab/texture_ep02_S4 variants.B"
+    },
+    {
+      "id": "ab_D_base35_1pass",
+      "label": "Base 35 步单遍 · krea2 0.5 · 身份 0.8（A/B D）",
+      "tier": "preview",
+      "params": {
+        "unet": "base",
+        "steps": 35,
+        "cfg": 3.0,
+        "sampler": "euler",
+        "scheduler": "simple",
+        "vae": "texture_fix",
+        "loras": [
+          {
+            "name": "krea2_film_texture_qwen21.safetensors",
+            "strength": 0.5
+          },
+          {
+            "name": "@identity",
+            "strength": 0.8
+          }
+        ]
+      },
+      "src": "data/ab/texture_ep02_S4 variants.D"
+    },
+    {
+      "id": "ab_E_base_2pass",
+      "label": "Base 两段式·无底图 · 身份 0.8 · 调色 0.6（A/B E）",
+      "tier": "preview",
+      "params": {
+        "unet": "base",
+        "steps": 35,
+        "cfg": 3.0,
+        "sampler": "euler",
+        "scheduler": "simple",
+        "vae": "texture_fix",
+        "loras": [
+          {
+            "name": "krea2_film_texture_qwen21.safetensors",
+            "strength": 0.5
+          },
+          {
+            "name": "@identity",
+            "strength": 0.8
+          }
+        ],
+        "two_stage": {
+          "enabled": true,
+          "first_size": [
+            928,
+            1632
+          ],
+          "upscale_size": [
+            1152,
+            2016
+          ],
+          "denoise": 0.3,
+          "steps": 14
+        },
+        "grade": {
+          "enabled": true,
+          "strength": 0.6
+        }
+      },
+      "src": "data/ab/texture_ep02_S4 variants.E"
+    },
+    {
+      "id": "ab_F_base_2pass_lw06",
+      "label": "Base 两段式·无底图 · 身份 0.6 · 调色 0.6（A/B F）",
+      "tier": "preview",
+      "params": {
+        "unet": "base",
+        "steps": 35,
+        "cfg": 3.0,
+        "sampler": "euler",
+        "scheduler": "simple",
+        "vae": "texture_fix",
+        "loras": [
+          {
+            "name": "krea2_film_texture_qwen21.safetensors",
+            "strength": 0.5
+          },
+          {
+            "name": "@identity",
+            "strength": 0.6
+          }
+        ],
+        "two_stage": {
+          "enabled": true,
+          "first_size": [
+            928,
+            1632
+          ],
+          "upscale_size": [
+            1152,
+            2016
+          ],
+          "denoise": 0.3,
+          "steps": 14
+        },
+        "grade": {
+          "enabled": true,
+          "strength": 0.6
+        }
+      },
+      "src": "data/ab/texture_ep02_S4 variants.F"
+    },
+    {
+      "id": "frame_v9",
+      "label": "首帧 v9（全量重出默认）",
+      "tier": "preview",
+      "params": {
+        "unet": "turbo",
+        "sampler": "euler",
+        "vae": "texture_fix",
+        "width": 768,
+        "height": 1344,
+        "spec_words": true,
+        "loras": [
+          {
+            "name": "krea2_film_texture_qwen21.safetensors",
+            "strength": 0.5
+          }
+        ],
+        "loras_owner_decision": "2026-10-31 项目方决定（总调度转，REFLOCK 改）：默认出图预设“徕卡 S★”里的林晚出图 LoRA（0.6）还要不要用？——“A. 去掉”。原 {\"name\": \"@identity\", \"strength\": 0.6}（= lin_wan_qi_v1）已删；证据 RSI_LEDGER B6 / knowledge K-AST-R04：同流程挂 lin_wan_qi_v1 0.6 身份 0.926→0.823（把脸往外拉）。身份改由参考图锁定（ns_agent.asset_refs，契约 I2/I8）",
+        "render_scale": 1.5,
+        "sharpen": {
+          "enabled": true,
+          "radius": 1.2,
+          "amount": 0.6,
+          "threshold": 2
+        },
+        "style_suffix": "专业电影画面，徕卡M 50mm f/2镜头，焦点锐利，微反差强，皮肤纹理清晰，自然高光，暖调通透，干净真实",
+        "frame_structure": {
+          "refs_order": [
+            "身份脸（项目方挑定）",
+            "去头造型图（本镜造型，景别决定半身/全身）",
+            "场景底图（场景资产暂定/定稿）"
+          ],
+          "lin_wan_qi": false,
+          "cfg": 1,
+          "second_person": "双人镜第二人只给造型图、不给脸（I9）",
+          "code": "tools/series10_imggen/imgfix_ab.py variants v9（krea 0.5）"
+        }
+      },
+      "note": "项目方 2026-11-01 两句原话：①“v10H 同上（写实·重）”；②（较新）“v9 v10+场景底图这个还可以”。以较新的为准：全量重出默认 = v9 = v10（写实·中，krea2 0.5）+ 场景底图 + 身份脸 + 去头造型图，S★ 无 lin_wan_qi，cfg 1。重档 frame_v9_heavy 作备选。Q1 林晚 ≥0.70，不过换 seed ≤3 次。",
+      "src": "data/review_pages/series10_imgfix（v9 / v10 / v10L / v10H 对照）；tools/series10_imggen/imgfix_ab.py"
+    },
+    {
+      "id": "frame_v9_heavy",
+      "label": "首帧 v9·写实重（备选）",
+      "tier": "preview",
+      "params": {
+        "unet": "turbo",
+        "sampler": "euler",
+        "vae": "texture_fix",
+        "width": 768,
+        "height": 1344,
+        "spec_words": true,
+        "loras": [
+          {
+            "name": "krea2_film_texture_qwen21.safetensors",
+            "strength": 0.8
+          }
+        ],
+        "loras_owner_decision": "2026-10-31 项目方决定（总调度转，REFLOCK 改）：默认出图预设“徕卡 S★”里的林晚出图 LoRA（0.6）还要不要用？——“A. 去掉”。原 {\"name\": \"@identity\", \"strength\": 0.6}（= lin_wan_qi_v1）已删；证据 RSI_LEDGER B6 / knowledge K-AST-R04：同流程挂 lin_wan_qi_v1 0.6 身份 0.926→0.823（把脸往外拉）。身份改由参考图锁定（ns_agent.asset_refs，契约 I2/I8）",
+        "render_scale": 1.5,
+        "sharpen": {
+          "enabled": true,
+          "radius": 1.2,
+          "amount": 0.6,
+          "threshold": 2
+        },
+        "style_suffix": "专业电影画面，徕卡M 50mm f/2镜头，焦点锐利，微反差强，皮肤纹理清晰，自然高光，暖调通透，干净真实",
+        "frame_structure": {
+          "refs_order": [
+            "身份脸（项目方挑定）",
+            "去头造型图（本镜造型，景别决定半身/全身）",
+            "场景底图（场景资产暂定/定稿）"
+          ],
+          "lin_wan_qi": false,
+          "cfg": 1,
+          "second_person": "双人镜第二人只给造型图、不给脸（I9）",
+          "code": "tools/series10_imggen/imgfix_ab.py variants v9 + krea 0.8"
+        }
+      },
+      "note": "备选（不作默认）。项目方 2026-11-01 先说“v10H 同上（写实·重）”，随后最新原话“v9 v10+场景底图这个还可以”，以较新的为准 → 默认改 frame_v9（写实·中 krea2 0.5）。",
+      "src": "data/review_pages/series10_imgfix（v9 / v10 / v10L / v10H 对照）；tools/series10_imggen/imgfix_ab.py"
+    },
+    {
+      "id": "v2_editorial_fantasy_a",
+      "archived": true,
+      "archived_note": "L-129 / L-130：项目方选了 v2_editorial_fantasy_c + v2_editorial_reality_c2，本候选归档（不删）",
+      "label": "V2 幻想 A · 霓虹宝石（候选，待项目方挑）",
+      "tier": "preview",
+      "run": "series10_v2",
+      "params": {
+        "unet": "turbo",
+        "sampler": "euler",
+        "vae": "texture_fix",
+        "width": 768,
+        "height": 1344,
+        "spec_words": true,
+        "loras": [
+          {
+            "name": "krea2_film_texture_qwen21.safetensors",
+            "strength": 0.5
+          }
+        ],
+        "render_scale": 1.5,
+        "sharpen": {
+          "enabled": true,
+          "radius": 1.2,
+          "amount": 0.6,
+          "threshold": 2
+        },
+        "style_suffix": "时尚杂志大片，品红与电光蓝双色轮廓光，深邃纯净的黑位，漆皮上有锐利的反光，饱满的宝石色调，85mm人像镜头，电影级布光"
+      },
+      "post_lut": "config/post/luts/v2_fantasy_a.cube",
+      "lang": "fantasy",
+      "note": "STYLE-V2（L-127，项目方 19:1x 主题“上海时尚模特的幻想和现实的挣扎”）V2 调色候选：技术参数同 Turbo 8 步 + texture_fix + krea2 0.5 + 1.5× 出图 + USM（不含任何 V1 风格后缀）；颜色 = 本后缀的光位 / 色调 + 后期 LUT post_lut（tools/v2style/looks.py 生成）。只给 V2 用；项目方挑定后再定 V2 默认，V1 的 default_preset / frame_redo_preset 不变。",
+      "src": "tools/v2style/grade_ab.py；data/review_pages/v2_style/grade.html"
+    },
+    {
+      "id": "v2_editorial_fantasy_b",
+      "archived": true,
+      "archived_note": "L-129 / L-130：项目方选了 v2_editorial_fantasy_c + v2_editorial_reality_c2，本候选归档（不删）",
+      "label": "V2 幻想 B · 胭脂红金（候选，待项目方挑）",
+      "tier": "preview",
+      "run": "series10_v2",
+      "params": {
+        "unet": "turbo",
+        "sampler": "euler",
+        "vae": "texture_fix",
+        "width": 768,
+        "height": 1344,
+        "spec_words": true,
+        "loras": [
+          {
+            "name": "krea2_film_texture_qwen21.safetensors",
+            "strength": 0.5
+          }
+        ],
+        "render_scale": 1.5,
+        "sharpen": {
+          "enabled": true,
+          "radius": 1.2,
+          "amount": 0.6,
+          "threshold": 2
+        },
+        "style_suffix": "时尚杂志大片，胭脂红与琥珀金为主色，硬朗侧光勾出轮廓，浓重的暖色阴影，肤色红润通透，35mm电影胶片质感，细腻颗粒"
+      },
+      "post_lut": "config/post/luts/v2_fantasy_b.cube",
+      "lang": "fantasy",
+      "note": "STYLE-V2（L-127，项目方 19:1x 主题“上海时尚模特的幻想和现实的挣扎”）V2 调色候选：技术参数同 Turbo 8 步 + texture_fix + krea2 0.5 + 1.5× 出图 + USM（不含任何 V1 风格后缀）；颜色 = 本后缀的光位 / 色调 + 后期 LUT post_lut（tools/v2style/looks.py 生成）。只给 V2 用；项目方挑定后再定 V2 默认，V1 的 default_preset / frame_redo_preset 不变。",
+      "src": "tools/v2style/grade_ab.py；data/review_pages/v2_style/grade.html"
+    },
+    {
+      "id": "v2_editorial_fantasy_c",
+      "selected": true,
+      "selected_for": "series10_v2 幻想段",
+      "decision": "L-129 / L-130 项目方 11-02 21:2x 挑定（总调度转）：V2 幻想段调色定稿",
+      "label": "V2 幻想 C · 黄金时刻（候选，待项目方挑）",
+      "tier": "preview",
+      "run": "series10_v2",
+      "params": {
+        "unet": "turbo",
+        "sampler": "euler",
+        "vae": "texture_fix",
+        "width": 768,
+        "height": 1344,
+        "spec_words": true,
+        "loras": [
+          {
+            "name": "krea2_film_texture_qwen21.safetensors",
+            "strength": 0.5
+          }
+        ],
+        "render_scale": 1.5,
+        "sharpen": {
+          "enabled": true,
+          "radius": 1.2,
+          "amount": 0.6,
+          "threshold": 2
+        },
+        "style_suffix": "时尚杂志大片，色彩明艳温暖，肤色金润，70mm电影胶片质感，焦平面上是 Leica 镜头的光学锐利、焦外柔和过渡，ARRI Alexa 柔和反差与高宽容度，高光柔和滚落，Kodak 2383 印片色与细腻胶片颗粒（Leica optical sharpness on the focal plane with gentle falloff out of focus, ARRI Alexa soft contrast and wide latitude, soft highlight roll-off, Kodak 2383 print color with fine film grain）"
+      },
+      "post_lut": "config/post/luts/v2_fantasy_c.cube",
+      "lang": "fantasy",
+      "note": "STYLE-V2（L-127，项目方 19:1x 主题“上海时尚模特的幻想和现实的挣扎”）V2 调色候选：技术参数同 Turbo 8 步 + texture_fix + krea2 0.5 + 1.5× 出图 + USM（不含任何 V1 风格后缀）；颜色 = 本后缀的光位 / 色调 + 后期 LUT post_lut（tools/v2style/looks.py 生成）。只给 V2 用；项目方挑定后再定 V2 默认，V1 的 default_preset / frame_redo_preset 不变。",
+      "src": "tools/v2style/grade_ab.py；data/review_pages/v2_style/grade.html"
+    },
+    {
+      "id": "v2_editorial_reality_a",
+      "archived": true,
+      "archived_note": "L-129 / L-130：项目方选了 v2_editorial_fantasy_c + v2_editorial_reality_c2，本候选归档（不删）",
+      "label": "V2 现实 A · 阴天冷青（候选，待项目方挑）",
+      "tier": "preview",
+      "run": "series10_v2",
+      "params": {
+        "unet": "turbo",
+        "sampler": "euler",
+        "vae": "texture_fix",
+        "width": 768,
+        "height": 1344,
+        "spec_words": true,
+        "loras": [
+          {
+            "name": "krea2_film_texture_qwen21.safetensors",
+            "strength": 0.5
+          }
+        ],
+        "render_scale": 1.5,
+        "sharpen": {
+          "enabled": true,
+          "radius": 1.2,
+          "amount": 0.6,
+          "threshold": 2
+        },
+        "style_suffix": "纪实杂志摄影，阴天的柔和自然光，整体偏冷的青灰色调，色彩克制但肤色真实，轻微手持感，35mm胶片质感与细颗粒"
+      },
+      "post_lut": "config/post/luts/v2_reality_a.cube",
+      "lang": "reality",
+      "note": "STYLE-V2（L-127，项目方 19:1x 主题“上海时尚模特的幻想和现实的挣扎”）V2 调色候选：技术参数同 Turbo 8 步 + texture_fix + krea2 0.5 + 1.5× 出图 + USM（不含任何 V1 风格后缀）；颜色 = 本后缀的光位 / 色调 + 后期 LUT post_lut（tools/v2style/looks.py 生成）。只给 V2 用；项目方挑定后再定 V2 默认，V1 的 default_preset / frame_redo_preset 不变。",
+      "src": "tools/v2style/grade_ab.py；data/review_pages/v2_style/grade.html"
+    },
+    {
+      "id": "v2_editorial_reality_b",
+      "archived": true,
+      "archived_note": "L-129 / L-130：项目方选了 v2_editorial_fantasy_c + v2_editorial_reality_c2，本候选归档（不删）",
+      "label": "V2 现实 B · 夜街混合光（候选，待项目方挑）",
+      "tier": "preview",
+      "run": "series10_v2",
+      "params": {
+        "unet": "turbo",
+        "sampler": "euler",
+        "vae": "texture_fix",
+        "width": 768,
+        "height": 1344,
+        "spec_words": true,
+        "loras": [
+          {
+            "name": "krea2_film_texture_qwen21.safetensors",
+            "strength": 0.5
+          }
+        ],
+        "render_scale": 1.5,
+        "sharpen": {
+          "enabled": true,
+          "radius": 1.2,
+          "amount": 0.6,
+          "threshold": 2
+        },
+        "style_suffix": "纪实杂志摄影，夜晚的混合光源，暖黄钨丝灯与冷白荧光灯交织，高反差，阴影深沉，偏青绿的暗部，35mm胶片质感与细颗粒"
+      },
+      "post_lut": "config/post/luts/v2_reality_b.cube",
+      "lang": "reality",
+      "note": "STYLE-V2（L-127，项目方 19:1x 主题“上海时尚模特的幻想和现实的挣扎”）V2 调色候选：技术参数同 Turbo 8 步 + texture_fix + krea2 0.5 + 1.5× 出图 + USM（不含任何 V1 风格后缀）；颜色 = 本后缀的光位 / 色调 + 后期 LUT post_lut（tools/v2style/looks.py 生成）。只给 V2 用；项目方挑定后再定 V2 默认，V1 的 default_preset / frame_redo_preset 不变。",
+      "src": "tools/v2style/grade_ab.py；data/review_pages/v2_style/grade.html"
+    },
+    {
+      "id": "v2_editorial_reality_c",
+      "archived": true,
+      "archived_note": "L-129 / L-130：项目方选了 v2_editorial_fantasy_c + v2_editorial_reality_c2，本候选归档（不删）",
+      "label": "V2 现实 C · 直闪纪实（候选，待项目方挑）",
+      "tier": "preview",
+      "run": "series10_v2",
+      "params": {
+        "unet": "turbo",
+        "sampler": "euler",
+        "vae": "texture_fix",
+        "width": 768,
+        "height": 1344,
+        "spec_words": true,
+        "loras": [
+          {
+            "name": "krea2_film_texture_qwen21.safetensors",
+            "strength": 0.5
+          }
+        ],
+        "render_scale": 1.5,
+        "sharpen": {
+          "enabled": true,
+          "radius": 1.2,
+          "amount": 0.6,
+          "threshold": 2
+        },
+        "style_suffix": "纪实杂志摄影，机顶直闪硬光，背景略暗，真实的皮肤质感，冷调白平衡，色彩干净略低饱和，轻微颗粒"
+      },
+      "post_lut": "config/post/luts/v2_reality_c.cube",
+      "lang": "reality",
+      "note": "STYLE-V2（L-127，项目方 19:1x 主题“上海时尚模特的幻想和现实的挣扎”）V2 调色候选：技术参数同 Turbo 8 步 + texture_fix + krea2 0.5 + 1.5× 出图 + USM（不含任何 V1 风格后缀）；颜色 = 本后缀的光位 / 色调 + 后期 LUT post_lut（tools/v2style/looks.py 生成）。只给 V2 用；项目方挑定后再定 V2 默认，V1 的 default_preset / frame_redo_preset 不变。",
+      "src": "tools/v2style/grade_ab.py；data/review_pages/v2_style/grade.html"
+    },
+    {
+      "id": "v2_editorial_fantasy_b2",
+      "archived": true,
+      "archived_note": "L-129 / L-130：项目方选了 v2_editorial_fantasy_c + v2_editorial_reality_c2，本候选归档（不删）",
+      "label": "V2 幻想 B · 胭脂红金（第 2 版）（候选，待项目方挑）",
+      "tier": "preview",
+      "run": "series10_v2",
+      "params": {
+        "unet": "turbo",
+        "sampler": "euler",
+        "vae": "texture_fix",
+        "width": 768,
+        "height": 1344,
+        "spec_words": true,
+        "loras": [
+          {
+            "name": "krea2_film_texture_qwen21.safetensors",
+            "strength": 0.5
+          }
+        ],
+        "render_scale": 1.5,
+        "sharpen": {
+          "enabled": true,
+          "radius": 1.2,
+          "amount": 0.6,
+          "threshold": 2
+        },
+        "style_suffix": "时尚杂志大片，夜晚室内，胭脂红色调的霓虹灯与琥珀金色暖光交织，背景沉入深红与暗金，硬朗侧光勾出轮廓，浓重的红色阴影，肤色红润通透，35mm电影胶片质感，细腻颗粒"
+      },
+      "post_lut": "config/post/luts/v2_fantasy_b2.cube",
+      "lang": "fantasy",
+      "note": "STYLE-V2 第 2 轮：第 1 版 v2_editorial_fantasy_b 背景偏白天、胭脂红感弱（总调度 20:4x）→ 改夜晚室内胭脂红霓虹 + 琥珀金；其余同 v2_editorial_* 第 1 轮。",
+      "src": "tools/v2style/grade_ab.py；data/review_pages/v2_style/grade.html"
+    },
+    {
+      "id": "v2_editorial_reality_c2",
+      "selected": true,
+      "selected_for": "series10_v2 现实段",
+      "decision": "L-129 / L-130 项目方 11-02 21:2x 挑定（总调度转）：V2 现实段调色定稿",
+      "label": "V2 现实 C · 直闪纪实（第 2 版）（候选，待项目方挑）",
+      "tier": "preview",
+      "run": "series10_v2",
+      "params": {
+        "unet": "turbo",
+        "sampler": "euler",
+        "vae": "texture_fix",
+        "width": 768,
+        "height": 1344,
+        "spec_words": true,
+        "loras": [
+          {
+            "name": "krea2_film_texture_qwen21.safetensors",
+            "strength": 0.5
+          }
+        ],
+        "render_scale": 1.5,
+        "sharpen": {
+          "enabled": true,
+          "radius": 1.2,
+          "amount": 0.6,
+          "threshold": 2
+        },
+        "style_suffix": "电影剧照，真实皮肤质感与毛孔，轻微颗粒，焦平面上是 Leica 镜头的光学锐利、焦外柔和过渡，ARRI Alexa 柔和反差与高宽容度，高光柔和滚落，Kodak 2383 印片色与细腻胶片颗粒（Leica optical sharpness on the focal plane with gentle falloff out of focus, ARRI Alexa soft contrast and wide latitude, soft highlight roll-off, Kodak 2383 print color with fine film grain）"
+      },
+      "post_lut": "config/post/luts/v2_reality_c2.cube",
+      "lang": "reality",
+      "note": "STYLE-V2 第 2 轮：第 1 版 v2_editorial_reality_c 直闪效果不明显、和现实 A 太像（总调度 20:4x）→ 改相机正面直闪 + 墙面硬阴影 + 背景压黑；其余同 v2_editorial_* 第 1 轮。",
+      "src": "tools/v2style/grade_ab.py；data/review_pages/v2_style/grade.html"
+    }
+  ],
+  "user_presets": [],
+  "auto_final_on_lock": false,
+  "auto_final_on_lock_runs": {"series10_v2": false, "_series10_v2": "等共用验收并回后再开（L-147）：定稿档必须过与预览版同样的检测，现行 render_final 不做检测，总调度 11-03 裁定先关，并回完成后由总调度打开"},
+  "_auto_final_on_lock_runs": "⤴ L-147（项目方 11-03 05:0x）：V2 打开定稿档——首帧定稿后自动用 final_base_2pass（Base 35 步 cfg 3，负面词生效）重出一张；按剧覆盖全局 auto_final_on_lock（final_tier.auto_final_on_lock(run)），V1 不变。L-148（同时）：v2_editorial_fantasy_c / reality_c2 后缀删掉灯光与时间描述（日落暖阳 / 机顶直闪 / 白平衡偏冷…），灯光以每镜剧本【灯光】为准，后缀只留质感",
+  "auto_final_on_lock_note": "项目方 2026-10-31 选出图配置 C（Turbo + texture_fix VAE + krea2 0.5 + lin_wan 0.6），定稿档原为 Base 两段式（E，未选）→ 暂时关闭，待“徕卡锐利”方案定稿后改定稿档再开。true = 每次定稿首帧 / 尾帧（预览版）自动排一个定稿档任务；默认 false，由 lock body {final:true} 或 POST …/takes/{stage}/{n}/final 显式触发",
+  "prompt_guard": {
+    "note": "FIX（ep02_iter P0，2026-10-31）：编译器系统后缀条件化 + 在画角色判定 + 视频身份 LoRA 规则（ns_agent.compiler.prompt_guard；缺键用代码 DEFAULT_PROMPT_GUARD，值相同）。只改系统后缀，不改剧本原文。",
+    "face_hidden_words": [
+      "遮住部分脸",
+      "遮住脸",
+      "遮住面部",
+      "遮住她的脸",
+      "遮住他的脸",
+      "挡住脸",
+      "挡住面部",
+      "遮脸",
+      "不露脸",
+      "看不到脸",
+      "看不见脸",
+      "只露出下巴"
+    ],
+    "face_terms_drop": [
+      "面部",
+      "五官"
+    ],
+    "black_words": [
+      "全黑",
+      "陷入黑暗",
+      "一片漆黑",
+      "漆黑一片",
+      "黑屏",
+      "纯黑"
+    ],
+    "black_terms_drop": [
+      "非纯黑",
+      "面部可辨"
+    ],
+    "cfg_one_positive_only": true,
+    "negation_prefixes": [
+      "无",
+      "不",
+      "非",
+      "没有",
+      "勿",
+      "禁止",
+      "避免"
+    ],
+    "negation_rewrites": {
+      "非纯黑": "暗部仍有可见层次"
+    },
+    "possessive_body_words": [
+      "手",
+      "指",
+      "脸",
+      "面",
+      "眼",
+      "睫",
+      "眉",
+      "唇",
+      "嘴",
+      "鼻",
+      "耳",
+      "颈",
+      "脖",
+      "肩",
+      "胸",
+      "背影",
+      "背",
+      "腰",
+      "腿",
+      "膝",
+      "脚",
+      "足",
+      "臂",
+      "胳膊",
+      "掌",
+      "怀",
+      "身",
+      "头",
+      "额",
+      "下巴",
+      "侧脸",
+      "侧影",
+      "剪影",
+      "轮廓",
+      "身影",
+      "吻",
+      "目光",
+      "视线",
+      "呼吸",
+      "体温",
+      "气息"
+    ],
+    "video_identity_triggers": {
+      "lnwan01": "林晚"
+    },
+    "video_identity_enabled": false,
+    "identity_skip_back_facing": true,
+    "image_identity_skip_back_facing": true,
+    "back_facing_patterns": [
+      "{name}[^，。；,]{{0,4}}背对",
+      "{name}的背影"
+    ],
+    "learned_from": {
+      "face_hidden_words": "ep02_iter v0 chain_audit A2/C9：S11 原文“蓝发垂落遮住部分脸部，只露出下巴”，系统后缀却补“面部清晰对焦、面部可辨”，首帧出成正脸",
+      "face_terms_drop": "同上：原文遮脸时去掉后缀里含这些词的子句",
+      "black_words": "ep02_iter v0 chain_audit A2/C9：S11 尾帧“画面陷入全黑”配着“非纯黑，面部可辨”，视频中途变黑又被拉回正脸尾帧",
+      "black_terms_drop": "同上",
+      "cfg_one_positive_only": "ep02_iter v0 chain_audit A3：Qwen-Image Turbo / H3 全是 cfg 1，负面词不生效，正向里的“无字幕、无裸露、非纯黑”反而注入（S5 视频出现“冷”字）；项目规则 v3_changes ep41 同结论",
+      "negation_prefixes": "同上：系统后缀子句以这些字开头 = 否定式，cfg 1 下不加",
+      "negation_rewrites": "同上：有正面说法的否定子句改写而不是删掉",
+      "possessive_body_words": "ep02_iter v0 chain_audit A4：S8“脸埋进顾沉的西装衣领”把顾沉判成在画，首帧 / 尾帧 / 视频里他都坐在旁边；“X 的 <身体部位 / 背影 / 剪影 / 吻>”才算在画，其余所有格只是提到（金标准 360 镜只变 ep38-S2/S5、ep53-S5、ep55-S6 四镜）",
+      "video_identity_triggers": "ep02_iter v0 chain_audit C2/E3：视频身份 LoRA 以前取决于编译那一刻 GPU 道上的 LoRA 列表（同一 inputs_sha 下有挂有不挂，S9 陈宇主镜挂了林晚 LoRA）；现在按在画角色确定",
+      "video_identity_enabled": "同上；lin_wan_h3_v1 在 comfy/models.lock 仍是 status=training、gpu36 三道都没有（RR 10-31 整批不挂）→ 默认关 = 全部镜头确定性不挂；开了以后在画且不背对必挂，道上没有就改派 / 409（video_jobs.lane_with_video_loras），不再静默去掉",
+      "identity_skip_back_facing": "同上：S9/S10 林晚背对、主体是陈宇，不挂林晚身份 LoRA",
+      "image_identity_skip_back_facing": "ep02_iter v0 chain_audit C2：出图 lin_wan_qi 0.8 是整张图生效的 model-only LoRA，S9/S10 主体是陈宇、林晚背对在背景照样挂着 → 出图身份 LoRA 也按“在画且不背对”挂（不在画时连剧本 img 触发词一起去掉）；ep02 只有 S9/S10 变化",
+      "back_facing_patterns": "同上：{name} 后 4 字内“背对”或“{name}的背影”= 背对（“注视顾沉的背影”只算顾沉背对）；{{0,4}} 是 str.format 转义"
+    }
+  },
+  "post": {
+    "edit_rules": {
+      "take_policy": "locked_qc",
+      "allow_unlocked_qc_pass": false,
+      "trim_frozen": true,
+      "freeze_still_diff": 0.35,
+      "freeze_min_s": 0.3,
+      "min_keep_s": 1.5,
+      "max_shot_s": 4.5,
+      "split_zoom": 1.15,
+      "split_min_piece_s": 2.0,
+      "room_tone": true,
+      "room_tone_floor_dbfs": -50.0,
+      "room_tone_window_s": 0.1,
+      "overflow_policy": "fail",
+      "open_first_cut_s": 3.0,
+      "open_min_piece_s": 1.0,
+      "pace_tighten": true,
+      "pace_lead_s": 0.3,
+      "pace_tail_pad_s": 0.5,
+      "pace_idle_max_s": 4.0,
+      "pace_min_keep_s": 3.0,
+      "jl_cut_s": 0.3,
+      "src": "FIX（ep02_iter v0，2026-10-31）：合成硬规则（ns_post.assemble.resolve_settings；Settings / CLI 显式值优先，缺键用 EDIT_DEFAULTS，值相同）。切点交叉淡化 = Settings.edge_fade_s 0.12；色彩标记统一 bt709（assemble _vf / render_segment、tools/dejudder.py、ns_post.skin_guard）",
+      "learned_from": {
+        "take_policy": "ep02_iter v0 chain_audit D6：assemble 只读 active，S1/S5/S7/S8/S11 用的视频没定稿、S3 用 #5 而定稿是 #4，6 个运动质检不合格的视频进了成片 → 只用“定稿且 qc.motion 不是 fail、不是坏图”的版本，没有就标缺并在 timeline.gates.missing_shots 列出，成片只出预览",
+        "allow_unlocked_qc_pass": "同上：没有合格定稿时是否允许用质检 pass 的未定稿版本（默认否，要项目方 / 总调度定稿）",
+        "trim_frozen": "ep02_iter v0 DIR 审片：10/11 镜结尾定住 0.67–6.5 s（S7 6.5 s），7/11 镜静止 ≥50%",
+        "freeze_still_diff": "同上：96×168 灰度相邻帧差 <0.35 = 静止（qc_ep02 / static_fix / motion_qc 同值）",
+        "freeze_min_s": "同上：连续 ≥0.3 s 才算定住段",
+        "min_keep_s": "同上：剪完单镜至少留 1.5 s",
+        "max_shot_s": "ep02_iter v0 DIR：平均每刀 7.81 s、S8 12.25 s、S11 10.1 s 一刀到底，⑤短剧观感 2 分 → 单镜 >6 s 拆刀，切点避开对白句",
+        "split_zoom": "同上：后一刀用同素材 1.15× 推近（近景→特写，换景别；8/10 相邻同景别）",
+        "split_min_piece_s": "同上：拆出来的每刀不短于 2 s",
+        "room_tone": "ep02_iter v0 DIR：S10→S11 切过去 100 ms 内 −86 dBFS 数字静音、切点跳变 −53 dB → 响度归一后低于底噪的窗口补环境底噪",
+        "room_tone_floor_dbfs": "同上：室内底噪约 −50 dBFS（LEARNED_SPECS C：不允许低于 −60 dBFS 的数字静音）",
+        "room_tone_window_s": "同上：按 100 ms 窗口判（与 DIR 切点表同窗长）",
+        "overflow_policy": "ep02_iter v0 chain_audit D2 / DIR ⑥：S8 独白 25.6 s 塞进 12.25 s，提速后仍盖住 S9–S11 对白 → 溢出本镜判不通过（timeline.gates.overflow），本镜结尾截断，不覆盖下一镜；长度交写作方",
+        "open_first_cut_s": "ep02_iter v0 DIR ⑤：前 3 s 没有切点（S1 一刀 8 s），第一句对白在 8.3 / 10.8 s → 整集第一镜的第一刀 ≤3 s（在 3 s 处再切一刀，后一刀推近换景别；落在台词中间就提前到句前）",
+        "open_min_piece_s": "同上：开场拆出来的第一刀不短于 1 s，剩下部分不短于 1 s，否则不拆",
+        "max_shot_s_v2": "V2 2026-10-31：6.0 → 4.5。项目方看 v1 原话“节奏有点慢，慢溜溜的……整个片子里的节奏很慢，画面也很慢，很不 smooth”；总调度要求单镜上限 4.5 s（长镜拆刀）",
+        "pace_tighten": "V2 2026-10-31（同上原话）：ns_post.assemble.pace_trims——对白镜第一句前只留 pace_lead_s、最后一句后只留 pace_tail_pad_s；无对白无独白镜最长 pace_idle_max_s，取运动量最大的一段（在动作进行中切）；独白镜不动；至少留 min_keep_s。目标整集比 v1（81.4 s）短 20–30%。测试 tests/test_v2_pace.py",
+        "pace_lead_s": "同上：对白前空档 ≤0.3 s（总调度）",
+        "pace_tail_pad_s": "同上：最后一句后留 0.5 s 给反应 / 呼吸（20:40 试合成 0.4 s 时整集 52.5 s、-35%，超出目标 20–30%）",
+        "pace_min_keep_s": "同上：收紧后每镜至少 3 s（试合成里 S5 只有 0.25 s 台词被收到 1.5 s，太碎）",
+        "pace_idle_max_s": "同上：无对白镜 ≤4 s（v1 S1 8 s、S11 9.8 s 一刀到底）",
+        "jl_cut_s": "V2 2026-10-31：项目方原话“镜头 1 和镜头 2 之间的 transition 非常生硬，不连贯” → J-cut：下一镜原声提前 0.3 s 淡入（用剪掉的开头里的原声；上一镜最后 0.3 s 有对白 / 独白时不做）"
+      }
+    },
+    "skin_guard": {
+      "enabled": true,
+      "per_episode": {},
+      "margin": 6.0,
+      "ref_cap_a": 22.0,
+      "knee": 0.25,
+      "box_expand": 0.25,
+      "exclude_lips": true,
+      "lips_w": 0.75,
+      "lips_h": 0.45,
+      "min_blob_frac": 0.005,
+      "hair_min": 0.35,
+      "crf": 14,
+      "src": "FIX（ep02_iter v0 R1）：ns_post.skin_guard（DIR 原型 tools/ep02_director/skin_guard_proto.py 的生产版，加了嘴唇排除、首帧偏红封顶、只压大连通块）。合成时在校色之后对林晚脸做 a* 限幅，输出 <画面>_sg.mp4（bt709 标记），同设置同源 sha256 复用。CLI --skin-guard / --no-skin-guard 覆盖；per_episode {\"2\": false} 按集关",
+      "learned_from": {
+        "enabled": "ep02_iter v0 FIX 验证（2026-10-31，red_trace FIX_skin_guard_S2_C / S4_C + 嘴唇 a* 测量）：S2_C 脸颊 a*p95 中位 40.2→28.7、最大 43.9→29.4；S4_C 40.7→31.8 / 43.2→34.0；base24 S2 34.8→27.3；嘴唇 a* 中位变化 +0.04 / +0.68 / +0.01 / +0.21（<2，不褪色）；worst.jpg 圆形红斑消失 → 默认开",
+        "margin": "DIR 原型：阈值 = 首帧脸颊 a*p95 + 6",
+        "ref_cap_a": "FIX：S4 首帧本身偏红（image_003 27.9），原型阈值跟着变成 37 几乎不压；基准封顶 22（正常皮肤 a*p95 15–20）后 S4_C 最大 43.2→34.0",
+        "knee": "DIR 原型：超出阈值部分保留 25%",
+        "box_expand": "DIR 原型：林晚脸框外扩 25%、羽化",
+        "exclude_lips": "DIR 原型已知问题：嘴唇也被压褪色 → 嘴角关键点椭圆排除",
+        "lips_w": "FIX：嘴唇椭圆半宽 = 嘴角距 × 0.75",
+        "lips_h": "FIX：嘴唇椭圆半高 = 嘴角距 × 0.45",
+        "min_blob_frac": "FIX：只压面积 ≥ 脸框 0.5% 的 a* 异常连通块（只限幅脸颊异常块，零星像素不动）",
+        "hair_min": "DIR LEARNED_SPECS A：浅蓝发得分 ≥0.35 = 林晚",
+        "crf": "FIX：中间件 crf 14（成片段再编码 crf 18）"
+      }
+    },
+    "voiceover_drop": {
+      "default": [],
+      "per_episode": {
+        "2": [
+          8,
+          11
+        ]
+      },
+      "src": "V2 2026-10-31：项目方决定原话：选项 \"A. 去掉\"——ep02 不保留林晚内心独白（S8、S11 的 🎙），由画面 + 环境声 + 配乐承载；S8 不再受独白溢出拦截。ns_post.assemble.voiceover_drop_shots；Settings.voiceover_drop 显式给时覆盖；\"all\" = 整集去掉。测试 tests/test_v2_pace.py"
+    },
+    "dialogue_source": {
+      "default": "h3",
+      "per_episode": {},
+      "src": "AUD 2026-10-31：对白来源。tts = 现状（H3 轨在对白处压 40 dB、叠 Kokoro TTS）；h3 = 保留 H3 原声对白（与嘴型同步），TTS 只做独白和 H3 回听不合格的兜底。项目方定之前默认不变；per_episode {\"2\": \"h3\"} 按集切；CLI --dialogue-source 覆盖",
+      "owner_decision": {
+        "by": "owner",
+        "at": "2026-10-31",
+        "quote": "ep02_PREVIEW_未完成_H3原声.mp4 后，声音好一些，男生的声音有点生硬",
+        "note": "fredw-92：项目方听过 H3 原声版后认为更好 → 默认对白来源改 h3；男声生硬另行处理"
+      }
+    },
+    "h3_music": {
+      "default": "duck_under_bgm",
+      "duck_db": 12.0,
+      "per_episode": {},
+      "src": "H3 自带配乐处理（ns_post.assemble Settings.h3_music，可用值 keep | duck_under_bgm）。duck_under_bgm = 整集 BGM（data/music/epXX.wav）全程铺、不再按镜静音，H3 轨在没有 H3 对白处再压 duck_db（单轨无分轨时对白处分不开，保留）。注意：截至 2026-10-31 assemble 只读 CLI --h3-music / --h3-music-duck-db（默认 keep），尚未读本键；出片时须带 --h3-music duck_under_bgm，或由 FIX 接上读取",
+      "owner_decision": {
+        "by": "owner",
+        "at": "2026-10-31",
+        "quote": "整集统一 BGM",
+        "note": "IMP 代录（AskUserQuestion 约 17:30）：H3 自带音乐压到最低，只留对白和环境声，整集铺统一配乐"
+      }
+    },
+    "color_match": {
+      "default": true,
+      "per_episode": {},
+      "src": "B1：视频逐镜校色到本镜定稿首/尾关键帧（ns_post.colormatch lab_gain_bias_lerp_v1）；关键帧已在本地 → 默认开。per_episode {\"2\": false} 按集关；CLI --color-match / --no-color-match 覆盖"
+    },
+    "voice_conversion": {
+      "enabled": false,
+      "speaker": "gu_chen",
+      "reference": null,
+      "steps": 30,
+      "pad_pre_s": 0.12,
+      "pad_post_s": 0.25,
+      "xfade_s": 0.04,
+      "src": "VOX 2026-10-31：项目方选了“下载变声模型保留嘴型”。h3 对白模式下，只把 speaker 那句台词的时间段（SenseVoice 字时间戳）用 Seed-VC 换成 reference 音色，段外样本不动、画面不动 → 嘴型和时间不变（ns_post.voice_convert）。Seed-VC 装在 D:\\ns_vc（GPL-3.0，独立 venv，子进程调用；NS_SEEDVC_DIR / NS_SEEDVC_PYTHON 覆盖）。reference 必须由项目方给（wav）；给之前保持 enabled=false。演示见 data/ab/voice_fix/vc_demo/（用 Kokoro zm_029 作演示参考，不是选择）"
+    },
+    "upscale_4k": {
+      "default": false,
+      "src": "D5/D6/D7：SeedVR2 3B（gpu3 scripts/upscale_4k.py），只在显式要求时跑；命令见 docs/CHANGELOG_AGENTS.md fredw-92/Q1 与 ns_post.upscale4k"
+    }
+  },
+  "first_frame_tier": {
+    "_doc": "L-191（项目方 11-05 选 A）：首帧出图档按剧选。runs[剧] = \"preview\"（默认，预设自带 Turbo 8 步）或 \"base35\"（Qwen-Image 2.1 Base 35 步 cfg 3 euler/simple；1152×2016 出图 + 缩回 + 后期不变，只覆盖 overrides 里的采样字段；负面词生效）。开启办法：把 runs.series10_v2 改成 \"base35\" 并重新导入 / regen（作业签名随之变，旧 8 步版不再等同）。实测 ~328 s / 张（8 步 ~61 s）；渲染超时 900 s、租约 45 min 已够。没列的剧一律 preview。来源 tools/research/adherence_img_ab.py T35_OVERRIDES",
+    "runs": {"series10_v2": {"default": "base35", "from_episode": {"2": "turbo_previz"}}},
+    "_runs_doc": "L-206 ②A（项目方 11-06 16:2x）：runs[剧] 两种写法——字符串 = 全剧一档（L-191 旧写法照旧）；{default, from_episode:{集号: 档}} = 从该集起改档（取 ≤ 本集的最大集号）。series10_v2：ep01 保持 base35 跑完作基线，ep02 起 turbo_previz（切换前先用 tools/research/turbo_previz_ab.py 出 ep01 S1–S4 对照给项目方看）。读法唯一入口 ns_agent.frame_job.first_frame_tier(project, episode=集号)；尾帧（compose）同一张表",
+    "base35": {"unet": "base", "steps": 35, "cfg": 3.0, "sampler": "euler", "scheduler": "simple"},
+    "turbo": {
+      "_doc": "8 步 turbo、不挂摆位图（= turbo_previz 的退路：摆位图算不出 / auto 关 / 尾帧 previz 关）。采样同 turbo_previz；作业签名带 tier= 段，与 preview（预设自带 turbo，不加段）区分",
+      "unet": "turbo", "steps": 8, "cfg": 1.0
+    },
+    "turbo_previz": {
+      "_doc": "L-206 ②A（修订 L-191 base35；L-197 B 的落地）：首帧 = Turbo 8 步 + 摆位图深度控制（Qwen-Image 2.1 Fun ControlNet Union，节点链见 ns_render.unified_frame.add_fun_controlnet）。摆位图由 tools/previz/auto_blocking.py 在编作业时从导入稿字段（机位与景别 / 光学 / 构图 / cast 站位 / 场景）确定性算出（CPU 光线投射，render_scale 0.5 单镜约 5–10 s），按输入哈希缓存 data/previz/<ep>-S<n>/auto/<sha12>/；两台机器各自算同输入同哈希，作业签名认输入哈希。算不出 → fallback 档（turbo，裸 8 步），永不拦本集。身份：参考槽（身份脸 / 脸板 / 造型 / 场景底图）与 base35 完全同一套（L-191 实测 turbo Q1 均值 0.72 vs base35 0.51），控制图只到 end_percent=0.7，后 30% 采样留给参考脸收身份。control.strength/end_percent 待 ep01 S1–S4 对照定",
+      "unet": "turbo", "steps": 8, "cfg": 1.0, "dir": "data/previz",
+      "auto": {"enabled": true, "render_scale": 0.5},
+      "control": {"strength": 0.55, "start_percent": 0.0, "end_percent": 0.7},
+      "last_frame": {"previz": true, "_doc": "尾帧（L-203 compose）也走 turbo：previz=true 时按落幅改写后的景别 / 机位 / 构图单独算一张尾帧摆位图（stage=last，缓存 auto_last/），不用首帧的起幅图；false 或算不出 → 裸 turbo"},
+      "fallback": "turbo"
+    }
+  },
+  "frame_redo_preset": "frame_v9",
+  "frame_redo_preset_note": "ASSETMASTER 2026-11-01：series10 首帧全量重出默认 frame_v9（项目方较新原话“v9 v10+场景底图这个还可以”）；frame_v9_heavy（“v10H 同上（写实·重）”）为备选。default_preset 仍是 leica_sstar。",
+  "post_film": {
+    "_doc": "L-188（2026-11-04 项目方“用 L1”）：生产开 enabled=true、usm=false（胶片调色，关 USM 锐化）。H2a 胶片后期档（原：L-? 待项目方点选；PS-MASTER 2026-11-04 H2a；docs/master/PLAN_HOLLYWOOD_LOOK.md §3）。enabled=false（默认）时出图后期与以前逐字节一致。enabled=true：放大出图缩回 -> （usm=true 才做 USM 锐化，默认关）-> 胶片调色（film 参数，services/render_router/ns_render/film_look.py）-> （lut.apply=true 才叠 post_lut 指向的 config/post/luts/*.cube，strength 0..1）-> 写 *_post.png，take.params.post 记录参数与版本。颗粒种子由图片内容 sha256 派生，同输入同输出。重后期旧图用 tools/pipeline/repost.py",
+    "enabled": true,
+    "usm": false,
+    "film": {"knee": 0.78, "knee_a": 0.66, "s_curve": 0.12, "lift": 0.0156863, "gamma": 1.0, "sat": 1.08, "vib": 0.08, "skin_keep": 0.5, "shadow": [-0.012, 0.0, 0.018], "high": [0.016, 0.008, -0.012], "grain": 0.012},
+    "lut": {"apply": false, "strength": 1.0, "file": "config/post/luts/v2_reality_c2.cube"}
+  }
+}

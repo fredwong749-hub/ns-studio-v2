@@ -1,0 +1,47 @@
+{
+  "_doc": "BGM 链接（P4-BGM）参数（BGM10 2026-11-01）。tools/bgm/agent.py 读这里；改阈值改这里，不改代码。docs/BGM.md 有每项的出处。",
+  "llm": {"purpose": "music_brief", "fallback_purpose": "script_write", "max_repair_rounds": 2, "budget_tag": "bgm-series10",
+          "budget_usd": 3.0, "max_tokens_brief": 6000, "max_tokens_review": 3000, "reasoning": false},
+  "prompts": {"writer": "config/prompts/bgm_brief.writer.md", "review": "config/prompts/bgm_brief.review.md",
+              "example": "config/prompts/bgm_brief.example.json"},
+  "generation": {
+    "host": "gpu33",
+    "workdir": "/root/work/fredw/bgm",
+    "python": "/root/work/fredw/bgm/venv/bin/python",
+    "score_host": "gpu36",
+    "score_workdir": "/root/work/fredw/bgm",
+    "score_python": "/root/work/fredw/bgm/venv/bin/python",
+    "_score_doc": "打分（CLAP + Demucs，纯 CPU）放 gpu36：gpu33 共享机 11-01 负载 400–1200（96 核），nice 后打分饿死；gpu36 CPU 空闲。权重 sha256 与 gpu33 一致。",
+    "allowed_gpus": [0, 1, 3],
+    "comfy_ports": {"0": 8188, "1": 8189, "3": 8191},
+    "yield_s": 180,
+    "util_max": 10,
+    "wait_gpu_min": 20,
+    "cpu_fallback": true,
+    "cpu_threads": 16,
+    "candidates_round1": 4,
+    "candidates_retry": 3,
+    "max_rounds": 3,
+    "tail_s": 2.0,
+    "_tiers_doc": "need_mb = 本档实测峰值 + 给 ComfyUI 留的余量：XL int8 峰值约 8–9 GB、turbo 约 8.3 GB（ep01 / smoke 实测）；11-01 两次在 gpu33:0 生成时 ComfyUI 接到视频任务涨显存，本工具 OOM，所以至少留 3 GB 给对方",
+    "tiers": [
+      {"model": "acestep-v15-xl-sft", "need_mb": 21000, "steps": 50, "cfg": 7.0, "offload": false, "quant": null, "lm": true},
+      {"model": "acestep-v15-xl-sft", "need_mb": 16000, "steps": 50, "cfg": 7.0, "offload": true, "quant": "int8_weight_only", "lm": true},
+      {"model": "acestep-v15-turbo", "need_mb": 11000, "steps": 8, "cfg": 7.0, "offload": true, "quant": null, "lm": true},
+      {"model": "acestep-v15-turbo", "need_mb": 0, "steps": 8, "cfg": 7.0, "offload": false, "quant": null, "lm": false, "device": "cpu"}
+    ]
+  },
+  "gates": {
+    "vocal_rel_db_max": -20.0,
+    "vocal_rel_db_soft": -24.0,
+    "p_vocal_max": 0.5,
+    "clip_ratio_max": 0.001,
+    "longest_gap_s_max": 3.0,
+    "duration_short_s": 1.0,
+    "clap_min": 0.05,
+    "energy_r_min": -0.2
+  },
+  "soft": {"tempo_tol": 0.08, "energy_r_good": 0.3},
+  "output": {"dir": "data/music/series10", "lufs": -16.0, "true_peak_db": -1.0, "sr": 48000,
+             "duck_dialogue_db": 12.0, "duck_vo_db": 11.0}
+}

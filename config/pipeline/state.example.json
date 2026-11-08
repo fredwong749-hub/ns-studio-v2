@@ -1,0 +1,19 @@
+{
+ "_doc": "S2.1（docs/master/L209_S2_PLAN.md）流水线状态开关。take_sig.mode：off = 不盖签名、不检查；record（默认）= 新 take 盖签名，producer 每拍只记 sig_stale / 计数；enforce = 当前首帧签名不符自动换代（不计次，旧版保留到新版过闸）。总调度在 record 跑干净后改 enforce。max_regen_per_tick 每拍最多换代镜数；max_pending 同时在换代中的上限；every_s 检查间隔；unknown_unrecoverable：无签名旧版且出图时编译提示词不可恢复时 leave（记日志不动）或 predates（早于本镜最后一次导入就换代）。",
+ "take_sig": {
+  "mode": "record",
+  "max_regen_per_tick": 2,
+  "max_pending": 6,
+  "every_s": 60,
+  "unknown_unrecoverable": "leave"
+ },
+ "episode_closed": {
+  "mode": "record",
+  "_doc": "S2.2 集关闭标记（W-S22）：off = 不算不挡；record（默认）= 照算，执行器只记 ep_closed_skip（照常派）；enforce = 关闭的集 0 新派单。状态 data/pipeline/runs/<run>/episode_state.json（笔记本算、推两台），口径见 tools/autopilot/episode_state.py"
+ },
+ "run_phase": {
+  "mode": "record",
+  "max_age_s": 900,
+  "_doc": "S2.4 集阶段只算一次（W-S234）：off = 各台自算（旧行为）；record（默认）= 笔记本每拍用两台合并登记表算 L-207 active 集 / 每集阶段 → data/pipeline/runs/<run>/run_phase.json（原子写，推两台），服务器照旧自算，只记 run_phase_disagree；enforce = 服务器 producer / night / lane_roles 用中心结果。中心文件缺或超过 max_age_s 秒没更新 → 退回本机自算，记 run_phase_fallback（10 分钟一条）。口径见 tools/autopilot/run_phase.py"
+ }
+}

@@ -1,0 +1,5 @@
+{
+  "note": "导入时系统自动补的 LoRA 触发词（项目方 2026-10-30 选“系统自动补”）：镜头画面里出现该角色（compiler.present_characters 判定）就把触发词加进 img_triggers，并在剧本 globals.lora_triggers 里登记；gpu3 渲染器按 LORA_REGISTRY.json（status=accepted）+ img_triggers 加载 LoRA。",
+  "removed": "RECALL 2026-11-01：林晚 lnwan_qi → lin_wan_qi_v1.safetensors 0.8 已撤下（项目方 2026-10-31 原话“A. 去掉”；config/gen_contract.json lora_banned；文件已隔离到 _quarantine_20261101）。原件：data/_quarantine_20261101/config/auto_lora_triggers.json.orig_20261101",
+  "characters": {}
+}

@@ -1,0 +1,37 @@
+{
+ "_doc": "场景 id 对照表（ARCH 2026-10-31，总调度定）：剧本场景库 id（data/import/script_v2.json globals.scene_library 与链条产物里的 sk_*）↔ 资产目录 id（assets/scenes/<id>/）。tools/knowledge/compile.py 校验：剧本场景库里每个 id 都要在这里登记（有资产就填 asset_dir，没有就填 null 并写 status）；assets/scenes 下每个目录也都要在这里出现。新场景两边命名不同时，只改这一张表。",
+ "scenes": {
+  "sk_office_night": {
+   "asset_dir": "sk_office_night",
+   "ref": "assets/scenes/sk_office_night/refs/ar-9565919866.png",
+   "ref_sha256": "6f2e7544ef5964deee1943b85b7c9f2c9627bc37a8c26b52f5a6f40b4d9fc117",
+   "status": "series10 场景参考底图：assets/scenes/sk_office_night/refs/ar-9565919866.png（总调度 11-02 亲审定，登记 = 槽位送入；旧图 ar-4b287fd630 不再用）；走廊在画面左侧画外；原 asset_dir=sk_office"
+  },
+  "sk_gu_apartment": {
+   "asset_dir": "sk_gu_apartment",
+   "status": "series10 场景参考底图（IMGGEN 2026-10-31，暂定，待总调度亲审）：assets/scenes/sk_gu_apartment/refs/ar-c16546d59f.png（ref ar-c16546d59f，role=space）"
+  },
+  "sk_home_kitchen": {
+   "asset_dir": "sk_home_kitchen",
+   "status": "series10 场景参考底图（IMGGEN 2026-10-31，暂定，待总调度亲审）：assets/scenes/sk_home_kitchen/refs/ar-4ddb87abae.png（ref ar-4ddb87abae，role=space）"
+  },
+  "sk_studio": {
+   "asset_dir": "sk_studio",
+   "status": "series10 场景参考底图（IMGGEN 2026-10-31，暂定，待总调度亲审）：assets/scenes/sk_studio/refs/ar-4f353a0071.png（ref ar-4f353a0071，role=space）"
+  },
+  "sk_elevator": {
+   "asset_dir": "sk_elevator",
+   "status": "series10 场景参考底图（IMGGEN 2026-10-31，暂定，待总调度亲审）：assets/scenes/sk_elevator/refs/ar-c32afa4a51.png（ref ar-c32afa4a51，role=space）"
+  },
+  "sk_alley_ballroom": {
+   "asset_dir": "sk_alley_ballroom",
+   "status": "series10 场景参考底图（IMGGEN 2026-10-31，暂定，待总调度亲审）：assets/scenes/sk_alley_ballroom/refs/ar-cc0a903037.png（ref ar-cc0a903037，role=space）"
+  }
+ },
+ "asset_only": {
+  "sk_rental_closet": "作废候选；剧本场景库暂无对应 id",
+  "sk_office_elevator": "候选·待复审；剧本场景库暂无对应 id",
+  "sk_guchen_dining": "候选·待复审；剧本场景库暂无对应 id",
+  "sk_gu_chen_closet": "候选·待复审；剧本场景库暂无对应 id"
+ }
+}

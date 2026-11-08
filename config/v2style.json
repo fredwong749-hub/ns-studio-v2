@@ -1,0 +1,48 @@
+{
+  "_doc": "STYLE-V2（L-127）A/B 工具 tools/v2style/*.py 的机器 / 路径配置（K-OPS arch_scan：代码里不写死服务器路径）。道必须先用 tools/debug/lanes.py lend 借给 STYLE-V2（client 前缀 stylev2-）。",
+  "client_prefix": "stylev2-",
+  "lanes": {
+    "gpu36:0": {
+      "url": "http://127.0.0.1:18288",
+      "host": "gpu36",
+      "outdir": "/root/work/fredw/comfy/output/gpu0"
+    },
+    "gpu36:1": {
+      "url": "http://127.0.0.1:18289",
+      "host": "gpu36",
+      "outdir": "/root/work/fredw/comfy/output/gpu1"
+    },
+    "gpu33:0": {
+      "url": "http://127.0.0.1:18188",
+      "host": "gpu33",
+      "outdir": "/root/claude-kimi-ns-studio-v1/ComfyUI/output/gpu0"
+    }
+  },
+  "image_score": {
+    "host_dir": "/root/work/fredw/imggen",
+    "python": "/root/work/fredw/venv_idm/bin/python"
+  },
+  "video_score": {
+    "host": "gpu36",
+    "dir": "/root/work/fredw/video_rca/v2_style_cam",
+    "repo": "/root/work/fredw/offline_20261101/repo",
+    "python": "/root/work/fredw/venv_idm/bin/python",
+    "tools_bin": "/root/work/fredw/tools_bin"
+  },
+  "upscale_4k": {
+    "host": "gpu33",
+    "ns_studio": "/root/claude-kimi-ns-studio-v1/ns-studio",
+    "work_dir": "/root/claude-kimi-ns-studio-v1/ns-studio/data/run/laptop_4k/v2_style",
+    "gpu": "1",
+    "_doc": "引擎同 config/vqa.json upscale_4k（gpu33 SeedVR2 3B，target 2160×3840）"
+  },
+  "depth": {
+    "host": "gpu36",
+    "python": "/root/work/fredw/venv_tts/bin/python",
+    "model_dir": "/root/work/fredw/models/depth_anything_v2_small",
+    "work_dir": "/root/work/fredw/v2style_depth",
+    "_doc": "2.5D 视差子弹时间实验用的深度模型（Depth-Anything-V2-Small-hf，Apache-2.0，hf-dl 下载，CPU 推理）"
+  },
+  "speaker_model": "/root/work/fredw/hf/hub/models--FunAudioLLM--Fun-CosyVoice3-0.5B-2512/snapshots/29e01c4e8d000f4bcd70751be16fa94bf3d85a18/campplus.onnx",
+  "_speaker_model_doc": "说话人嵌入（CAM++，CosyVoice3 自带 campplus.onnx），tools/v2style/voice_distinct.py 用"
+}

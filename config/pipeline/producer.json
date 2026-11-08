@@ -1,0 +1,24 @@
+{
+ "_doc": "producer 派单 / 验收开关（PRODMERGE-O 11-03，PLAN_V2_MASTER v4 1-5，L-151）。fanout = 原 golden_worker 的“一镜多种子分到多条道并行”并进 producer 派单：一对象一道派完后还有空闲道，给在途首帧对象再派种子（每个种子算一次尝试，≤3；种子流跳过用过的），max_per_obj = 每对象同时在途上限；runs 空 = 所有非 legacy 剧。accept = 共用验收（ns_agent.gen_contract.accept：Q9 补跑 + anomaly + 合并看图逐条 / 年龄 / OCR + pass/reject/retry 三态），scope 固定为资产包剧（runs.json 有 assets_manifest），retry 不判 fail、只重打分。",
+ "fanout": {
+  "enabled": false,
+  "max_per_obj": 3,
+  "runs": [],
+  "_note": "L-161 总调度 11-03：一镜多种子分道（PRODMERGE-O）未经 A/B、A1-11 前提未修，cut B 进版关；验证后再开"
+ },
+ "_review_adopt_auto": "L-196 项目方 11-05“我需要你全自动，不要检测那么多了”：true = 重试用尽后自动取最高分版设为当前（标 review_needed，进成片；没有 Q1–Q9 全过版也取，成人安全 / 文字水印不过的除外）。修订 L-187 默认关；手工 CLI review-adopt 不受此开关影响",
+ "review_adopt_auto": true,
+ "_post_pool": "L-205 P1：出图后打分（契约 + 看图）线程池。max_workers 0 / 缺 = max(6, 道数 × 预取深度)（原写死 3）；只重打分并发上限同此（NS_PRODUCER_RESCORE_MAX 优先）",
+ "post_pool": {"max_workers": 0},
+ "_canary": "SLIM-CDE 11-05 E3：ignore_items = 不计入“换版首批复核”的阻断项（默认 []，原口径）。建议 [\"Q1\"]：base35 下 Q1 不过 ~50% 是底噪，canary 触发会暂停整台派单（11-05 实测停 135 s + 1025 s，6 道全空）；Q1 仍是硬闸，只是不再触发整台暂停",
+ "canary": {"ignore_items": ["Q1"]},
+ "accept": {
+  "enabled": true,
+  "scope": "asset_bundle_runs",
+  "max_rechecks": 2,
+  "skip_prefailed": true,
+  "_skip_prefailed": "AUDIT-PERF 11-05（默认关）：true = 契约 / 看图已判不过（pf.ok=false）的图不再做共用验收 QB——QB 只会加不过项、从不翻回通过，而它的 ensure_q9 会把 vqa_gate 刻意跳过的整张看图再跑一遍 + bundle 再看一遍（11-05 实测每张白耗 4–6 次看图、~160 s 看图 GPU、~80 s 关键路径）。关 = 原口径",
+  "run_qb": false,
+  "_run_qb": "L-196：false = 不跑共用验收 QB（只记录不挡，省整张再看一遍）；缺键 = true 原口径"
+ }
+}

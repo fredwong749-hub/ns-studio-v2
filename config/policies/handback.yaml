@@ -1,0 +1,53 @@
+# 交还条件（DISTILL 11-02）：服务器从“笔记本代派”交还为“服务器自派”前必须同时满足的条件。
+# 读取：tools/autopilot/policy.py:handback_ok(rec, server_sv=…) —— run.py status --all 用它给每台服务器打“可交还 / 不可交还 + 原因”。
+schema: nsfs.policy/1
+policy: handback
+items:
+  preflight_dryrun_ok:
+    value: true
+    source: 总调度 11-02 01:1x–01:2x（assets_ready 写“缺 0”但服务器 preflight I5 全挡：场景底图没推）；K-OPS-F02
+    enforced_by: tools/factory/sync.py:verify / tools/factory/deps.py（只有 dryrun 挡 0 且 ≥1 镜才写 true）
+    status: drift_checked
+    owner: FACTORY
+    drift: {kind: grep, file: tools/factory/sync.py, pattern: "preflight_dryrun_ok="}
+  preflight_min_shots:
+    value: 1
+    source: tools/factory/deps.py（至少跑了 1 镜才算）
+    enforced_by: tools/factory/deps.py
+    status: code_reads
+    owner: FACTORY
+  refs_match:
+    value: true
+    source: 总调度 11-02 01:32（服务器缺覆盖类配置，47/50 镜身份脸解析成旧脸，preflight 照样 0 挡）→ 逐镜 refs sha 与笔记本一致才可交还
+    enforced_by: tools/factory/sync.py（refs_mismatch == 0）
+    status: drift_checked
+    owner: FACTORY
+    drift: {kind: grep, file: tools/factory/sync.py, pattern: "refs_mismatch"}
+  min_code_sv:
+    value: sv-20261102-03
+    source: L-099b D9；11-02 01:2x gpu36 仍跑 sv-01、不读 lookA_hold、派出 hold 内 ep02-S1/S2
+    enforced_by: tools/autopilot/policy.py:code_sv_problem（服务器每拍；读本机 data/system_version.txt，低于 / 读不到 / 格式错 = 只报不派）+ policy.deployed_sv / handback_ok（笔记本交还判定读 data/system_versions/index.json 的 deploy 记录）
+    status: drift_checked
+    owner: FACTORY（decisions_guard）/ DISTILL（判定函数）
+    drift: {kind: grep, file: tools/factory/decisions_guard.py, pattern: "code_sv_problem"}
+    note: 服务器 producer 每拍经 decisions_guard.problems() 调 code_sv_problem（FACTORY 11-02 接好，tests/test_factory.py::test_decisions_guard_checks_code_sv_on_server）；需要新代码的功能上线时由加功能的 loop 抬 value
+  holds_synced:
+    value: true
+    source: L-099b（inbox 含全部 *_hold.json）；01:2x 旧代码不认 lookA_hold
+    enforced_by: tools/autopilot/resident_sync.py push_control（hold 文件进第一级推送）
+    status: pending
+    owner: FACTORY / WORKFLOW
+    plan: 交还前比对笔记本 data/autopilot/*_hold.json 与服务器同名文件 sha，一致才可交还
+  ready_writer:
+    value: [FACTORY]
+    source: 01:26 WORKFLOW push_required 自写 ready=true 违反新规、改回 false；只有 FACTORY verify 可写 ready=true
+    enforced_by: tools/autopilot/policy.py:handback_ok（ready=true 但 preflight_dryrun_by 不含 FACTORY → 不认）
+    status: code_reads
+    owner: FACTORY
+  pause_on_mismatch:
+    value: true
+    source: 01:32 总调度暂停两台服务器 producer → 补齐 → 不一致 take 驳回 → 恢复
+    enforced_by: （部分）FACTORY 人工执行
+    status: pending
+    owner: FACTORY
+    plan: refs_match 由 true 变 false 时 dispatch 自动把该台切回 draining，并对 refs 不一致期间出的 take 走 producer.master_reject（不计次）

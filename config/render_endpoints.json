@@ -1,0 +1,51 @@
+{
+  "_comment": "出图 / 视频的 ComfyUI 地址（W1 llm_config 的 GET/PUT /api/render/endpoints 读写 image/video；W2 ns_render.endpoints 按卡解析）。笔记本经 SSH 隧道连 gpu3：18188 → GPU0 :8188，18191 → GPU3 :8191。任务队列（ns_api/jobs.comfy_url）：本文件 image/video 的地址优先（fredw-92 定，2026-10-30 夜），没写才用环境变量 NS_COMFY_URL_GPU0 / NS_COMFY_URL_GPU3 > NS_COMFY_URL（GPU0）> 内置默认；ns_render.endpoints.url_for_gpu 单独调用时仍是环境变量优先。 fredw-92/D1 2026-10-31：GPU1（千问已撤下）加为第二条视频线，18189 → gpu3 :8189；jobs.GPUS 读本表。",
+  "image": {
+    "url": "http://127.0.0.1:18188",
+    "gpu": 0
+  },
+  "video": {
+    "url": "http://127.0.0.1:18191",
+    "gpu": 3
+  },
+  "gpus": {
+    "0": "http://127.0.0.1:18188",
+    "1": "http://127.0.0.1:18189",
+    "3": "http://127.0.0.1:18191"
+  },
+  "lanes": {
+    "gpu36:0": {
+      "url": "http://127.0.0.1:18288",
+      "label": "gpu36:0（3090，隧道 18288 → gpu36 :8188）"
+    },
+    "gpu36:1": {
+      "url": "http://127.0.0.1:18289",
+      "label": "gpu36:1 (3090, tunnel 18289 -> gpu36 :8189)"
+    },
+    "gpu36:2": {
+      "url": "http://127.0.0.1:18290",
+      "max_frames": 362,
+      "long_only": true,
+      "label": "gpu36:2 长镜头道（3090 --novram，隧道 18290 → gpu36 :8190；>260 帧的镜头派到这里）"
+    },
+    "laptop:0": {
+      "url": "http://127.0.0.1:18388",
+      "image_only": true,
+      "concurrency": 1,
+      "hold": true,
+      "disabled": true,
+      "_hold_change": "L-100（总调度 fredw-2b 11-02 01:5x 定）：笔记本 4080 专做看图，不再出图；ComfyUI :18388 与 watchdog 已由 DEBUG-RSI 停掉（CONSENT LOCALGPU → DEBUG_RSI）。界面显示“看图卡”。恢复出图 = 去掉 disabled 并重新起 D:/ns_comfy/start.ps1｜旧记录：2026-11-01 19:2x 总调度 fredw-2b 选 A：本机道开派，本机看图停（Q9 记未测待补判），服务器跳板断；回退 = 改回 true",
+      "preset_lock": "leica_sstar",
+      "yield_url": "http://127.0.0.1:8870/yield",
+      "yield_timeout_s": 300,
+      "label": "laptop:0 已停用：笔记本 RTX 4080 改为专用看图卡（L-100）；原为本机出图道（D:/ns_comfy ComfyUI 0.42.0）",
+      "_comment": "LOCALGPU 11-01（总调度 fredw-2b 派）：启动 D:\\ns_comfy\\start.ps1；模型 sha256 与 HF 官方 / 服务器记录一致（D:\\ns_comfy\\MODELS.sha256）；参数与 leica_sstar 一致由 tools/localgpu/check_lane.py + tests/test_localgpu_lane.py 自动比对（knowledge K-OPS-L01）。开派 = 把 hold 改成 false"
+    }
+  },
+  "max_frames": {
+    "0": 260,
+    "1": 260,
+    "3": 260
+  },
+  "_max_frames_comment": "fredw-92/LS 2026-10-31 实测（ep02-S8，768x1344，docs/e2e_iteration_log.md 第 4 轮）：gpu33 3090 + --reserve-vram 1：243/260 过、277/294 在 SamplerCustomAdvanced OOM（--cache-ram 常驻与出片前 POST /free 结果相同）。超过上限的镜头由 video_jobs.route_long 改派长镜头道，不截短。"
+}

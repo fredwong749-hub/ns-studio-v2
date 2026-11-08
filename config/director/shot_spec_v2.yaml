@@ -1,0 +1,94 @@
+# 镜头语言模板 v2（单一事实来源；DIRECTOR，总调度 fredw-2b 派 r4，2026-11-02；L-107 / L-111）
+# 项目方 11-02 03:4x 原话：“对于第二季里面关于镜头相关的内容，你需要重构一下：1. 更有画面感……你不是有 Hollywood 的那些镜头能力，还有演员的能力吗？
+# 2. 更清晰：我需要你把镜头提示词写得更清晰一点。”
+# 总调度补：首帧和 Pika 视频共用同一份模板（首帧用 ①②③④，视频用 ①–⑦），不要两套；IMGFIX 负责融合契约句和合成感检测，DIRECTOR 负责字段定义和编译顺序。
+# 编译：每段一句、顺序固定、不堆形容词；缺的段由代码按词表补（decider=code，并标 auto），最后加通用约束句。
+schema: nsfs.shot_spec_v2/1
+version: ss-v2-2026-11-02
+segments:   # 顺序 = 编译顺序
+  - id: framing
+    md_label: "**机位与景别**："   # P4 Markdown 每段单独一行（HOLLYWOOD 确认写法 a）
+    no: ①
+    zh: 机位与景别
+    writer: 谁在画面里、从哪个角度（平视 / 俯 / 仰 / 侧面 / 过肩）、景别档（特写 / 近景 / 中景 / 中全景 / 全景）
+    en_pattern: "A {size_en} from {angle_en} of {subjects}."
+    used_by: [image, video]
+    required: true
+  - id: lens
+    md_label: "**镜头**："   # P4 Markdown 每段单独一行（HOLLYWOOD 确认写法 a）
+    no: ②
+    zh: 镜头参数
+    writer: 只写 config/director/lenses.yaml 的 id 或中文名（徕卡 M 系统）；不写时按景别 + 情绪自动选
+    en_pattern: "Shot on {lens_en} at {aperture}, {dof_en}."
+    zh_pattern: "{lens_zh}，光圈 {aperture}，{dof_zh}"
+    source: config/director/lenses.yaml
+    precedence: [剧本【镜头】字段, compiled.json visual_spec.lens（换算到 lenses.yaml 最近焦段，保持徕卡 M）, 景别 + 情绪 by_size]
+    one_lens_sentence: 编译后只留一条镜头句——style_suffix 里的预设“徕卡M 50mm f/2镜头”改为缺省值，被本段替换，不再和本段同时出现（总调度 11-02，与 IMGFIX 改 frame_job；L-087 观感 A/B 通过后生效）
+    used_by: [image, video]
+    required: false   # 缺 → auto
+  - id: composition
+    md_label: "**构图**："   # P4 Markdown 每段单独一行（HOLLYWOOD 确认写法 a）
+    no: ③
+    zh: 构图
+    writer: 前景 / 中景 / 后景各放什么，人物落在哪个三分点，留白方向，视线方向
+    en_pattern: "{foreground}{subject_place}, {background}; {lead_room}."
+    used_by: [image, video]
+    required: true
+  - id: lighting
+    md_label: "**灯光**："   # P4 Markdown 每段单独一行（HOLLYWOOD 确认写法 a）
+    no: ④
+    zh: 灯光设计
+    writer: 方案名（config/director/lighting.yaml）或 动机光源 + 布光比 + 色温；可选人物适配
+    en_pattern: "{lighting_scheme_en} {character_adapt}"
+    used_by: [image, video]
+    required: false   # 第一季缺 → 导演层按场景时段 + 情绪自动选方案（auto）
+  - id: camera
+    md_label: "**运镜**："   # P4 Markdown 每段单独一行（HOLLYWOOD 确认写法 a）
+    no: ⑤
+    zh: 运镜
+    writer: 运镜词表名（只用 enabled 的）+ 起幅 → 落幅 + 幅度
+    en_pattern: "{camera_clause}, from {start_frame} to {end_frame}."
+    used_by: [video]
+    required: true
+  - id: performance
+    md_label: "**表演节拍**："   # P4 Markdown 每段单独一行（HOLLYWOOD 确认写法 a）
+    no: ⑥
+    zh: 表演节拍
+    writer: 按秒分段 0–2 / 2–4 / 4–6 s：动作、微表情、视线落点（画内的人或物，不看镜头）、呼吸、手部细节（K-REN-G01/G02/G06、K-WRT-702 不碰身上衣服）
+    speaker_clause_en: "{speaker} speaks with clear, visible mouth movement, the lips opening and closing distinctly on each word."   # VIDEO-RCA：顾沉口型 29 条只过 15，主因嘴张得太小；代码给说话人那一拍自动加，V7 验证
+    en_pattern: "At 00:0{t}.000, {beat}."
+    used_by: [video]
+    required: true
+  - id: sound_transition
+    md_label: "**声音**："   # P4 Markdown 每段单独一行（HOLLYWOOD 确认写法 a）
+    no: ⑦
+    zh: 声音 / 转场
+    writer: 不写——由导演层 cut_plan 给（转场类型、J/L-cut），声音块沿用【声音】字段
+    en_pattern: "{soundscape}"
+    used_by: [video]
+    required: false
+lens_by_size:   # 已由 config/director/lenses.yaml 取代（徕卡 M 镜头组）；保留作兜底，资料第三节：24mm 广角 / 35mm 标准 / 50mm 特写
+  大特写: {focal: 85mm, aperture: T1.8, dof: "a very shallow depth of field"}
+  特写: {focal: 85mm, aperture: T1.8, dof: "a shallow depth of field"}
+  近景: {focal: 50mm, aperture: T2, dof: "a shallow depth of field"}
+  中近景: {focal: 50mm, aperture: T2, dof: "a shallow depth of field"}
+  中景: {focal: 35mm, aperture: T2.8, dof: "a moderate depth of field"}
+  中全景: {focal: 35mm, aperture: T2.8, dof: "a moderate depth of field"}
+  全景: {focal: 24mm, aperture: T4, dof: "a deep depth of field"}
+size_en: {大特写: extreme close-up, 特写: close-up, 近景: medium close-up, 中近景: medium close-up, 中景: medium shot, 中全景: medium full shot, 全景: wide shot}
+angle_en: {平视: eye level, 侧面机位: the side, 侧面: the side, 过肩: over the shoulder, 俯拍: a high angle, 仰拍: a low angle, 俯视: a high angle, 仰视: a low angle}
+position_en: {左: frame left, 中: frame center, 右: frame right}
+depth_en: {前: the foreground, 中: the midground, 后: the background}
+constraints_en: "Faces stay stable and sharp, no clipping through objects, no duplicate people, no on-screen text or watermark."
+rules:
+  - 每段一句，顺序固定 ①→⑦；不堆形容词（同一名词前形容词 ≤2 个）
+  - 视线写画内的人或物（K-REN-G01 / P5），不写看镜头
+  - 运镜只用 config/director/camera_moves.yaml enabled 的（K-REN-801）
+  - 首帧只用 ①②③④（运镜 / 表演 / 声音不进首帧）；视频用全部
+  - 灯光的主光方向与构图里光源方向一致（与 IMGFIX 融合契约：接触阴影方向一致）
+image_compile:   # MERGE-IMG-O 11-03（ISS-1103-023528-2869，L-137）：首帧编译接入唯一入口 frame_job.build_first（ns_agent/shot_language.py）
+  order: [lens, composition, lighting, fusion]   # 固定输出顺序：② 镜头 → ③ 构图 → ④ 灯光 → L-110 融合契约句；① 景别首句已由编译器写在正文最前
+  position: "正文与【场景】段之后、造型 / 视线 / 站位补句与风格后缀之前（frame_job.with_note 同一位置）"
+  switches: "config/compile/run_style.json runs.<剧>.shot_language（lens: off|script|auto；composition: off|script；lighting: off|script|auto；fusion: true|false）；没有条目的剧全关，旧剧提示词不变"
+  fusion_source: "data/ab/imgfix/blend_ab.jsonl 臂 A 原句（IMGFIX 11-02 融合 A/B；中英同句）"
+  fusion_zh: "人物和场景是同一次拍摄：人物的主光方向和色温跟场景里的光源一致，环境光染到皮肤和衣服上；手和身体与桌面、椅子、地面接触的地方有柔和的接触阴影，方向和主光一致；人物在焦平面上锐利，背景按光圈自然柔化；人物轮廓没有白边和抠图边，发丝和背景自然过渡；整张画面同一次调色、同一种颗粒，灯光周围有一点空气感（the subject and the set are lit as one shot: the key light direction and color temperature match the practical lights in the scene, with ambient color spill on skin and clothes; soft contact shadows where hands and body touch the table, chair or floor, falling the same way as the key light; the subject is sharp on the focal plane while the background falls off naturally with the aperture; no cutout edges or halos around the figure, hair blending naturally into the background; one unified color grade and film grain, a little atmospheric haze around the lamps）"

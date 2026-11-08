@@ -1,0 +1,376 @@
+# 运镜词表（单一事实来源；DIRECTOR，总调度 fredw-2b 派 L-107，2026-11-02）
+# 项目方 11-02 03:1x 原话：“我发现了一些 AI 的运动镜头，需要你把这些内容放到镜头的提示词里面去……1. 让 Master Agent、剧本 Agent
+# 和导演 Agent 学会这个事情，并写到本地规则里。2. 在 Season 2 里面，可以把这些内容写进去。”
+# 资料：docs/reference/camera_moves_20261102.md（项目方粘贴的“AI 视频运镜指令大全”，适配 Runway / 可灵 / 剪映）。
+# 本项目视频模型是 Pika Flex：每种运镜在 Pika 上 A/B（data/ab/video_rca/cm_r1/，2 seed，判据见 ab_criteria），
+# 通过的才 enabled: true；没过 / 没测的 enabled: false 并写原因。K-REN-801 / K-EDT-811 / camera_norm / cut_plan 都读本文件，不再写死。
+# 读写：services/agent/ns_agent/camera_vocab.py（load / match / clause / enabled_ids）。改这里要同步跑 tests/test_director.py。
+schema: nsfs.camera_moves/1
+version: cm-v1-2026-11-02
+ab_criteria:
+  doc: 每种运镜在同一镜（ep10-S2 中景单人坐姿，S★ R0 首帧）上只换运镜句，2 seed；全部满足才 enabled
+  rules:
+    - {id: AB1, text: "成片运动项：score_clip mean ≥ 0.5（不站桩）且无镜内硬切（cuts = 0）"}
+    - {id: AB2, text: "面部稳定：林晚 SFace 中位 ≥ 0.30 且 p10 ≥ 0.25（与基线 static 同口径）"}
+    - {id: AB3, text: "无分身 / 多肢：V6 dup_side_frac ≤ 0.15 且 extra_hand_frac ≤ 0.05 且 people 与首帧一致"}
+    - {id: AB4, text: "J4 去抖后可用：J4 ≤ 1.3 或 J4_z < 3（> 则记‘4 帧一顿’软项，由 dejudder 处理，不单独否决）"}
+    - {id: AB5, text: "景别不跑档：size_measured 与首帧景别差 ≤ 1 档（Pika 本身会往远退，RCA_r1 C16）"}
+    - {id: AB6, text: "执行准确度：VIDLAB clipmetrics v4（背景 LK 光流 + 仿射累计机位轨迹，挡掉人脸和身体）实测运镜量在目标小幅档的 0.5–2 倍、方向对 → 1；中位 ≥ 0.5 才算执行了。没有该指标 = 未测（不否决）"}
+  seeds: [20261102, 20261103]
+  shot: ep10-S2
+exec_modes:
+  camctl_r1: "VIDLAB 11-02 冒烟（data/rsi/vidlab/ab_vl_r1_camctl_truck.json，ep10-S2 横移 seed 20261102，107 帧同 seed 对照）：执行准确度 0.0 → 1.0（横移 -0.0711 / 目标 -0.07，杂旋转 2.3° → 0.3°），但看镜头占比 0 → 0.775 触发硬规则护栏 → 不通过；158 帧在 gpu36:1 / gpu33:1 OOM，107 帧可跑、单条 365 s；右缘黑边已修。横移 / 摇镜 / 俯仰暂不改 camctl，等第 2 轮（strength 0.4、end_percent 0.3、人物遮罩外扩）"
+  doc: 运镜的执行方式。prompt = 只靠 Pika 提示词；camctl = 首帧背景 Canny 按机位轨迹仿射成控制视频，经 MiniMax H3 Fun ControlNet 驱动（VIDLAB tools/vidlab/camctl.py，冒烟中）
+  measured_by: "VIDLAB tools/vidlab/clipmetrics.py v4，41 条 Pika 片按提示词运镜分组的执行准确度中位：push_in 1.0（18）、static 1.0（3）、arc 0.64（7）、truck_right 0.10（2；cm_r2 横移实测 -0.7% 画宽，目标 -7%，另有 2.2° 杂旋转）、tilt_up 0.0（11）"
+  conclusion: "Pika 能执行推近和固定；横移、俯仰基本不按提示词执行（背景净运动 0.029/s 不比好莱坞参照 0.017/s 少，问题是方向不受控）→ truck / pan / tilt 只靠提示词不 enabled，camctl 冒烟通过后把执行方式改成 camctl 再 A/B"
+constraints_en: >-
+  Her face stays stable and sharp throughout, with no clipping through objects, no duplicate people, and no on-screen text or watermark.
+constraints_zh: 人物面部稳定、无穿模卡顿、禁止分身、无字幕水印
+# L-192（项目方 11-05，MASTER_PICTURE；L-129 修订）：白名单 2 → 6 种 static / push_in / pull_out / bolt_push_settle / handheld_follow / pedestal_up；
+# 双人及以上在画的镜头只允许下面四种（阶段 0.2b 基准：双人中景的横移 / 环绕 / 升都被做成“后拉 + 升”，不受控；bolt_push_settle 是否允许待项目方确认，暂按 L-192 原话只 4 种）。编译层 camera_norm.multi_person_ok 判，
+# 不合规退回 push_in（enabled 时）否则 static，改动记 h3_norm / notes。truck / arc 继续 disabled（只留 h3_official_candidate 待复测）
+multi_person_moves: [static, push_in, pull_out, handheld_follow]
+# amp：只用 small（K-PRM-101 / Pika P16）；speed 词一律不写（项目方：节奏慢）；dir 由导演层按视线 / 站位给 left|right
+# h3_official（CODER-PT 11-05，PLAN_EP01_FINISH §9 阶段 0.2b 基准 + §4 2.1）：提示词模板 v2 的官方写法运镜句（H3 base-en §4.3：
+#   动词 + 幅度 + 速度，独立成句紧跟构图句）。占位：{amp}=with small/large amplitude（medium 不写）、{speed}=at slow/fast speed（normal 不写）、
+#   {P}=所有格代词、{P1}=主格、{P2}=宾格、{dir}/{dir_inv}=方向 / 反方向。h3_amp_shift=-1：基准里推 / 拉幅度做出来是目标的 1.2–2.8×，幅度词降一档。
+#   只在 run_style.json runs.<剧>.prompt_template.video = v2 时用（默认 v1，不改现行 template 句）；enabled 按 L-192（项目方 11-05 修订的白名单 6 种），不在这里另改。
+#   h3_official_candidate：基准做得出但方向反、幅度过大的运镜（横移 / 环绕）的候选写法（方向反写 + 中档幅度 = 不写幅度词），disabled（L-192 未纳入），待复测后项目方再定。
+moves:
+  - id: static
+    zh: 固定镜头
+    en: Static Shot
+    aliases: ["固定镜头", "固定机位", "static shot", "static camera", "static", "fixed camera", "机位固定"]
+    template: "The camera holds a static shot"
+    params: {lens: "35mm", aperture: "T1.4–T2.8"}
+    h3_official: "The camera holds a static shot"
+    sizes: [特写, 近景, 中近景, 中景, 中全景, 全景]
+    moods: [对白, 克制, 停顿, 大动作]
+    conflicts: []
+    split: null
+    enabled: true
+    ab: {status: baseline}
+    reason: 基线（现行 25 镜用它）
+  - id: push_in
+    zh: 推近
+    en: Dolly In
+    aliases: ["推近", "推镜", "缓慢推近", "小幅推近", "镜头缓推", "缓缓推近", "push in", "push-in", "dolly in"]
+    template: "The camera pushes in with small amplitude"
+    params: {lens: "50mm"}
+    h3_official: "The camera pushes in {amp} {speed} toward {P} face"
+    h3_amp_shift: -1   # 基准：官方写法推近 large→1.2–2.8× 目标；小幅意图写 small，中幅意图也写 small
+    sizes: [近景, 中近景, 中景, 中全景]
+    moods: [情绪推高, 发现, 高点]
+    conflicts: [arc, zoom_in, pull_out]
+    split: null
+    enabled: true
+    ab: {status: baseline}
+    reason: 基线（现行 60 镜用它；Pika P16 推近只写小幅）
+  - id: pull_out
+    zh: 拉远
+    en: Dolly Out
+    aliases: ["拉远", "缓慢拉远", "后拉", "pull out", "pull-out", "dolly out", "pulls out"]
+    template: "The camera pulls out with small amplitude"
+    params: {lens: "35mm"}
+    h3_official: "The camera pulls out {amp} {speed}, revealing more of the studio around {P2}"
+    h3_amp_shift: -1
+    sizes: [近景, 中景]
+    moods: [疏离, 收尾]
+    conflicts: [push_in, arc, zoom_in]
+    split: null
+    enabled: true
+    ab: {status: pass, exp: adherence_video_0.2b, arms: 1, pass: 1, note: "11-05 阶段 0.2b 基准（data/review_pages/adherence/video.html）：官方写法 + pika_flex 拉远服从 1.0，幅度偏大（目标 1.2–2.8×）→ 模板 v2 幅度词降一档（h3_amp_shift）"}
+    enabled_by: "L-192 项目方 11-05（L-129 修订：白名单扩为 6 种）"
+    reason: "阶段 0.2b 基准官方写法拉远执行 1.0；RCA_r1 C16 的退档风险由幅度降一档 + 景别闸（AB5）兜底"
+  - id: pan
+    zh: 摇镜（水平）
+    en: Pan
+    aliases: ["摇镜", "横摇", "左摇", "右摇", "pan left", "pan right", "pan"]
+    template: "The camera pans {dir} with small amplitude"
+    params: {}
+    sizes: [中景, 中全景, 全景]
+    moods: [交代空间, 视线引导]
+    conflicts: [truck, arc]
+    split: null
+    enabled: false
+    ab: {status: pending}
+    reason: 待 A/B
+  - id: tilt_up
+    zh: 上摇
+    en: Tilt Up
+    aliases: ["上摇", "缓慢上摇", "自下而上摇", "中幅上摇", "tilt up"]
+    template: "The camera tilts up with small amplitude"
+    params: {}
+    sizes: [近景, 中景, 中全景]
+    moods: [揭示, 从手到脸]
+    conflicts: [pedestal_up]
+    split: null
+    enabled: false
+    ab: {status: pending}
+    reason: 待 A/B（现行 5 镜用）
+  - id: tilt_down
+    zh: 下摇
+    en: Tilt Down
+    aliases: ["下摇", "缓慢下摇", "自上而下摇", "tilt down"]
+    template: "The camera tilts down with small amplitude"
+    params: {}
+    sizes: [近景, 中景, 中全景]
+    moods: [揭示, 从脸到手, 低落]
+    conflicts: [pedestal_up]
+    split: null
+    enabled: false
+    ab: {status: pending}
+    reason: 待 A/B（r4 加入：项目方要求更有画面感）
+  - id: truck
+    zh: 横移
+    en: Truck Left/Right
+    aliases: ["横移", "向右横移", "向左横移", "小幅横移", "侧移", "truck right", "truck left", "tracking shot", "横向跟拍", "跟拍"]
+    template: "The camera trucks {dir} with small amplitude"
+    params: {fps: "24"}
+    h3_official: "The camera trucks {dir} {amp} {speed}, the studio background sliding to the {dir_inv} behind {P2}"
+    h3_official_candidate: "The camera trucks {dir_inv} {speed}, the studio background sliding to the {dir} behind {P2}"
+    h3_candidate_note: "阶段 0.2b 基准（11-05，data/review_pages/adherence/video.html）：官方写法横移动作强且稳定，但方向反（写左出右）、幅度 3–5× 目标，写 small 几乎不动 → 候选 = 方向反写 + 不写幅度词（中档）+ at slow speed；双人镜不受控（只用推 / 拉 / 固定 / 手持）。disabled，L-129 待项目方；复测后再定"
+    sizes: [中景, 中全景, 全景]
+    moods: [跟随, 行走]
+    conflicts: [pan, arc]
+    split: null
+    enabled: false
+    ab: {status: pending}
+    reason: 待 A/B（现行 4 镜用）
+  - id: pedestal_up
+    zh: 升镜
+    en: Pedestal Up
+    aliases: ["升镜", "上升", "镜头升起", "pedestal up", "crane up", "摇臂升起"]
+    template: "The camera pedestals up with small amplitude"
+    params: {}
+    h3_official: "The camera pedestals up {amp} {speed}, the floor dropping out of the bottom of the frame"
+    sizes: [中景, 中全景, 全景]
+    moods: [抽离, 收尾]
+    conflicts: [tilt_up]
+    split: null
+    enabled: true
+    ab: {status: pass, exp: adherence_video_0.2b, arms: 1, pass: 1, note: "11-05 阶段 0.2b 基准：官方写法 + pika_flex 升 1.0，亲看机位升起露出顶棚、干净；h3 句照基准 official 写法"}
+    enabled_by: "L-192 项目方 11-05（L-129 修订：白名单扩为 6 种）；单人镜用（multi_person_moves 不含）"
+    reason: "阶段 0.2b 基准官方写法升 1.0（单臂）"
+  - id: zoom_in
+    zh: 变焦推近
+    en: Zoom In
+    aliases: ["变焦", "变焦推近", "极速变焦", "zoom in", "crash zoom"]
+    template: "The camera zooms in with small amplitude"
+    params: {}
+    sizes: [近景, 中近景, 中景]
+    moods: [震惊, 定格表情]
+    conflicts: [push_in, arc]
+    split: null
+    enabled: false
+    ab: {status: pending}
+    reason: 待 A/B
+  - id: arc
+    zh: 环绕
+    en: Orbit / Arc
+    aliases: ["环绕", "小幅度环绕", "匀速环绕", "orbit", "arc shot", "arc"]
+    template: "The camera arcs slowly around her with small amplitude"
+    params: {lens: "50mm"}
+    h3_official: "The camera performs an arc shot around {P2}, circling to the {dir} {amp} {speed}, keeping {P2} centred in the frame"
+    h3_official_candidate: "The camera performs an arc shot around {P2}, circling to the {dir_inv} {speed}, keeping {P2} centred in the frame"
+    h3_candidate_note: "阶段 0.2b 基准：官方写法出了真环绕（侧脸→正脸、背景大换）但方向反、幅度大 → 候选 = 方向反写 + 不写幅度词（中档）；双人镜被做成后拉+升。disabled，待复测"
+    sizes: [近景, 中近景, 中景]
+    moods: [对峙, 心境转变]
+    conflicts: [push_in, pull_out, zoom_in, truck, pan]
+    split: "环绕 + 推拉 → 拆成两镜：先推近（push_in）、下一镜再环绕（资料 §4 避坑）"
+    enabled: false
+    ab: {status: pending}
+    reason: 待 A/B；资料 §4：环绕易与推拉冲突
+  - id: focus_pull
+    zh: 焦点转移
+    en: Focus Pull
+    aliases: ["焦点转移", "移焦", "转焦", "rack focus", "focus pull"]
+    template: "The camera holds a static shot while the focus pulls from the foreground to her face"
+    params: {aperture: "T1.4"}
+    sizes: [近景, 中近景, 中景]
+    moods: [注意力转移, 揭示]
+    conflicts: [push_in, arc, zoom_in]
+    split: null
+    enabled: false
+    ab: {status: pending}
+    reason: 待 A/B
+  - id: slow_motion
+    zh: 慢镜头
+    en: Slow Motion
+    aliases: ["慢镜头", "慢动作", "升格", "slow motion"]
+    template: "The camera holds a static shot as the moment plays in slow motion"
+    params: {fps: "240"}
+    sizes: [特写, 近景, 中景]
+    moods: [高点, 冲击]
+    conflicts: [whip_pan]
+    split: null
+    enabled: false
+    ab: {status: pending}
+    reason: 待 A/B；资料 §4：慢镜头加“无渐变过渡”
+  - id: foreground_pass
+    zh: 前景遮挡
+    en: Foreground Pass
+    aliases: ["前景遮挡", "前景擦镜", "foreground pass"]
+    template: "The camera trucks {dir} with small amplitude past a softly blurred foreground edge"
+    params: {lens: "40mm", aperture: "T1.4"}
+    sizes: [近景, 中近景, 中景]
+    moods: [窥视, 层次]
+    conflicts: [arc, pan]
+    split: null
+    enabled: false
+    ab: {status: pending}
+    reason: 待 A/B
+  - id: whip_pan
+    zh: 甩镜
+    en: Whip Pan
+    aliases: ["甩镜", "快速甩镜", "whip pan"]
+    template: "The camera whip-pans {dir} with motion blur, then settles sharply"
+    params: {}
+    sizes: [中景, 中全景]
+    moods: [转场, 惊吓]
+    conflicts: [slow_motion, arc]
+    split: null
+    enabled: false
+    ab: {status: pending}
+    reason: 待 A/B；资料 §4：甩镜强调“运动模糊 + 瞬间清晰”
+  # ---- 不测、直接 disabled（项目已有规则或模型做不到）
+  - id: crane_spiral
+    zh: 上升环绕
+    en: Crane + Orbit
+    aliases: ["上升环绕", "摇臂螺旋", "螺旋上升"]
+    template: null
+    sizes: []
+    moods: []
+    conflicts: [arc, pedestal_up]
+    split: "拆成两镜：先升镜（pedestal_up），下一镜再环绕（arc）；每镜一种运镜（K-PRM-101）"
+    enabled: false
+    ab: {status: not_tested}
+    reason: 复合运镜，一镜一种运镜（K-PRM-101），按 split 拆
+  - id: variable_speed
+    zh: 变速推近
+    en: Variable Speed
+    aliases: ["变速推近", "三段速度", "变速"]
+    template: null
+    sizes: []
+    moods: []
+    conflicts: []
+    split: "拆成：推近（push_in）一镜 + 剪辑里定格 / 变速（后期做，不进 Pika 提示词）"
+    enabled: false
+    ab: {status: not_tested}
+    reason: Pika 提示词不写速度（K-PRM-101、项目方节奏要求），速度变化交给剪辑
+  - id: pov
+    zh: 主观视角
+    en: POV
+    aliases: ["主观视角", "第一人称", "pov", "穿越机"]
+    template: null
+    sizes: []
+    moods: []
+    conflicts: []
+    split: "改写成机位位置（例：from just behind his shoulder），K-PRM-102"
+    enabled: false
+    ab: {status: not_tested}
+    reason: 项目规则不用 POV（docs/ep02_iter/camera_language.md §1；K-PRM-102 主观视角写成机位位置）
+  - id: handheld
+    zh: 手持晃动
+    en: Handheld / Shake
+    aliases: ["手持", "晃动", "手持晃", "shake", "handheld"]
+    template: null
+    sizes: []
+    moods: []
+    conflicts: []
+    split: null
+    enabled: false
+    ab: {status: not_tested}
+    reason: 项目规则不用 Shake（camera_language.md §1）；晃动叠加 Pika 4 帧一顿
+  - id: roll
+    zh: 旋转
+    en: Roll
+    aliases: ["旋转镜头", "roll", "地平线翻滚"]
+    template: null
+    sizes: []
+    moods: []
+    conflicts: []
+    split: null
+    enabled: false
+    ab: {status: not_tested}
+    reason: 项目规则不用 Roll（camera_language.md §1）
+  # ---- V2（L-127，STYLE-V2 11-02 20:3x）：Vogue 式运镜 Pika A/B（tools/v2style/camera_ab.py；data/ab/v2_style/camera/results.json；
+  #      页面 data/review_pages/v2_style/camera.html）。同一首帧集（V2 lead_f + O1 风衣，F_full / F_mid / F_full 换 seed），pika_flex、只给首帧、124 帧。
+  #      判定：AB1–AB4 同上；AB5（景别）对“以改景别为目的”的运镜不适用；执行量 = VIDLAB clipmetrics v4 分段（前 1.2 s / 1.5 s 后 / 前后半）+ 总调度看抽帧。
+  #      调研出处：Vogue China 2025 Forces of Fashion 子弹时间（影视飓风 60 台 iPhone 弧形阵列 genlock）https://creativecow.net/media-storms-vogue-bullet-time-production-diary/ ；
+  #      高速机械臂 + 1000fps 参照 E! GlamBOT（Bolt + Phantom）https://nofilmschool.com/Oscars-GlamBOT-Technical 。Vogue 自己的高速环绕 / 慢动作急推没查到一手出处。
+  - id: orbit_slowmo
+    zh: 慢动作环绕
+    en: Slow-motion Orbit
+    runs: [series10_v2]
+    aliases: ["慢动作环绕", "慢环绕", "环绕慢动作", "slow-motion orbit"]
+    template: "The camera orbits slowly around her at eye level, about half a circle over the shot, keeping her centered, while she moves in slow motion, her hair and coat drifting softly, her gaze following the lens"
+    params: {lens: "50mm"}
+    sizes: [中景, 中全景, 全景]
+    moods: [幻想段, 登场, 高光]
+    conflicts: [push_in, pull_out, zoom_in, arc]
+    split: null
+    enabled: false
+    ab: {status: pass, exp: v2_style_cam, arms: 3, pass: 3, note: "AB1–AB5 3/3 过；背景横向机位轨迹 |tx| 0.10 / 0.29 / 0.31（一致性 0.98–0.99），主体角度可见变化；实际幅度约 20–40°（提示词写半圈，做不到），方向随 seed 左右不定"}
+    disabled_by: "L-129（项目方 11-02 21:1x 只选了 bolt_push_settle）：orbit_slowmo 改回 enabled:false"
+    reason: "V2 Pika A/B 3/3 稳定执行（小–中幅环绕），待启用：①模板含速度词（slowly / slow motion），与现行词表规则冲突（K-PRM-101 不写速度词、tests/test_director.py test_vocab_schema 守）——V2 是否放开速度词由总调度定；②编译层 camera_norm EN_MOVES 不认这个 id（会识别成 arc 退回固定），启用时同步改"
+  - id: bolt_push_settle
+    zh: 高速急推急停（机械臂式）
+    en: Robotic Whip Push & Settle
+    runs: [series10_v2]
+    aliases: ["高速急推急停", "机械臂急推", "高速环绕急停", "bolt 急推"]
+    template: "A robotic high-speed camera move: the camera whips in a fast, tight arc from her side to her front within the first second, then decelerates sharply and settles into a locked medium close-up, while she moves in super slow motion, hair drifting"
+    params: {lens: "35mm→50mm"}
+    sizes: [全景, 中全景, 中景]
+    h3_official: "The camera pushes in with large amplitude at fast speed within the first second, then holds a static shot for the rest of the shot"   # 基准 1.0（编译器写法 0：节奏反了）
+    moods: [幻想段, 登场, 爆点]
+    conflicts: [push_in, arc, orbit_slowmo, pull_out]
+    split: null
+    enabled: true
+    ab: {status: pass, exp: v2_style_cam, arms: 3, pass: 3, note: "3/3 前 1.2 s 机位运动 0.19–0.22/s、1.5 s 后 0.03–0.08/s（先快后停）；落幅中景 / 近景（AB5 景别变化是本运镜目的，不计）；AB1–AB4 全过，SFace 0.64–0.68。实际是“高速推近 + 急停”，横向环绕量很小（|tx| ≤ 0.13）"}
+    enabled_by: "L-129 项目方选定（= whip_orbit 高速环绕急停）；总调度 21:0x：V2 按剧例外（只对 runs:[series10_v2] 的运镜放开速度词 / 不强制 The camera 开头），PROMPTFIX 启用"
+    reason: "V2 Pika A/B 3/3 稳定（高速推近后急停定住；名字按实际效果写），待启用：①模板不以 The camera 开头且含速度词（fast / super slow motion），与现行词表规则冲突（K-PRM-101、test_vocab_schema）——V2 是否放开由总调度定；②camera_norm 现会识别成 arc 退回，启用时同步加英文识别"
+  - id: slowmo_snap_push
+    zh: 慢动作急推
+    en: Slow-motion Snap Push
+    runs: [series10_v2]
+    aliases: ["慢动作急推", "急推特写", "snap push"]
+    template: "Ultra slow-motion shot: she turns her head slowly toward the lens, hair flowing; halfway through, the camera suddenly snaps forward in a fast dolly-in from a medium shot to a close-up of her face, then holds still in slow motion"
+    sizes: []
+    moods: []
+    conflicts: [push_in, bolt_push_settle]
+    split: null
+    enabled: false
+    ab: {status: fail, exp: v2_style_cam, arms: 3, pass: 2, note: "急推 3/3 都有（全片缩放 0.18 / 0.42 / 0.69），但时间点不受控：2/3 落在后半（后半缩放 0.13 / 0.53），1/3 在前半就推完（前半 0.33）"}
+    reason: 急推本身能出，但“半途急推”的时间点不稳定；要用时改用 bolt_push_settle（开头急推，3/3 稳定）
+  - id: bullet_time
+    zh: 子弹时间（定格环绕）
+    en: Bullet Time
+    runs: [series10_v2]
+    aliases: ["子弹时间", "定格环绕", "bullet time", "frozen moment"]
+    template: null
+    sizes: []
+    moods: []
+    conflicts: []
+    split: "Pika 只靠提示词做不出：定格和机位环绕不能同时出现。备选：用 orbit_slowmo（真实慢动作环绕）；或后期在定格帧上做 2.5D 视差环绕（未验证）"
+    enabled: false
+    ab: {status: fail, exp: v2_style_cam, arms: 6, pass: 0, note: "两种写法各 3 条。写法 1（主体雕塑般静止 + 匀速环绕约 90°）：机位横移 |tx| 0.06–0.40，但头发、风衣下摆照常在动，0/3 定格。写法 2（爱范儿可灵基线句改写，强调时间冻结）：主体更静（expr_std 0.006），机位几乎不动（|tx| 0.05–0.13），0/3 出环绕"}
+    reason: 6 条里 0 条同时做到“主体定格 + 机位环绕”
+  - id: handheld_follow
+    zh: 手持跟拍（现实段）
+    en: Handheld Follow
+    runs: [series10_v2]
+    aliases: ["手持跟拍", "手持跟随", "纪实手持"]
+    template: "Handheld documentary camera: the camera follows her at shoulder height with a gentle natural sway and small breathing movements, real-time speed, staying close to her"
+    params: {lens: "35mm"}
+    sizes: [中全景, 全景]
+    moods: [现实段, 走动]
+    h3_official: "The camera shakes slightly in a handheld tracking shot that follows {P2} at shoulder height"   # 基准 1.0
+    only_when: walking   # 只限走动镜（总调度 20:4x）
+    conflicts: [static, push_in]
+    split: null
+    enabled: true
+    requires: [走动]        # 总调度 21:0x：只用在人物走动的镜头上（静坐镜 1/1 退化成平稳推近）
+    ab: {status: partial, exp: v2_style_cam, arms: 3, pass: 2, note: "走动镜 2/2：机位随人后退、轻微晃动（背景运动一致性 0.82 / 0.91，比稳定运镜的 0.98 低 = 有手持感），AB1–AB5 过；静坐镜 1/1 退化成平稳推近（一致性 0.99、缩放 0.21），J4 1.43（软项）"}
+    enabled_by: "总调度 21:0x：V2 按剧例外（只对 runs:[series10_v2] 的运镜放开速度词 / 不强制 The camera 开头），PROMPTFIX 启用"
+    reason: "总调度 20:4x 定：V1“不用 Shake”是 V1 画风规则，V2 不继承；V2 现实段可用，只限人物走动的镜头（moods 含“走动”），静止镜不用。A/B 走动镜 2/2 稳定。待启用：模板不以 The camera 开头，等 PROMPTFIX 按剧例外（runs:[series10_v2]）改好 camera_norm 和测试后，和 orbit_slowmo / bolt_push_settle 一起设 enabled；“只限走动镜”须在编译层按本镜动作判（camera_norm.BIG_ACTION 一类），不满足退回 static"

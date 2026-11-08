@@ -1,0 +1,24 @@
+# 长镜头 / 独白：超过本道帧上限（>260 帧 ≈ 10.8 s），或以画外独白为主
+id: long_take
+extends: _base
+label: 长镜头 / 独白
+status: 确认
+priority: 20
+match:
+  any_of:
+    - frames_gt: 260
+    - voiceover_dominant: true
+lane:
+  prefer: long
+prompt:
+  voiceover_in_h3: false
+guidance:
+  max_shot_s_suggest: 6
+  cut_split_zoom: 1.15
+fallback: [long_take_two_stage]
+provenance:
+  lane.prefer: {src: "video_jobs.route_long：超过本道实测上限改派 gpu36:2（不截短）", date: 2026-10-31, status: 确认}
+  prompt.voiceover_in_h3: {src: "lint H3-D6 独白不进 H3（本地设计）；官方画外音写法是否上线待项目方（refactor_proposal §6 第 5 条）", date: 2026-10-31, status: 确认}
+  guidance.max_shot_s_suggest: {src: "LEARNED_SPECS C 单镜上限 6 s，超过拆刀（同素材 1.15× 推近）", date: 2026-10-31, status: 建议}
+  guidance.cut_split_zoom: {src: "同上", date: 2026-10-31, status: 建议}
+  fallback: {src: "h3_comfy_expert §10 #12：长镜头正解是两段式（第一段小分辨率）", date: 2026-10-31, status: 待验, experiment: E1}

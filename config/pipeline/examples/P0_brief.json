@@ -1,0 +1,12 @@
+{
+  "schema": "nsfs.brief/1",
+  "title": "<剧名>",
+  "outline": "<项目方提纲原文，系统不改写>",
+  "episodes": {"from": 1, "to": 3},
+  "episode_lines": {"1": "<项目方第 1 集一句话原文>", "2": "<第 2 集一句话原文>"},
+  "seconds_per_episode": [60, 120],
+  "shots_per_ep": null,
+  "registry_from": [],
+  "notes": "",
+  "source": "#/script-create"
+}

@@ -1,0 +1,150 @@
+# 数据目录里“像配置的文件”分类（DISTILL 11-02，总调度补派；G1 / 新剧本冷启动）
+# .gitignore 只跟踪代码，data/ 不进版本；下面 decision 类是决策或配置——重建环境会丢、回滚要一起回，
+# 每次 system_version cut 时由 tools/autopilot/state_snapshot.py 打快照：data/system_versions/<sv>/state_snapshot.tar + manifest.json（逐文件 sha256）。
+# runtime 类是运行状态，可由代码重建或只是记录，不进快照。
+# {run} = config/pipeline/run.json 的 run_id（WORKFLOW 11-02）。
+# default：新剧本冷启动时（state_snapshot.py init-run）从这里生成，不依赖 series10 的数据；from_config 表示从 config/ 某文件派生。
+schema: nsfs.state_files/1
+decision:
+  - path: data/import/script_v2.json
+    what: 正式剧本（导入稿）
+    source: L-031 / 导入通道（PRODUCER import-staged）
+    default: null            # 新剧本由导入生成，不给默认
+  - path: data/pipeline/runs/{run}/video/recipe_choice.json
+    what: 视频配方选择（全部 Pika）
+    source: L-088 / K-REN-301
+    default: {from_config: config/pipeline/video_policy.json, build: recipe_choice}
+  - path: data/pipeline/runs/{run}/assets/sheets_chosen.json
+    what: 每个造型的当前设定图
+    source: L-093 / L-101（D-AST-93）
+    default: {}
+  - path: data/pipeline/runs/{run}/assets/shot_looks.json
+    what: 每镜造型（含鞋 / 覆盖）
+    source: L-094
+    default: {}
+  - path: data/pipeline/runs/{run}/assets/registered_refs.json
+    what: 已登记的参考图（逻辑名 → 文件）
+    source: ASSETMASTER / REFLOCK
+    default: {}
+  - path: data/pipeline/runs/{run}/assets/look_revisions.json
+    what: 造型修订记录
+    source: IMGFIX
+    default: {}
+  - path: data/looks/face_overrides.json
+    what: 身份脸覆盖
+    source: L-086（G20）
+    default: {}
+  # 以下解析层文件（WORKFLOW 11-02，K-OPS-W19；总表见 config/policies/resolution_layers.yaml）
+  - path: data/looks/item_map_overrides.json
+    what: 造型→单品映射覆盖（解析层，按 run 父先子后继承）
+    source: L-094 / IMGFIX
+    default: {}
+  - path: data/looks/hub_episode_looks.json
+    what: 资产中心按集排期（解析层，不继承）
+    source: 资产中心
+    default: {}
+  - path: data/looks/wardrobe.json
+    what: 衣柜单品（全局解析层）
+    source: IMGFIX / 资产中心
+    default: {}
+  - path: data/looks/schedule.json
+    what: 按集造型排期（界面 / SOP）
+    source: wizard / 资产中心
+    default: {}
+  - path: data/assets/identity_refs/manifest.json
+    what: 身份参考登记（含 sha）
+    source: L-086
+    default: {}
+  - path: data/assetmaster/sheet_item_checks.json
+    what: 设定图单品检查记录（K-AST-260）
+    source: ASSETMASTER / IMGFIX
+    default: {}
+  - path: data/producer/master_rejects.json
+    what: 驳回决定（L-089 驳回即撤下）
+    source: L-089
+    default: {}
+  - path: data/producer/control.json
+    what: producer 控制（only / hold_lanes / paused + reason_kind / expires_at）
+    source: K-OPS-N04 / D5
+    default: {paused: false, run: "{run}", hold_lanes: [], only: [], workers: {frames: producer, video: VIDEO10}, auto_force_eps: true}
+  - path: data/autopilot/ready_episodes.json
+    what: 已准备好可派的集
+    source: K-OPS-W12
+    default: {episodes: {}}
+  - path: data/autopilot/assets_ready.json
+    what: 服务器交还条件记录（只由 FACTORY verify 写 ready）
+    source: K-OPS-F02 / handback.yaml
+    default: {}
+  - path: data/autopilot/resident_mode.json
+    what: 生产分工（出图 / 视频在哪）
+    source: K-OPS-W07
+    default: {}
+  - glob: data/autopilot/*_hold.json
+    what: 资产修复暂缓清单
+    source: K-OPS-E04
+    default: null
+  - path: config/pipeline/runs.json
+    what: 多剧并行 run 登记表（primary + 各 run 的 priority / status）——在 config/ 下随版本走，这里登记便于冷启动核对
+    source: docs/AUTOPILOT.md §0.1（WORKFLOW runs.py）
+    default: {primary: "{run}", runs: {"{run}": {priority: 0, status: producing, source: import}}}
+  - path: "data/import/runs/{run}/script_v2.json"
+    what: 非 primary run 的导入稿（primary 仍是 data/import/script_v2.json）
+    source: §0.1（导入写入 = DEBUG-RSI import_staged）
+    default: null
+  - path: "data/autopilot/runs/{run}/ready_episodes.json"
+    what: 每个 run 已准备好可派的集（非 primary 镜号带 run 前缀）
+    source: §0.1 / K-OPS-W17（WORKFLOW episode_pipeline）
+    default: {episodes: {}}
+  - path: data/autopilot/restart_requests.jsonl
+    what: 服务器常驻重启请求（只追加；各 loop / system_version deploy 写）
+    source: K-OPS-W16 / DJ-20（WORKFLOW restart_queue.request）
+    default: null
+  - path: data/autopilot/full_redo/gates.json
+    what: 全量重做前置闸门登记（G20 / SCRIPT / G21 / W5 / PIKA_SMOKE，谁 / 何时 / 证据）
+    source: K-OPS-W08（WORKFLOW full_redo gate）
+    default: {}
+  - path: data/autopilot/imports.jsonl
+    what: 导入事件（新集发现触发）
+    source: WORKFLOW 11-02（import_events.append_import）
+    default: null
+  - path: data/autopilot/flow/film_best.json
+    what: 每集历史最好成片分（预览交付棘轮）
+    source: gates.delivery_gate（总调度批复 DISTILL r1）
+    default: {}
+  - glob: data/autopilot/flow/gates/*.json
+    what: 交付确认
+    source: gates.delivery_gate.owner_confirm
+    default: null
+  - path: data/director/redo_requests.json
+    what: 口型重出请求（K-EDT-805）
+    source: DIRECTOR
+    default: {requests: []}
+  - glob: data/renders/ep*/S*/takes.json
+    what: 每镜各版本与当前版本指针（审批结果）
+    source: set_active 唯一入口（K-OPS-Q23）
+    default: null
+runtime:
+  - {path: data/producer/registry.json, why: 每拍从真实记录现推}
+  - {path: data/autopilot/restart_done.jsonl, why: 重启执行审计（只追加；restart_queue.process 写）}
+  - {path: data/autopilot/resident_sync.json, why: resident_sync 状态（上次推 / 拉 / 重启时间、health、puller 接管标记）}
+  - {path: data/autopilot/episode_pipeline/state.json, why: 逐集流水线状态与记时（ep_hash 可从导入稿重算）}
+  - {path: data/autopilot/full_redo/state.json, why: 全量重做逐镜已标记录（续跑用）}
+  - {path: data/autopilot/full_redo/plan.json, why: 全量重做计划（由 full_redo plan 从导入稿重算）}
+  - {path: data/autopilot/remote_preflight/latest.json, why: 依赖自检结果}
+  - {path: data/autopilot/resident/jobs_rebuild_gpu33.json, why: 服务器重编 jobs.json 核对结果}
+  - {path: data/autopilot/resident/jobs_rebuild_gpu36.json, why: 同上}
+  - {glob: data/autopilot/resident/sha_*.json, why: 第一级推送 sha 核对结果}
+  - {glob: data/autopilot/repair_chain/*, why: 返修链路产物}
+  - {glob: data/autopilot/pika_smoke/*, why: Pika 冒烟片与打分（证据）}
+  - {path: data/producer/heartbeat.json, why: 心跳}
+  - {path: data/producer/log.jsonl, why: 只追加日志}
+  - {path: data/producer/attempts.json, why: 尝试账本（可由 log 重建）}
+  - {glob: data/producer/leases/*, why: 租约}
+  - {path: "data/pipeline/runs/{run}/assets/first_frame_jobs.json", why: 由 image_jobs.rebuild_first_frame_jobs 从剧本 + 规则重编（派生）}
+  - {glob: "data/pipeline/runs/{run}/video/state_*.json", why: night 状态}
+  - {path: data/netfix/net_status.json, why: 连接状态}
+  - {path: data/netfix/override_state.json, why: 交还相位（由 dispatch.reconcile 推进）}
+  - {glob: data/film_score/*.json, why: 成片分产物（可重算）}
+  - {glob: "data/vqa/**/*.json", why: 看图结果}
+  - {path: data/qa/alerts.jsonl, why: 报警}
+  - {path: data/autopilot/flow/status.json, why: 编排器现推}

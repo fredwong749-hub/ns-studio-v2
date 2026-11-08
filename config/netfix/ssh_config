@@ -1,0 +1,103 @@
+# NETFIX 11-02（总调度 fredw-2b 00:5x；规则 K-OPS-N08）：项目自己的 ssh 配置（Windows Git ssh 用，-F 指定），不改用户 ~/.ssh/config。
+# 主路：香港中转 hkjump(47.243.63.181) → 194relay(sz194.instameta.org，必须写域名) → gpu33/gpu36；备用：直连 194relay → gpu。
+# known_hosts 用项目内 config/netfix/known_hosts（hkjump 指纹 SHA256:IrIRIa+ucfx1CxhkWG4lEsDI58vb1EZ03/rOR7uPHtY，总调度 00:5x ssh-keyscan 核对与项目方文档一致）。
+# WSL 侧同内容见 ssh_config.wsl（路径不同）。
+Host *
+    UserKnownHostsFile "/d/NS-Final Studio/config/netfix/known_hosts"
+    StrictHostKeyChecking yes
+    IdentitiesOnly yes
+    BatchMode yes
+    ConnectTimeout 20
+    ServerAliveInterval 10
+    ServerAliveCountMax 3
+    TCPKeepAlive yes
+Host hkjump
+    HostName 47.243.63.181
+    User fong
+    IdentityFile ~/.ssh/id_ed25519_gpu36
+Host 194relay-hk
+    HostName sz194.instameta.org
+    Port 19422
+    User fong
+    IdentityFile ~/.ssh/id_rsa_gpu33
+    IdentityFile ~/.ssh/id_ed25519_gpu36
+    ProxyJump hkjump
+Host 194relay
+    HostName sz194.instameta.org
+    Port 19422
+    User fong
+    IdentityFile ~/.ssh/id_rsa_gpu33
+    IdentityFile ~/.ssh/id_ed25519_gpu36
+# r5 W21（11-03）：gpu33-hk / gpu36-hk 不用 ProxyJump——两跳 ProxyJump 的第二跳按 PATH 找 "ssh"，从 WSL / 部分环境起时拿到 C:\Windows\System32\OpenSSH\ssh.exe，它读不了 MSYS 路径 "/d/..." 的 known_hosts → 报 "No ED25519 host key is known for 47.243.63.181"（47.243.63.181 的 ed25519 早已登记，keyscan 复核指纹一致）。改为显式 Git ssh（/usr/bin/ssh）逐跳 ProxyCommand，指纹校验照旧 StrictHostKeyChecking yes。
+Host gpu33-hk
+    HostName 10.0.0.33
+    User root
+    HostKeyAlias gpu33
+    IdentityFile ~/.ssh/id_rsa_gpu33
+    ProxyCommand /usr/bin/ssh -F "/d/NS-Final Studio/config/netfix/ssh_config" -o "ProxyCommand=/usr/bin/ssh -F \"/d/NS-Final Studio/config/netfix/ssh_config\" -W %%h:%%p hkjump" -W %h:%p 194relay-hk
+Host gpu36-hk
+    HostName 10.0.0.36
+    User root
+    HostKeyAlias gpu36
+    IdentityFile ~/.ssh/id_ed25519_gpu36
+    ProxyCommand /usr/bin/ssh -F "/d/NS-Final Studio/config/netfix/ssh_config" -o "ProxyCommand=/usr/bin/ssh -F \"/d/NS-Final Studio/config/netfix/ssh_config\" -W %%h:%%p hkjump" -W %h:%p 194relay-hk
+Host gpu33
+    HostName 10.0.0.33
+    User root
+    HostKeyAlias gpu33
+    IdentityFile ~/.ssh/id_rsa_gpu33
+    ProxyJump 194relay
+Host gpu36
+    HostName 10.0.0.36
+    User root
+    HostKeyAlias gpu36
+    IdentityFile ~/.ssh/id_ed25519_gpu36
+    ProxyJump 194relay
+# ---- r3：-tb = 经 base-b（直连跳板）的第二条底座，端口 22361 / 22331
+# ---- r2（总调度 11-02，运维 FONG-QUICK.md）：一条香港常驻底座隧道转发两台服务器 sshd（127.0.0.1:22360 → 10.0.0.36:22、22330 → 10.0.0.33:22），
+# 其它连接一律连 gpu36-t / gpu33-t，在隧道里直连服务器 sshd，不在跳板上握手（跳板每小时新建 < 50）。
+Host gpu36-t
+    HostName 127.0.0.1
+    Port 22360
+    User root
+    HostKeyAlias gpu36
+    IdentityFile ~/.ssh/id_ed25519_gpu36
+    ConnectTimeout 15
+Host gpu33-t
+    HostName 127.0.0.1
+    Port 22330
+    User root
+    HostKeyAlias gpu33
+    IdentityFile ~/.ssh/id_rsa_gpu33
+    IdentityFile ~/.ssh/id_ed25519_gpu36
+    ConnectTimeout 15
+Host gpu36-tb
+    HostName 127.0.0.1
+    Port 22361
+    User root
+    HostKeyAlias gpu36
+    IdentityFile ~/.ssh/id_ed25519_gpu36
+    ConnectTimeout 15
+Host gpu33-tb
+    HostName 127.0.0.1
+    Port 22331
+    User root
+    HostKeyAlias gpu33
+    IdentityFile ~/.ssh/id_rsa_gpu33
+    IdentityFile ~/.ssh/id_ed25519_gpu36
+    ConnectTimeout 15
+Host gpu36-tc
+    HostName 127.0.0.1
+    Port 22362
+    User root
+    HostKeyAlias gpu36
+    IdentityFile ~/.ssh/id_ed25519_gpu36
+    ConnectTimeout 15
+Host gpu33-tc
+    HostName 127.0.0.1
+    Port 22332
+    User root
+    HostKeyAlias gpu33
+    IdentityFile ~/.ssh/id_rsa_gpu33
+    IdentityFile ~/.ssh/id_ed25519_gpu36
+    ConnectTimeout 15

@@ -1,0 +1,10 @@
+{
+  "_doc": "DIRECTOR A/B 执行器配置（tools/director/ab_runner.py；D9：取代服务器手改拷贝）。lane 必须在 borrowed_lanes 里才启动；借道 / 还道由总调度批、DEBUG-RSI 挂 / 摘 producer hold_lanes，用完把 borrowed_lanes 清空。",
+  "lane": "gpu36:1",
+  "port": 8189,
+  "out": "/root/work/fredw/comfy/output/gpu1",
+  "client_prefix": "director-",
+  "dedicated": true,
+  "borrowed_lanes": ["gpu36:1"],
+  "borrowed_until": "2026-11-02T05:26 本地（cm_r2，总调度 r4 批，≤2 h）"
+}

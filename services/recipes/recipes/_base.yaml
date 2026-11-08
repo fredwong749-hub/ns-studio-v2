@@ -1,0 +1,166 @@
+# 所有 H3 视频配方的公共基底（抽象，不会被选中）。
+# 每个参数都要有 provenance（下方 provenance 表，按点路径最长前缀匹配；子配方改了值必须同时写自己的 provenance）。
+# 状态：确认 = 可硬编码；建议 = 证据够、默认开；待验 = 要 A/B（experiment 字段写实验号，见 docs/ep02_iter/h3_comfy_expert.md §8）；
+#       待许可登记 = 社区权重许可未登记，不能设默认。
+id: _base
+abstract: true
+label: H3 基底
+status: 确认
+mode: i2va                       # i2va | fl2va | ref2va ；two_stage 另见 two_stage.enabled
+model:
+  unet: minimax_h3_fl2va_pruned_int8_convrot.safetensors
+  clip: qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors
+  clip_type: minimax
+  video_vae: minimax_h3_video_vae_int8_convrot.safetensors
+  audio_vae: minimax_h3_audio_vae_fp32.safetensors
+loras: {}
+sampling:
+  steps: 24
+  sampler: euler
+  scheduler: simple
+  shift: [12.0, 3.0]
+  shift_node: true
+  guider: BasicGuider
+  cfg: 1.0
+  attention: pytorch
+  sigmas: null
+  banned_nodes: [EasyCache, LazyCache, MiniMaxH3Cache, SpectrumPatch, Spectrum, TeaCache, CacheDiT, SolAttention, TorchCompileModel, ModelPatchTorchSettings]
+resolution:
+  width: 768
+  height: 1344
+  keyframe_crop: center_lanczos
+  max_megapixels_3090: 1.033
+frames:
+  fps: 24
+  grid: 17k+5
+  min: 107
+  max: 362
+  lane_max_default: 260
+  long_lane: "gpu36:2"
+keyframes:
+  last_frame_mode: none
+  min_first_last_diff: 10.0
+seed:
+  policy: hash                    # hash(spec_id, attempt, recipe_id) —— 每镜不同、可重放
+  share_across_keyframe_change: false
+two_stage:
+  enabled: false
+ref2va:
+  enabled: false
+prompt:
+  format: base-en
+  style_lead: "Live-action, cinematic, shallow depth of field,"
+  require_soundscape: true
+  period_before_d_close: true
+  silent_non_speakers: true
+  voiceover_phrase: says in an off-screen voiceover
+  voiceover_lips: while {pron} lips remain completely closed.
+  retry_anchor_prefix: true
+  max_chars: 7000
+  no_negative: true
+  # ACTING 11-01（项目方 R11-2“演员的眼睛不要看镜头”、R11-8“每个镜头第一帧演员都看着镜头而且停顿 1 秒多”）：
+  # 系统层两句正向提示（H3 不认否定，RL-N1），放在第一个分拍时间码之前；只写物理 / 视线方向，不写剧情。出处 docs/acting/PERFORMANCE_RULES.md E1/E5/P1/P2
+  open_motion_cue: "The movement is already under way in the very first frame and carries on continuously from the first second."
+  eyeline_cue: "Each person's gaze rests on a scene partner or on an object within the scene, angled off to the side of the frame."
+  # VIDEO-RCA 11-01（K-REN-701）：描述句里删掉该景别看不见的下半身造型分句（同出图 framing.HIDE）。VRCA-E3（r2）：Pika 下无效（S4/S5 同 seed 景别与印样不变），保持关
+  hide_offframe_parts: false
+post:
+  dejudder: true
+  dejudder_encode: bt709
+  interpolate_to_fps: null
+  trim_frozen:
+    enabled: true
+    diff: 0.35
+    min_run_s: 0.3
+    min_keep_s: 1.5
+  color_match: lab_gain_bias_lerp_v1
+  skin_guard: false
+  face_refine: false
+  upscale_4k: false
+acceptance:
+  still_frac_max: 0.5
+  frozen_tail_s_max: 0.5
+  frozen_head_s_max: 0.5
+  j4_max: 1.2
+  j4_z_max: 3.0
+  cheek_a_drift_max: 6.0
+  cheek_red_max: 0.25
+  red_blob_max: 0.01
+  sface_ref_min: 0.30
+  sface_self_min: 0.60
+  dark_run_s_max: 1.0
+  lipsync_corr_min: 0.3            # 编译器只在“有画内对白”的镜头保留这一项
+fallback: []
+lane:
+  prefer: any
+provenance:
+  prompt.open_motion_cue: {src: "项目方 R11-8 原话“每个镜头第一帧,演员都看着镜头,而且停顿1秒多”；CineCrew technical_director.yaml “SPLIT SECOND BEFORE the main action”；H3 SKILL.md I2VA 顺序 action onset（docs/acting/PERFORMANCE_RULES.md P1/P2）", date: 2026-11-01, status: 确认}
+  prompt.eyeline_cue: {src: "项目方 R11-2 原话“演员的眼睛不要看镜头”；CineCrew “Who looks at whom (eyelines)”；StageMilk “never look straight down the lens”（docs/acting/PERFORMANCE_RULES.md E1/E5/E6）；H3 不认否定（RL-N1）故写正向", date: 2026-11-01, status: 确认}
+  mode: {src: "config/render_quality.json video_bases.default_decision（RR，official_base + 只给首帧）；docs/QC_ep02_20261031.md MOT", date: 2026-10-31, status: 确认}
+  model.unet: {src: "ns_render.workflows.H3_DIT_INT8；h3_comfy_expert §2 UNETLoader（pruned int8 不触发 17 帧暗帧，ComfyUI #15426）", date: 2026-10-31, status: 确认}
+  model.clip: {src: "官方模板 video_minimax_h3_i2v.json；h3_comfy_expert §2 CLIPLoader", date: 2026-10-31, status: 确认}
+  model.clip_type: {src: "官方模板", date: 2026-10-31, status: 确认}
+  model.video_vae: {src: "ns_render.workflows.H3Model.video_vae（int8 与 fp16 解码等价，MOT 实测 PSNR 56.7 dB）", date: 2026-10-31, status: 确认}
+  model.audio_vae: {src: "官方模板（音频 VAE 必须 fp32）", date: 2026-10-31, status: 确认}
+  loras: {src: "official_base no_lora（config/render_quality.json）", date: 2026-10-31, status: 确认}
+  sampling.steps: {src: "official_base 24 步；Comfy 文档 'Raise steps (e.g. 25) for motion quality'；MOT S1 J4 1.34→1.12", date: 2026-10-31, status: 确认}
+  sampling.sampler: {src: "official_base euler；HF Comfy #67 euler I2V 变暗约减半；res_multistep 对照待 E4", date: 2026-10-31, status: 确认, experiment: E4}
+  sampling.scheduler: {src: "官方模板 simple", date: 2026-10-31, status: 确认}
+  sampling.shift: {src: "ComfyUI supported_models.MiniMaxH3.sampling_settings 12/3（h3_comfy_expert §0.1）", date: 2026-10-31, status: 确认}
+  sampling.shift_node: {src: "等于默认值，显式写出与现生产图一致（ns_render.workflows.h3_fl2va）", date: 2026-10-31, status: 确认}
+  sampling.guider: {src: "HF 模型卡：CFG 蒸馏，BasicGuider 单次前向", date: 2026-10-31, status: 确认}
+  sampling.cfg: {src: "同上；negative 无效（chain_audit A3）", date: 2026-10-31, status: 确认}
+  sampling.attention: {src: "h3_comfy_expert §9：成片用 pytorch；comfy kitchen（INT8）待 E3", date: 2026-10-31, status: 确认, experiment: E3}
+  sampling.sigmas: {src: "BasicScheduler 生成；只有 Pika 用 ManualSigmas", date: 2026-10-31, status: 确认}
+  sampling.banned_nodes: {src: "ns_render.workflows.H3_BANNED_NODES；HF Comfy #30/#51（缓存类改长相、H3Cache 背景杂音）", date: 2026-10-31, status: 确认}
+  resolution.width: {src: "现生产 768×1344；736×1312（≡32 mod 64）待 E2（WanGP #2279 okkazoo）", date: 2026-10-31, status: 确认, experiment: E2}
+  resolution.height: {src: "同上", date: 2026-10-31, status: 确认, experiment: E2}
+  resolution.keyframe_crop: {src: "P-B2：节点对首帧拉伸、尾帧中心裁切，图外先裁成画布比例（源码 nodes_minimax_h3.py）", date: 2026-10-31, status: 确认}
+  resolution.max_megapixels_3090: {src: "h3_comfy_expert §2：3090 第二段 ≤1.03 MP（768×1344 243 帧峰值 22.7 GB）", date: 2026-10-31, status: 建议}
+  frames.fps: {src: "H3 原生 24 fps（HF Comfy #37）", date: 2026-10-31, status: 确认}
+  frames.grid: {src: "源码 align_frame_count n%17==5", date: 2026-10-31, status: 确认}
+  frames.min: {src: "ns_render.workflows.H3_FRAMES_MIN 107（4 s 档）；官方训练范围 124–362", date: 2026-10-31, status: 确认}
+  frames.max: {src: "源码 tooltip 'longer is untested' 362", date: 2026-10-31, status: 确认}
+  frames.lane_max_default: {src: "config/render_endpoints.json max_frames（gpu33 3090 243/260 过，277/294 OOM）", date: 2026-10-31, status: 确认}
+  frames.long_lane: {src: "config/render_endpoints.json lanes gpu36:2 long_only", date: 2026-10-31, status: 确认}
+  keyframes.last_frame_mode: {src: "official_base default_last_frame_mode none；静止镜头 7/11→2/11（v0_base24_takes）；源码：尾帧每步硬注入", date: 2026-10-31, status: 确认}
+  keyframes.min_first_last_diff: {src: "config/render_quality.json motion_qc.keyframe_warn 10（QCV）", date: 2026-10-31, status: 确认}
+  seed: {src: "h3_comfy_expert §10 #13：换关键帧同 seed 不可比；joeygambino：每镜不同 seed", date: 2026-10-31, status: 确认}
+  two_stage: {src: "两段式未实测（E1），默认关", date: 2026-10-31, status: 待验, experiment: E1}
+  ref2va: {src: "Ref2VA 未实测（E5），默认关", date: 2026-10-31, status: 待验, experiment: E5}
+  prompt.hide_offframe_parts: {src: "VIDEO-RCA 11-01：近景 / 中景要求的镜头 62/111 条描述句带鞋 / 高跟 / 腿时退档，不带的 0/7（tools/video_rca/size_vs_prompt.py）；视频比首帧再远 ≥1 档 11/55（tools/video_rca/ff_size.py）；ep01-S4 两个 seed 都为“画出高跟”拉远 / 下摇（_thumbs/ep01-S4__v1/s2）", date: 2026-11-01, status: 待验, experiment: VRCA-E3, note: "r2 Pika 同 seed 删 / 不删：S4 脸高 0.122/0.124、S5 0.173/0.169，印样一致（data/ab/video_rca/r3_hide_offframe/）"}
+  prompt.format: {src: "官方 base-en（h3-prompt-writing/references/base-en.txt）", date: 2026-10-31, status: 确认}
+  prompt.style_lead: {src: "lint H3-A8；base-en §4.1", date: 2026-10-31, status: 确认}
+  prompt.require_soundscape: {src: "MiniMax HF #76 'It does NOT do silence well'；base-en §4.6", date: 2026-10-31, status: 确认}
+  prompt.period_before_d_close: {src: "MiniMax HF #76（多人确认）", date: 2026-10-31, status: 建议, experiment: E10}
+  prompt.silent_non_speakers: {src: "MiniMax HF #76", date: 2026-10-31, status: 建议, experiment: E10}
+  prompt.voiceover_phrase: {src: "base-en §4.4 逐字", date: 2026-10-31, status: 确认}
+  prompt.voiceover_lips: {src: "base-en §4.4；h3_official_conformance B13 / F7", date: 2026-10-31, status: 确认}
+  prompt.retry_anchor_prefix: {src: "官方 fallback-policy 第 1 次重试（refactor_proposal §7.4）", date: 2026-10-31, status: 确认}
+  prompt.max_chars: {src: "官方 API 每段 7000 字符（lint H3-A12）", date: 2026-10-31, status: 确认}
+  prompt.no_negative: {src: "Comfy prompt guide 'Ban lists add the unwanted concepts'", date: 2026-10-31, status: 确认}
+  post.dejudder: {src: "LEARNED_SPECS B 后期去抖：J4 1.34–1.52 → 1.08–1.09", date: 2026-10-31, status: 建议}
+  post.dejudder_encode: {src: "LEARNED_SPECS B dejudder 色彩：必须 bt709 矩阵并带标记", date: 2026-10-31, status: 建议}
+  post.interpolate_to_fps: {src: "h3_comfy_expert §7：不要插到 30/60 交付", date: 2026-10-31, status: 确认}
+  post.trim_frozen: {src: "LEARNED_SPECS C 自动剪定住段（帧差<0.35 连续≥0.3 s，最少留 1.5 s）", date: 2026-10-31, status: 建议}
+  post.color_match: {src: "config/render_quality.json post.color_match（B1 lab_gain_bias_lerp_v1，默认开）", date: 2026-10-31, status: 确认}
+  post.skin_guard: {src: "LEARNED_SPECS B skin guard 原型（S2_C a*p95 40.2→27.7），要先加嘴唇排除", date: 2026-10-31, status: 待验}
+  post.face_refine: {src: "h3_comfy_expert §5 FaceRefine（Carasibana，denoise 0.40）未接入", date: 2026-10-31, status: 待验}
+  post.upscale_4k: {src: "config/render_quality.json post.upscale_4k default false", date: 2026-10-31, status: 确认}
+  acceptance.still_frac_max: {src: "rubric ④ 及格：静止占比<50%", date: 2026-10-31, status: 确认}
+  acceptance.frozen_tail_s_max: {src: "rubric ④ 结尾定住<0.5 s", date: 2026-10-31, status: 确认}
+  acceptance.frozen_head_s_max: {src: "review.py flags 开头定住≥0.5 s", date: 2026-10-31, status: 确认}
+  acceptance.j4_max: {src: "LEARNED_SPECS A：J4≥1.2 且 z≥3 = 4 帧一顿", date: 2026-10-31, status: 确认}
+  acceptance.j4_z_max: {src: "同上", date: 2026-10-31, status: 确认}
+  acceptance.cheek_a_drift_max: {src: "LEARNED_SPECS A 泛红闸门：漂移≥6 警告", date: 2026-10-31, status: 确认}
+  acceptance.cheek_red_max: {src: "rubric ⑦：脸颊 a*≥25 占比≤25%", date: 2026-10-31, status: 确认}
+  acceptance.red_blob_max: {src: "rubric ⑦：红色异常最大连通块<1%", date: 2026-10-31, status: 确认}
+  acceptance.sface_ref_min: {src: "packages/qc/ns_qc/thresholds.py Q-D1（锁定）", date: 2026-10-29, status: 确认}
+  acceptance.sface_self_min: {src: "rubric ① 镜内与平均脸最低余弦≥0.60", date: 2026-10-31, status: 确认}
+  acceptance.dark_run_s_max: {src: "LEARNED_SPECS A 近黑画面连续≥1 s 标记", date: 2026-10-31, status: 确认}
+  acceptance.lipsync_corr_min: {src: "rubric ⑥ 及格：嘴部相关≥0.3（只对有画内对白的镜头；H3 原声 0 偏移相关 0.19–0.70，v0 review）", date: 2026-10-31, status: 确认}
+  fallback: {src: "官方 fallback 阶梯（refactor_proposal §7.4）", date: 2026-10-31, status: 确认}
+  lane: {src: "6 道：gpu33:0/1/3、gpu36:0/1/2（gpu36:2 长镜头）", date: 2026-10-31, status: 确认}
+  label: {src: "—", date: 2026-10-31, status: 确认}
+  status: {src: "—", date: 2026-10-31, status: 确认}
+  match: {src: "selector 规则，见 ns_recipes.selector", date: 2026-10-31, status: 确认}

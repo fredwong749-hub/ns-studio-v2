@@ -1,0 +1,16 @@
+id: walk_fullbody_motion_repair
+extends: walk_fullbody
+label: 走动全身 + Motion Repair 0.4（试验；0.9 有害）
+status: 待验
+experiment: E6
+selectable: false
+loras:
+  motion_repair:
+    enabled: true
+fallback: []
+provenance:
+  loras.motion_repair.enabled: {src: "E6：Motion Repair 0.9 vs 不挂", date: 2026-10-31, status: 待验, experiment: E6}
+  status: {src: "E6 未跑", date: 2026-10-31, status: 待验}
+  experiment: {src: "h3_comfy_expert §8", date: 2026-10-31, status: 待验}
+  selectable: {src: "只由回退 / 规则表进入", date: 2026-10-31, status: 确认}
+  fallback: {src: "阶梯末级 → 待项目方", date: 2026-10-31, status: 确认}

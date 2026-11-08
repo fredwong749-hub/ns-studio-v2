@@ -1,0 +1,145 @@
+{
+ "schema": "nsfs.factory.hosts/1",
+ "_doc": "唯一车道表（FACTORY D1 / SYSARCH 4-2，总调度 11-02 定；读取入口 tools/factory/hosts.py，读不到 = raise，失败关闭）。服务器本机道地址 = 127.0.0.1:comfy_port；笔记本经隧道 = 127.0.0.1:tunnel_port。aliases = resident_restart.sh 的 OFFLINE_ALIASES（K-OPS-Y02 服务器环境契约，同源）。迁移第 ① 步：其它 6 份车道表暂留，tests/test_factory_hosts.py 逐项比对、只报不挡；第 ② 步起各读者改读 hosts.py。",
+ "hosts": {
+  "gpu33": {
+   "ssh": "gpu33",
+   "hostname": "gpu3",
+   "repo": "/root/work/fredw/offline_20261101/repo",
+   "video_root": "/root/work/fredw/offline_20261101/repo",
+   "python": "/root/work/fredw/offline_20261101/venv/bin/python",
+   "comfy_root": "/root/claude-kimi-ns-studio-v1/ComfyUI",
+   "aliases": [],
+   "broken_gpus": [
+    2
+   ],
+   "lanes": {
+    "gpu33:0": {
+     "gpu": 0,
+     "comfy_port": 8188,
+     "tunnel_port": 18188,
+     "roles": [
+      "image",
+      "video"
+     ],
+     "enabled": true,
+     "comfy_output": "/root/claude-kimi-ns-studio-v1/ComfyUI/output/gpu0",
+     "max_frames": 260,
+     "recipe_max_frames": {
+      "h3_funcontrolnet": 107
+     }
+    },
+    "gpu33:1": {
+     "gpu": 1,
+     "comfy_port": 8189,
+     "tunnel_port": 18189,
+     "roles": [
+      "image",
+      "video"
+     ],
+     "enabled": true,
+     "comfy_output": "/root/claude-kimi-ns-studio-v1/ComfyUI/output/gpu1",
+     "max_frames": 260,
+     "recipe_max_frames": {
+      "h3_funcontrolnet": 107
+     }
+    },
+    "gpu33:3": {
+     "gpu": 3,
+     "comfy_port": 8191,
+     "tunnel_port": 18191,
+     "roles": [
+      "image",
+      "video"
+     ],
+     "enabled": true,
+     "comfy_output": "/root/claude-kimi-ns-studio-v1/ComfyUI/output/gpu3",
+     "max_frames": 260,
+     "recipe_max_frames": {
+      "h3_funcontrolnet": 107
+     }
+    }
+   },
+   "owner_controlled": true,
+   "comfy_python": "/root/claude-kimi-ns-studio-v1/env/comfy/bin/python"
+  },
+  "gpu36": {
+   "ssh": "gpu36",
+   "hostname": "gpu6",
+   "repo": "/root/work/fredw/offline_20261101/repo",
+   "video_root": "/root/work/fredw/offline_20261101/repo",
+   "python": "/root/work/fredw/offline_20261101/venv/bin/python",
+   "comfy_root": "/root/work/fredw/comfy",
+   "aliases": [
+    "gpu33"
+   ],
+   "lanes": {
+    "gpu36:0": {
+     "gpu": 0,
+     "comfy_port": 8188,
+     "tunnel_port": 18288,
+     "roles": [
+      "image",
+      "video"
+     ],
+     "enabled": true,
+     "comfy_output": "/root/work/fredw/comfy/output/gpu0",
+     "recipe_max_frames": {
+      "h3_funcontrolnet": 107
+     }
+    },
+    "gpu36:1": {
+     "gpu": 1,
+     "comfy_port": 8189,
+     "tunnel_port": 18289,
+     "roles": [
+      "image",
+      "video"
+     ],
+     "enabled": true,
+     "comfy_output": "/root/work/fredw/comfy/output/gpu1",
+     "recipe_max_frames": {
+      "h3_funcontrolnet": 107
+     }
+    },
+    "gpu36:2": {
+     "gpu": 2,
+     "comfy_port": 8190,
+     "tunnel_port": 18290,
+     "roles": [
+      "image",
+      "video"
+     ],
+     "enabled": true,
+     "comfy_output": "/root/work/fredw/comfy/output/gpu2",
+     "recipe_max_frames": {
+      "h3_funcontrolnet": 107
+     },
+     "note": "L-194（11-05）：gpu36 三卡全归 NS，GPU2 出图 + 视频（原 L-100 看图专用卡作废）；启动 /root/work/fredw/comfy/comfy.sh start 2；隧道 gpu36-l2 已移回 tunnels.json hosts"
+    }
+   },
+   "owner_controlled": true,
+   "comfy_python": "/root/work/fredw/venv/bin/python"
+  },
+  "laptop": {
+   "ssh": null,
+   "repo": "D:/NS-Final Studio",
+   "aliases": [],
+   "lanes": {
+    "laptop:0": {
+     "gpu": 0,
+     "comfy_port": 18388,
+     "tunnel_port": null,
+     "roles": [
+      "vlm"
+     ],
+     "enabled": false,
+     "note": "L-100：笔记本 4080 专用看图卡，不出图"
+    }
+   },
+   "owner_controlled": true
+  }
+ },
+ "_recipe_max_frames": "VIDLAB 11-02 实测（RTX 3090 24 GB）：H3 FunControlNet 158 帧 OOM、107 帧可跑；配方按道读这里（hosts.recipe_max_frames(lane, recipe)），不在配方里写死",
+ "_owner_controlled_doc": "L-128（项目方 11-02 19:1x：“远程 gpu3 和 gpu6 是我家的服务器，不是外部的”）：owner_controlled=true = 项目方自有机器（笔记本 + gpu33 + gpu36）。route=local_only 的作业只许 owner_controlled 的道；不是 owner_controlled（或没写）的机器一律挡（失败关闭）。不变：K-REV-V01 图片 / 视频不发外部 API；HC-07 全部成年；成人画面作业只由项目方在界面触发，系统 / agent 不自动派"
+}

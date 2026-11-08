@@ -1,0 +1,13 @@
+{
+  "schema": "nsfs.screenplay/1",
+  "episode": 1, "title": "<照抄大纲>", "target_duration_s": 60,
+  "scenes": [
+    {"no": 1, "scene_id": "sk_<id>", "beat_ids": ["B1"], "time": "<时段>", "characters": ["<中文名>"],
+     "lines": [
+       {"kind": "action", "text": "<人做什么、在哪、手里有什么>"},
+       {"kind": "dialogue", "speaker": "<中文名>", "tone": "<语气>", "text": "<台词原文，不带引号>"},
+       {"kind": "voiceover", "speaker": "<中文名>", "off_screen": "OS", "text": "<独白原文>"},
+       {"kind": "sound", "text": "<环境声 / 音效>"}
+     ]}
+  ]
+}

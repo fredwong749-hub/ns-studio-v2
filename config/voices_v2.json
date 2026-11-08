@@ -1,0 +1,338 @@
+{
+ "_comment": "V2 音色候选草稿——待项目方挑选，未启用。与 config/voices.json（V1）无关；角色名待 V2 剧本定稿后替换。",
+ "status": "owner_picked",
+ "enabled": true,
+ "made_by": "STYLE-V2 音色助手 2026-11-02",
+ "owner_quote": "……音色也是上海风格时尚风格。（项目方 11-02，L-127）",
+ "engine": "cosyvoice3_zs（Qwen3-TTS VoiceDesign 设计 ref → Fun-CosyVoice3 zero-shot）",
+ "review_page": "data/review_pages/v2_style/voice.html",
+ "roles": {
+  "lead_f": {
+   "persona": "00 后上海时尚模特（23 岁）：镜头前冷感利落、私下柔软——声音要“高级、干净、有距离感”，不甜腻。",
+   "candidates": [
+    {
+     "cand": "a",
+     "dir": "data/assets/voices_v2/lead_f/a",
+     "accent": "普通话（标准）",
+     "instruct": "female, 23 years old, a clear and cool mid-pitched voice, poised and slightly aloof, polished urban fashion-model tone, crisp articulation, standard Mandarin, natural pace",
+     "seed": 2026110200,
+     "ref_sha256": "14b1d2d02ae9b101f723956eebff5f6a710d657cc24ae11df6cb49f438b986e9",
+     "f0_hz": 237.6,
+     "cer": 0.0,
+     "duration_s": 6.55,
+     "enabled": false,
+     "archived": true
+    },
+    {
+     "cand": "b",
+     "dir": "data/assets/voices_v2/lead_f/b",
+     "accent": "普通话（标准）",
+     "instruct": "female, 22 years old, a soft, slightly breathy mid-high voice, gentle and dreamy yet self-assured, elegant and refined, standard Mandarin, relaxed pace",
+     "seed": 2026110201,
+     "ref_sha256": "f6bf5eb25ee3eed802f10fde084d3ef32f1fbe0e1352c4927871532a986cf285",
+     "f0_hz": 233.0,
+     "cer": 0.0,
+     "duration_s": 8.55,
+     "enabled": true,
+     "selected": true,
+     "ref_wav": "data/assets/voices_v2/lead_f/b/ref.wav",
+     "sample_wav": "data/assets/voices_v2/lead_f/b/sample.wav",
+     "sample_sha256": "bf9c072048f06695971bc6cb40f99fdfe81dfb1f1e852cb247cb43da1f82910c"
+    },
+    {
+     "cand": "c",
+     "dir": "data/assets/voices_v2/lead_f/c",
+     "accent": "上海口音普通话 + 沪语词（ref）",
+     "instruct": "女性，23岁，明亮清甜的中高音，说带一点上海口音的普通话，吴语腔调软糯、尾音轻扬，时髦俏皮，语速自然",
+     "seed": 2026110202,
+     "ref_sha256": "fef0a086b2c6ce8965014e28c38b673f6a304483048eca2c99259d4e31742832",
+     "f0_hz": 292.7,
+     "cer": 0.0,
+     "duration_s": 8.19,
+     "enabled": false,
+     "archived": true
+    }
+   ],
+   "selected": "b"
+  },
+  "m1": {
+   "persona": "38 岁左右的成功商人/品牌投资人：低沉磁性、稳、不急——和年轻角色拉开年龄与阶层差。",
+   "candidates": [
+    {
+     "cand": "a",
+     "dir": "data/assets/voices_v2/m1/a",
+     "accent": "普通话（标准）",
+     "instruct": "male, 38 years old, a deep, low, magnetic baritone voice, calm and assured, unhurried, wealthy and sophisticated, standard Mandarin, slow measured pace",
+     "seed": 2026110210,
+     "ref_sha256": "6e3d1f2f1e57c67ae7e66dfed87557e65532304d17dd7a3f431037f689ac5d76",
+     "f0_hz": 99.8,
+     "cer": 0.0,
+     "duration_s": 9.51,
+     "enabled": false,
+     "archived": true
+    },
+    {
+     "cand": "b",
+     "dir": "data/assets/voices_v2/m1/b",
+     "accent": "普通话（标准）",
+     "instruct": "male, 35 years old, a low, warm, resonant voice with a slight husky texture, restrained authority, smooth and confident, standard Mandarin, measured pace",
+     "seed": 2026110211,
+     "ref_sha256": "8f23350c02669496fa6ab50b58a2aa596ae06902fc509b11c1177541855736d0",
+     "f0_hz": 96.2,
+     "cer": 0.0,
+     "duration_s": 7.95,
+     "enabled": true,
+     "selected": true,
+     "ref_wav": "data/assets/voices_v2/m1/b/ref.wav",
+     "sample_wav": "data/assets/voices_v2/m1/b/sample.wav",
+     "sample_sha256": "b5bb00f987d211f937440a4ad2652c2c517b105d07bf1b44dcf568c1e05b4683"
+    },
+    {
+     "cand": "c",
+     "dir": "data/assets/voices_v2/m1/c",
+     "accent": "上海口音普通话 + 沪语词（ref）",
+     "instruct": "男性，40岁，低沉稳重有磁性的嗓音，说带上海口音的普通话，老上海绅士腔调，讲究、从容，语速偏慢",
+     "seed": 2026110212,
+     "ref_sha256": "2ea388dafb61545e47383f662e07061c46d6a0b93b15dc4ca112963357618567",
+     "f0_hz": 133.0,
+     "cer": 0.0,
+     "duration_s": 8.07,
+     "enabled": false,
+     "archived": true
+    }
+   ],
+   "selected": "b"
+  },
+  "m2": {
+   "persona": "24 岁左右的摄影师/潮牌主理人：清亮松弛、带点痞和随性——年轻、街头、轻快，和 m1 的“稳”对比最大。",
+   "candidates": [
+    {
+     "cand": "a",
+     "dir": "data/assets/voices_v2/m2/a",
+     "accent": "普通话（标准）",
+     "instruct": "male, 24 years old, a clear, bright tenor voice, relaxed and casual, laid-back and a little playful, trendy young creative, standard Mandarin, natural pace",
+     "seed": 2026110220,
+     "ref_sha256": "8c4aa5488521b0de6923a2b4c7ced88b730839c1335f8288cf066568244d620e",
+     "f0_hz": 147.2,
+     "cer": 0.0,
+     "duration_s": 9.35,
+     "enabled": false,
+     "archived": true
+    },
+    {
+     "cand": "b",
+     "dir": "data/assets/voices_v2/m2/b",
+     "accent": "普通话（标准）",
+     "instruct": "male, 25 years old, a light, slightly raspy and airy voice, cool and chill, lazy easygoing drawl, street-style, standard Mandarin, relaxed pace",
+     "seed": 2026110221,
+     "ref_sha256": "a9d913d65fa6c2d5bd4cdb0d93cc7da3ddd406241db01d272055110a73582edf",
+     "f0_hz": 155.3,
+     "cer": 0.0,
+     "duration_s": 7.23,
+     "enabled": false,
+     "archived": true
+    },
+    {
+     "cand": "c",
+     "dir": "data/assets/voices_v2/m2/c",
+     "accent": "上海口音普通话 + 沪语词（ref）",
+     "instruct": "男性，24岁，清亮有活力的嗓音，说带上海口音的普通话，机灵、嘴快、有点贫，本地潮男腔调，语速偏快",
+     "seed": 2026110222,
+     "ref_sha256": "5778093ed6e5de9bd25cd6e9ec0e295137a8c928aadda2691d0e5647978bab79",
+     "f0_hz": 160.0,
+     "cer": 0.0,
+     "duration_s": 5.51,
+     "enabled": true,
+     "selected": true,
+     "ref_wav": "data/assets/voices_v2/m2/c/ref.wav",
+     "sample_wav": "data/assets/voices_v2/m2/c/sample.wav",
+     "sample_sha256": "bc444381ac8ef0b987a9488e1208de46849b65c7f11f9de5a84b2cf69bc00c97"
+    }
+   ],
+   "selected": "c"
+  },
+  "m3": {
+   "persona": "28 岁左右的陆家嘴白领：温柔斯文、礼貌、干净——中音、柔和，介于 m1 的低沉和 m2 的清亮之间。",
+   "candidates": [
+    {
+     "cand": "a",
+     "dir": "data/assets/voices_v2/m3/a",
+     "accent": "普通话（标准）",
+     "instruct": "male, 28 years old, a gentle, soft mid-pitched voice, warm and polite, clean clear diction, considerate and calm, standard Mandarin, calm pace",
+     "seed": 2026110230,
+     "ref_sha256": "9d7c2ec6224d719cd526ad7a68f3392ff852fc52a9860f913ba587361bb5375e",
+     "f0_hz": 123.1,
+     "cer": 0.0,
+     "duration_s": 7.51,
+     "enabled": false,
+     "archived": true
+    },
+    {
+     "cand": "b",
+     "dir": "data/assets/voices_v2/m3/b",
+     "accent": "普通话（标准）",
+     "instruct": "male, 29 years old, a soft, clean, slightly breathy tenor voice, mild and tender, quiet and refined, standard Mandarin, unhurried pace",
+     "seed": 2026110231,
+     "ref_sha256": "bd90d40c5db6727d6e8a093e3b58ddcccc173c41954371974f95f4661a9e197a",
+     "f0_hz": 104.8,
+     "cer": 0.0,
+     "duration_s": 8.43,
+     "enabled": false,
+     "archived": true
+    },
+    {
+     "cand": "c",
+     "dir": "data/assets/voices_v2/m3/c",
+     "accent": "上海口音普通话 + 沪语词（ref）",
+     "instruct": "男性，28岁，温和柔软的中音，说带一点上海口音的普通话，吴语腔调轻柔，斯文有礼，语速平缓",
+     "seed": 2026110232,
+     "ref_sha256": "8d9b8919f23f8d5bbc8a390be66ed130dfef05b2bda7460948dbf527b83150c7",
+     "f0_hz": 95.6,
+     "cer": 0.0,
+     "duration_s": 7.99,
+     "enabled": true,
+     "selected": true,
+     "ref_wav": "data/assets/voices_v2/m3/c/ref.wav",
+     "sample_wav": "data/assets/voices_v2/m3/c/sample.wav",
+     "sample_sha256": "027ffeb3bdb377ae63af20e6dbbcfa40a66ebd392ab127b09746e3cda6a32d29"
+    }
+   ],
+   "selected": "c"
+  },
+  "zhuo_lin": {
+   "persona": "35 岁经纪人（前模特）：干脆明亮的女中音，上海腔，语速快、利落、带刀。（P1 voice_phrase：crisp bright alto, fast clipped Shanghai cadence, brisk pace）",
+   "char_id": "ch_zhuo_lin",
+   "candidates": [
+    {
+     "cand": "a",
+     "dir": "data/assets/voices_v2/zhuo_lin/a",
+     "accent": "普通话（标准）",
+     "shanghai_accent": false,
+     "instruct": "female, 35 years old, a crisp, bright alto voice, fast and clipped, brisk confident agent tone, sharp articulation, standard Mandarin, fast pace",
+     "seed": 2026110240,
+     "ref_sha256": "c1ecdcd16abdda35cb978c0f1abb836dfb345118e383d6a9000cebce249bcc61",
+     "f0_hz": 300.0,
+     "cer": 0.0,
+     "duration_s": 5.99,
+     "enabled": false,
+     "archived": true
+    },
+    {
+     "cand": "b",
+     "dir": "data/assets/voices_v2/zhuo_lin/b",
+     "accent": "上海口音普通话 + 沪语词（ref）",
+     "shanghai_accent": true,
+     "instruct": "女性，35岁，干脆明亮的女中音，说带明显上海口音的普通话，吴语腔调利落，语速快、咬字脆，干练强势",
+     "seed": 2026110241,
+     "ref_sha256": "d6dcdf8122c762416b729d474373ea86c2761959c2b8e30802db4f20a25294ed",
+     "f0_hz": 247.4,
+     "cer": 0.0,
+     "duration_s": 7.11,
+     "enabled": false,
+     "archived": true
+    },
+    {
+     "cand": "c",
+     "dir": "data/assets/voices_v2/zhuo_lin/c",
+     "accent": "上海口音普通话 + 沪语词（ref）",
+     "shanghai_accent": true,
+     "instruct": "女性，35岁，清脆爽利的偏低女声，说带上海口音的普通话，沪语味重，语速很快，精明老练、带点冷幽默",
+     "seed": 2026110242,
+     "ref_sha256": "5e72df91e7c116d2619d3d27c95a698aaf161f033bc21d98699d635eaa494a71",
+     "f0_hz": 235.3,
+     "cer": 0.0,
+     "duration_s": 8.79,
+     "enabled": true,
+     "selected": true,
+     "ref_wav": "data/assets/voices_v2/zhuo_lin/c/ref.wav",
+     "sample_wav": "data/assets/voices_v2/zhuo_lin/c/sample.wav",
+     "sample_sha256": "d3821253f9f8eee45de885949d7a6f61e54d1b4025852e2acb01e429d3361637",
+     "picked_by": "fred",
+     "picked_at": "2026-11-03T00:07:21"
+    }
+   ],
+   "selected": "c"
+  },
+  "tang_yao": {
+   "persona": "24 岁替补模特：清亮的轻女高音，急切、想抓住机会。（P1 voice_phrase：clear light soprano, quick eager tone, brisk pace）",
+   "char_id": "ch_tang_yao",
+   "candidates": [
+    {
+     "cand": "a",
+     "dir": "data/assets/voices_v2/tang_yao/a",
+     "accent": "普通话（标准）",
+     "shanghai_accent": false,
+     "instruct": "female, 24 years old, a clear, light soprano voice, quick and eager, slightly anxious earnest tone, bright and youthful, standard Mandarin, brisk pace",
+     "seed": 2026110250,
+     "ref_sha256": "e0329400e5e7bc369b7d50d50f851482b4874b88abe785a06c407cf8feeeb569",
+     "f0_hz": 324.3,
+     "cer": 0.0,
+     "duration_s": 5.59,
+     "enabled": false,
+     "archived": true
+    },
+    {
+     "cand": "b",
+     "dir": "data/assets/voices_v2/tang_yao/b",
+     "accent": "上海口音普通话 + 沪语词（ref）",
+     "shanghai_accent": true,
+     "instruct": "女性，24岁，清亮的轻女高音，说带一点上海口音的普通话，语气急切、带点紧张和期待，语速偏快",
+     "seed": 2026110251,
+     "ref_sha256": "808f76ff221e114a9b672c96ed3d6453548c258ee35ed5356d66cade15e42601",
+     "f0_hz": 250.0,
+     "cer": 0.0,
+     "duration_s": 8.35,
+     "enabled": true,
+     "selected": true,
+     "ref_wav": "data/assets/voices_v2/tang_yao/b/ref.wav",
+     "sample_wav": "data/assets/voices_v2/tang_yao/b/sample.wav",
+     "sample_sha256": "94217ab80705f5c24ecb6cb3bba58f9ec7ad9f975d30e223b73295fd1dd36ad1",
+     "picked_by": "fred",
+     "picked_at": "2026-11-03T00:07:21"
+    },
+    {
+     "cand": "c",
+     "dir": "data/assets/voices_v2/tang_yao/c",
+     "accent": "上海口音普通话 + 沪语词（ref）",
+     "shanghai_accent": true,
+     "instruct": "女性，24岁，清透轻盈的高音，说带上海口音的普通话，吴语腔调，急急切切、想表现自己，语速快",
+     "seed": 2026110252,
+     "ref_sha256": "2696c8d847582922a254d771736a77a26e16c9eb60b1944e19be32ec797c3063",
+     "f0_hz": 311.7,
+     "cer": 0.0,
+     "duration_s": 8.39,
+     "enabled": false,
+     "archived": true
+    }
+   ],
+   "selected": "b"
+  }
+ },
+ "failed_not_listed": [],
+ "decision": "L-132 项目方 11-02 21:2x 挑定（总调度转）：lead_f = b，m1 = b，m2 = c，m3 = c；其余候选归档（不删）",
+ "cast_voice": {
+  "_doc": "V2 人物（char_id，来自 ns_agent.cast_table.speaker_cast ← P1_storyline.json）→ 项目方选定音色的角色槽（roles 的键）。只许映射到 L-132 选定的 4 个音色；人物表里没有映射的人 = 无音色，配到她 / 他时报错（不拿 lead_f 顶替）。STYLE-V2 11-02 22:4x 按 P1 的年龄与 voice_phrase 派生，总调度授权；改映射只改这里。",
+  "map": {
+   "lead_f": "lead_f",
+   "ch_li_an": "m1",
+   "ch_jiang_yubai": "m3",
+   "ch_zhou_xu": "m2",
+   "ch_zhuo_lin": "zhuo_lin",
+   "ch_tang_yao": "tang_yao"
+  },
+  "why": {
+   "lead_f": "祁念 = 女主 lead_f，音色 lead_f_b（项目方选）",
+   "ch_li_an": "黎岸 38 岁，P1 voice_phrase “deep unhurried baritone, smooth controlled” ↔ m1_b（35 岁低沉温暖、克制的权威感）",
+   "ch_jiang_yubai": "江予白 29 岁，“quiet mid-low voice with a soft husky grain, relaxed” ↔ m3_c（28 岁温和柔软的中音，吴语腔调轻柔）",
+   "ch_zhou_xu": "周序 25 岁，“warm plain voice … steady” ↔ m2_c（24 岁清亮有活力）：三个男声里年龄最近；P1 写的是外地口音，m2_c 是上海口音，有出入，待项目方确认",
+   "ch_zhuo_lin": "fred 在待办通知中心挑定 zhuo_lin_c（2026-11-03T00:07:21）",
+   "ch_tang_yao": "fred 在待办通知中心挑定 tang_yao_b（2026-11-03T00:07:21）"
+  }
+ },
+ "support_candidates": {
+  "_doc": "配角音色候选（待选，未启用）。故意不放进 roles：run_media.voice_config 会遍历 roles，每个槽要有且仅有 1 个 selected+enabled，放进去会让 V2 合成报错。项目方挑定后再挪进 roles 并改 cast_voice。",
+  "status": "已全部选定",
+  "enabled": false,
+  "roles": {}
+ }
+}

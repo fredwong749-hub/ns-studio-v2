@@ -1,0 +1,36 @@
+{
+ "_doc": "视频配方政策（WORKFLOW，ns_recipes.compiler.hold_reason 读）。项目方 2026-11-01 约 18:0x 原话（总调度转，L-088，取代 L-082 的“已通过的镜头不动”）：“现在基本上要把图片和视频全部重做一次：1. 图片：全部重新勾一次，用最新的瑞丽 R0 方案。2. 视频：全部用皮卡来做。如果皮卡做不了，就等皮卡安装完再做。”",
+ "decision": "L-088",
+ "pika_only": {
+  "enabled": true,
+  "allowed": [
+   "i2va_pika_flex"
+  ],
+  "reason_not_pika": "等 Pika 方案：L-088 视频全部用 Pika，配方 {recipe} 不是 Pika，不回退旧配方",
+  "reason_overlay": {
+   "flush_risk": "等 Pika 方案（泛红防护）：提示词有脸红类描述，Pika 会放大泛红（LEARNED_SPECS B），不回退 i2va_pdd2"
+  }
+ },
+ "ref2va_fallback": false,
+ "ref2va_note": "Ref2VA 兜底取消：没有通过首帧的镜等图片重做出首帧后再走 Pika（build_jobs route waiting_frame）",
+ "revert": "pika_only.enabled 改 false 即恢复按配方 id 编译（仍保留 flush_risk 的 hold）",
+ "scope_runs": [
+  "series10_v1",
+  "series10_s2",
+  "series10_v2",
+  "smoke_v2"
+ ],
+ "_scope_smoke": "R4 #7（项目方 11-08 批准）：冒烟剧登记视频政策，G4 窗口内由 night.py --run smoke_v2 编视频作业、gpu36 出片；回退 = 删本行与上一行 smoke_v2",
+ "_scope": "按剧生效（MERGE-VID-O 11-03，L-137 V2 并回 V1 视频链；取代旧的 scope_source_contains=series10_v1）：剧本来源路径（ShotSpec.source.script_file）里出现 scope_runs 的剧名 → 本政策生效；出现的是 runs.json 登记的、却不在 scope_runs 里的剧 → 编译失败关闭（PolicyMissing：新剧先在这里登记视频政策）；两者都不是（旧 60 集项目、测试夹具）→ 按配方 id 照常编译",
+ "dejudder": {
+  "enabled": true,
+  "recipes": [
+   "i2va_pika_flex"
+  ],
+  "j4_gt": 1.2,
+  "j4_z_ge": 3.0,
+  "always": false,
+  "_doc": "VIDEO-RCA r1（11-01 19:0x）：Pika 同首帧 4 条里 3 条 4 帧一顿（J4 1.23–1.40，z 4.5–10.8）→ 合成前按 K-LOOP-004 tools/dejudder.py 去抖；门槛缺省同 iterate_loop R-J4，VIDEO-RCA 量化后改这里。链路：原片 → _dj → _sr1080（tools/series10_video/upscale_preview.py），night.assembly_sources 优先放大版、其次去抖版",
+  "_j4_gt": "VIDEO-RCA r2（K-REV-705，11-01 20:3x）：1.25 → 1.2（S5 J4 1.237 原先漏掉）"
+ }
+}

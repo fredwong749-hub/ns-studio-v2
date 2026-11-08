@@ -1,0 +1,325 @@
+{
+ "_doc": "VQA 本地看图复核（契约 Q9 / 视频 V9；R11-4 / R11-5 / R11-7 / R11-10）。owner = VQA。硬规则 K-REV-V01：图片 / 视频帧只进本地视觉模型（gpu36 自建服务），绝不发外部 API；写作网关只收文字（本地模型写的描述 + 缺陷清单 + 镜头文字 + 契约结果）。每个检查项映射到一条 GEN_CONTRACT 项（contract）；blocking 只在留出一致率 ≥ calibration.min_agreement 且总调度批准后由总调度改成 true。",
+ "version": "vqa-v2-gate-2026-11-01",
+ "model": {
+  "vram_budget": {"gpu36:2": {"total_mib": 24576, "residents": [{"name": "vqa_nf4 实例（server.py VQA_DEDICATED=1）", "count_from": "model.instances", "peak_mib": 7400}, {"name": "异常检测常驻（tools/vqa/anomaly_server.py：yolov8m-seg + face / hand yolo + DWPose + OneFormer）", "count": 1, "peak_mib": 3000}]}, "_doc": "总调度 11-02（S3 根因：3×7.3 GB 看图 + 常驻 CLIP 2.5 GB 超出 24 GB → OOM 死锁）：同卡常驻进程峰值和 ≤ 0.9×显存，部署前 tools/vqa/vram_budget.py 拦；峰值取实例 /health 的 peak_mib 实测上限（7206–7386）。CLIP 已由 FACTORY 改 CPU，不占这张卡；以后谁要在这张卡上常驻，先登记到 residents"},
+  "backends": {"gpu36": "router_nf4", "laptop": "nf4", "_doc": "SENTINEL S3 读（VQAGATE 11-02）：gpu36 = GPU2 上 3 个 nf4 实例（8876/8878/8879）由 vqa_router 占 8870 分发；laptop = 本机单实例 nf4（tools/vqa/server.py）"},
+  "name": "Qwen3-VL-8B-Instruct",
+  "hf": "Qwen/Qwen3-VL-8B-Instruct",
+  "license": "Apache-2.0",
+  "card": "https://huggingface.co/Qwen/Qwen3-VL-8B-Instruct",
+  "quant": "bitsandbytes nf4（3090 无整卡空闲，量化后约 7 GB）",
+  "host": "gpu36",
+  "dir": "/root/work/fredw/vqa",
+  "port": 8870,
+  "lan_url": "http://10.0.0.36:8870",
+  "_lan_url": "NETFIX 11-01（K-OPS-N03，总调度 fredw-2b 派）：gpu36 内网入口 tools/netfix/lan_proxy.py，只听 10.0.0.36、只认 10.0.0.33；gpu33 常驻 producer 用（client._lan_url）",
+  "gpus": [
+   1
+  ],
+  "_gpus": "W45（总调度 11-04 05:0x，W43 查实）：gpu36 看图 :8870 固定 GPU1——GPU0 跑 Pika（19.3 GB），同卡争显存 → score_infra；GPU1 上另有人数检测 :8893（~2.4 GB），看图 nf4 峰值 ~8.3 GB，合计 < 24 GB。读取方：tools/autopilot/resident_sync.vqa_env（vqa_guard 拉起）、tools/vqa/deploy_offline.sh——两处必须一致（tests/test_w45_vqa_gpu1.py 核）；GPU2 坏卡永不用",
+  "comfy_ports": {
+   "0": 8188,
+   "1": 8189
+  },
+  "need_free_mib": 7000,
+  "idle_unload_s": 90,
+  "max_new_tokens": 1000,
+  "subject_max_pixels": 600000,
+  "ref_max_pixels": 150000,
+  "video_frames": 6,
+  "instances": 2,
+  "_instances": "L-100（11-02 02:1x 起）：gpu36 GPU2 专用卡上 3 个 nf4 实例（:8876/:8878/:8879，tools/vqa/vqa_router.py 占 :8870 按排队最少分发）+ 笔记本 4080 专用 1 个 = 4。vLLM fp8 版 A/B 判定一致率 0.909 < 0.95 没上（GATE_CALIBRATION §14）。producer 打分积压上限按它算（K-OPS-E05）",
+  "_caliber": "口径 B（VQAGATE 11-01 22:5x 切，本机 4080 与 gpu36 同一套）：主图 0.6 MP、参考图 0.15 MP、输出 1000 token。gpu36 同一批 29 条对照原口径（1.3 MP / 0.36 MP / 1800）：阻断项逐项一致率 eye_contact 0.931、continuity_break 1.0、hair_mismatch 1.0、framing_mismatch 0.931、extra_person 0.966、underage_look 1.0、extra_limbs 0.828（两种口径下都不稳）；eye_contact 对人工标签召回 8/10 两边相同，误报 3/10 → 2/10。数据 data/vqa/vram_bench/compare_g36_orig_g36_Bfull.json；本机峰值 10.8–11.3 GB（GATE_CALIBRATION §7–8）",
+  "instances_note": "总调度 01:5x L-100：gpu36 GPU2 vLLM 并发 4（:8870 已切到 vllm_proxy）；笔记本 4080 专用实例另计给笔记本 producer"
+ },
+ "checks": {
+  "extra_limbs": {
+   "zh": "多 / 少手、手臂、腿（数量不对）",
+   "contract": "Q5",
+   "video": "V6",
+   "severity": "hard",
+   "blocking": false
+  },
+  "hand_malformed": {
+   "zh": "手指畸形（多指、并指、断腕、手指融化）",
+   "contract": "Q5",
+   "video": "V6",
+   "severity": "hard",
+   "blocking": false
+  },
+  "body_anatomy": {
+   "zh": "身体结构错（扭颈、反关节、身体融合、比例离谱）",
+   "contract": "Q5",
+   "video": "V6",
+   "severity": "hard",
+   "blocking": false
+  },
+  "extra_person": {
+   "zh": "多出人 / 同一角色出现两次（原文没写明是谁的倒影）/ 人数与镜头不符",
+   "contract": "Q1",
+   "video": "V1",
+   "severity": "hard",
+   "blocking": true
+  },
+  "identity_drift": {
+   "zh": "脸不像本人身份参考 / 像别人 / 外国脸",
+   "contract": "Q1",
+   "video": "V1",
+   "severity": "hard",
+   "blocking": false
+  },
+  "hair_mismatch": {
+   "zh": "发型 / 发长 / 发色 / 刘海与参考不符（例：男主长发、女主发色发暗）",
+   "contract": "Q8",
+   "video": "V8",
+   "severity": "hard",
+   "blocking": true
+  },
+  "outfit_mismatch": {
+   "zh": "服装与造型设定图不符（缺外套、下装换了、颜色款式不对）",
+   "contract": "Q2",
+   "video": "V8",
+   "severity": "hard",
+   "blocking": false
+  },
+  "shoe_mismatch": {
+   "zh": "鞋与参考鞋不符（款式 / 颜色 / 跟高 / 透明度）",
+   "contract": "Q2",
+   "video": "V8",
+   "severity": "hard",
+   "blocking": false
+  },
+  "accessory_mismatch": {
+   "zh": "指甲 / 首饰 / 包 / 手持道具与参考或原文不符",
+   "contract": "Q2",
+   "video": "V8",
+   "severity": "soft",
+   "blocking": false
+  },
+  "clothing_state": {
+   "zh": "穿着状态与原文不符（该穿衣服的光膀子 / 裸露、该脱的没脱）",
+   "contract": "Q2",
+   "video": "V8",
+   "severity": "hard",
+   "blocking": false
+  },
+  "wrong_scene": {
+   "zh": "场景不对（地点 / 陈设与场景参考和原文不符）",
+   "contract": "Q7",
+   "video": "V8",
+   "severity": "hard",
+   "blocking": false
+  },
+  "lighting_time": {
+   "zh": "时段 / 光线与原文矛盾（写深夜出白天等）",
+   "contract": "Q7",
+   "video": "V8",
+   "severity": "soft",
+   "blocking": false
+  },
+  "framing_mismatch": {
+   "zh": "景别 / 构图不符（要手部特写出了带脸中近景、局部角色露脸）",
+   "contract": "Q3",
+   "video": "V8",
+   "severity": "hard",
+   "blocking": true
+  },
+  "text_watermark": {
+   "zh": "字幕 / 文字 / 水印 / logo",
+   "contract": "Q6",
+   "video": "V9",
+   "severity": "hard",
+   "blocking": false
+  },
+  "eye_contact": {
+   "zh": "演员看镜头（原文没要求对镜）",
+   "contract": "Q9",
+   "video": "V9",
+   "severity": "hard",
+   "blocking": true
+  },
+  "blank_expression": {
+   "zh": "多人镜里第二人起没有表情 / 眼神空（R11-9）",
+   "contract": "Q9",
+   "video": "V9",
+   "severity": "soft",
+   "blocking": false
+  },
+  "plastic_doll": {
+   "zh": "塑料感 / 娃娃脸 / CG 蜡像皮肤（项目方头号抱怨）",
+   "contract": "Q4",
+   "video": "V9",
+   "severity": "hard",
+   "blocking": false
+  },
+  "face_artifact": {
+   "zh": "五官畸形（眼睛不对称、牙齿糊、脸扭曲）",
+   "contract": "Q4",
+   "video": "V9",
+   "severity": "hard",
+   "blocking": false
+  },
+  "artifact": {
+   "zh": "画面坏块（物体融化 / 扭曲、接缝、色块、背景人脸烂）",
+   "contract": "Q4",
+   "video": "V3",
+   "severity": "hard",
+   "blocking": false
+  },
+  "collage_or_ref_leak": {
+   "zh": "拼图 / 多格 / 白底棚拍照搬参考板 / 画框边",
+   "contract": "Q7",
+   "video": "V9",
+   "severity": "hard",
+   "blocking": false
+  },
+  "low_resolution": {
+   "zh": "低清 / 糊 / 脸部不清（走 4K 放大或重出）",
+   "contract": "Q4",
+   "video": "V9",
+   "severity": "soft",
+   "blocking": false
+  },
+  "underage_look": {
+   "zh": "任何人物看起来未成年（HC-07）",
+   "contract": "I10",
+   "video": "V9",
+   "severity": "hard",
+   "blocking": true
+  },
+  "continuity_break": {
+   "zh": "跨镜不连贯：与同场上一镜首帧比，服装 / 外套有无 / 发色发型 / 场景 / 光线变了（原文没写换装换场）",
+   "contract": "Q9",
+   "video": "V8",
+   "severity": "hard",
+   "blocking": true
+  },
+  "posed_stiff": {
+   "zh": "摆拍站桩：人物正对镜头站 / 坐着摆姿势，没有表演动作和交流对象",
+   "contract": "Q9",
+   "video": "V9",
+   "severity": "soft",
+   "blocking": false
+  },
+  "lineup": {
+   "zh": "排排站 / 合影式：两人及以上正面并排站成一排朝向镜头",
+   "contract": "Q9",
+   "video": "V9",
+   "severity": "soft",
+   "blocking": false,
+   "_doc": "⤴ L-196/L-200 L-200（项目方 11-06 07:3x 看 ep01 总览：S1 三人正面排排站看镜头被采用）：排排站是 gaze 硬项，但看图这一项 11-06 W-DETECT 复审改为只记录（口径放宽未标定；11-06 对 ep01 S1/S14/S15 并排图 0 命中、召回 0/5）——硬判改由 G1 几何排排站 ns_qc.gaze.lineup_geo 承担（标定 5/5 正例、14 反例 0 误报，gen_contract.blocking 不被看图否掉）。单人 / 局部 / 物件特写写 na。同一次看图调用多一项，不另起模型调用"
+  },
+  "item_on_wrong_person": {
+   "zh": "单品串人：一个角色的标志性单品（指甲 / 手套 / 首饰等，参考板或原文写明属于谁）出现在另一个角色身上",
+   "contract": "Q2",
+   "video": "V8",
+   "severity": "hard",
+   "blocking": false
+  },
+  "brand_logo": {"zh": "鞋 / 服装 / 饰品上出现品牌字母或 logo 造型（含鞋垫印字、鞋跟做成字母形状、金属字母装饰）", "contract": "Q6", "video": "V9", "severity": "hard", "blocking": true, "_doc": "W-40（总调度 21:1x，K-REN-959）：SH2 参考图原图带品牌 logo；出图里出现任何品牌标志 = 判不过"}
+ },
+ "video_checks": {
+  "temporal_identity": {
+   "zh": "片内换脸 / 前后不像同一人",
+   "contract": "V1",
+   "severity": "hard",
+   "blocking": false
+  },
+  "temporal_outfit": {
+   "zh": "片内服装 / 鞋变了",
+   "contract": "V8",
+   "severity": "hard",
+   "blocking": false
+  },
+  "morphing": {
+   "zh": "肢体凭空出现 / 消失、物体变形融化",
+   "contract": "V6",
+   "severity": "hard",
+   "blocking": false
+  },
+  "first_frame_stare": {
+   "zh": "开头演员盯镜头停顿（R11-8）",
+   "contract": "V4",
+   "severity": "hard",
+   "blocking": false
+  },
+  "scene_jump": {
+   "zh": "镜内跳场景 / 硬切",
+   "contract": "V5",
+   "severity": "hard",
+   "blocking": false
+  }
+ },
+ "_underage_note": "underage_look 从第一天起阻断：成年人锁定是 HC-07 硬规则，不等标定。",
+ "calibration": {
+  "min_agreement": 0.85,
+  "min_n": 8,
+  "report": "data/vqa/calibration/report.json"
+ },
+ "judge": {
+  "purpose": "vqa_judge",
+  "fallback_purpose": "prompt_rewrite",
+  "budget_tag": "vqa_judge",
+  "budget_usd": 3.0,
+  "max_tokens": 1200,
+  "max_rounds": 3,
+  "text_only": true,
+  "enforce": true,
+  "_enforce": "true（项目方 2026-11-01 16:10 原话转阻断，D-VQA-01，取代旧的标定门槛加总调度批准前提）：checks.<id>.blocking=true 的项看图判 defect = Q9 fail → 不设为当前、PRODUCER 按 judge prompt_delta 自动重出（≤3 次）；没有看图结果 = untested（不算通过，build_jobs 不派视频）。unsure = 低置信度，只记录。blocking 由 gate_scan 标定（docs/vqa/GATE_CALIBRATION.md）定"
+ },
+ "gate": {
+  "_doc": "VQAGATE（项目方 11-01 16:10 / 16:3x 原话，D-VQA-01/02）：首帧 / 尾帧出图后先过本地看图闸门再进视频。只有 defect（高置信度）且该项 blocking=true 才拦；unsure 只记录。跨镜连贯：同 scene_id 的上一镜当前首帧作参考图。blocking 名单按 data/vqa/gate_calib/report.json（ep01 点名正例 + 标定集）定，误报高的项保持 false。",
+  "enforce": true,
+  "untested_blocks": true,
+  "continuity_prev_shot": true,
+  "hair_primary": true,
+  "_hair_primary": "总调度 11-02 采纳标准（主判召回 ≥ 现行、误报 ≤ 现行、回归集 12/12 → 带开关上线）：Q1a 标定集 44 张 A/B，召回 1/1 = 1/1，误报 0/43 < 3/43（3 张看图误报亲看确认：林晚雾霾蓝正常，看图称“原文未提蓝发 / 与参考衬衫不符”）；Q1a fail 照拦。data/vqa/gate_calib/hair_primary_ab.json，GATE_CALIBRATION §19",
+  "auto_review_redo": true,
+  "auto_review_by": "VQAGATE 本地看图闸门",
+  "_extra_limbs": "总调度 11-01 23:0x：extra_limbs 两口径一致率仅 0.828，单独拦会来回重出 → 看图这一项本身不拦；视频层改成 V6 手数规则命中且看图 extra_limbs = defect 两者同时成立才判多肢（score_clip.gate），只有一方命中只记录；等 V6 看图复核（多手 vs 衣物形变）做完再评估",
+  "_blocking_v1": "⤴ L-196/L-200 16:5x 首版 blocking = eye_contact、continuity_break、hair_mismatch、framing_mismatch、extra_person（+ underage_look）：项目方点名的看镜头 / 不连贯 / 发色，总调度 G0 点名的景别，和极少误报的多人；outfit / accessory / plastic_doll / posed_stiff / extra_limbs 在 ep01–ep03 首扫命中率 30–60%、和总调度标签对不上，误报高，先写进证据不挡。18:1x 总调度定（和 WORKFLOW 对齐）：V6 阈值落定前多肢一律判不过 → extra_limbs 也拦（自相矛盾的“各5指 / 被遮挡”降为拿不准，contract.sanitize）。依据 data/vqa/gate_scan/rates.json、docs/vqa/GATE_CALIBRATION.md。11-02 21:1x 总调度 W-40 点名 brand_logo 阻断（出图永远不画品牌标志，K-REN-959；未走标定）。11-06 07:3x L-200 项目方点名 lineup（排排站 / 合影式）阻断：与 eye_contact 同属视线硬项，命中换种子重出、不得被“用尽采用最好一版”采用（未走标定，项目方原话）。11-06 项目方 L-200 点名排排站硬闸：硬项只认 G1 几何判 lineup_geo（标定 5/5、14/14 无误报，W-DETECT）；看图 lineup 措辞未标定 → 只记录（blocking=false，复审 11-06）",
+  "video_requires_q9": true,
+  "_video_requires_q9": "L-137（项目方 11-03 03:1x：V2 并回 V1，看图闸门先于视频）+ ISS-1103-024206-4b21：MERGE-VID-O 打开；没过 Q9 的首帧不进视频（build_jobs.passed_frames → contract.q9_passed），D-VQA-02 的回扫条件由 L-137 取代",
+  "band_sharp": {"min": 42.3, "recalib_every_days": 7, "tool": "tools/vqa/band_recalib.py", "auto_log": "data/vqa/gate_calib/band_sharp_auto.jsonl", "_doc": "Q1 复核带确定性清晰度（总调度 11-02 批准）：被清晰度拦下的自动记入 auto_log，补标签后每周按标定集重算，提议写 data/vqa/gate_calib/band_recalib.json（当前提议 42.3；正例最低 60.6、反例 23.9）"},
+  "gaze_mp": {
+   "enabled": true,
+   "A": 0.3,
+   "T": 0.05,
+   "P": 0.2,
+   "down_max": 0.35,
+   "blink_max": 0.6,
+   "_pitch": "P 0.12→0.2（总调度转 LOCALGPU 19:0x：data/ab/identity_gaze_ab/ep01-S1_A_s20261201 正视但 pitch 0.129 被漏）。100 张标签加垂眼排除后扫 P 0.12–0.25：两折留出召回 25/34、27/37，误报 0/16、0/13，全都不变（标签里落在 T 带内的正例 pitch 都 ≤0.12，反例都已被垂眼排除）；A/B 那张 0.129 改后命中",
+   "_down": "垂眼排除（总调度 18:4x，ep04-S2 误报）：bs_y=eyeLookDown ≤ 0.35 才算；100 张标签里正例 bs_y 最大 0.19、唯一误报 0.617，ep04-S2 0.598。加排除后奇偶两折留出 25/34 误报 0/16、27/37 误报 0/13（排除前 1/16、0/13）；blink_max 0.6 未标定（标签特征里没有 blink），只排除明显闭眼",
+   "_calib": "data/acting/mp_features_v1.json（总调度标 100 张：71 看镜头 / 29 没看）奇偶两折留出：召回 27/37、25/34（≈0.73），误报 0/13、1/16；全集 52/71、1/29。高置信度才记 eye_contact defect（看图模型判 defect 的照常算）"
+  }
+ },
+ "route": {
+  "_doc": "W23 VQA-ROUTE（总调度 11-03）：每次调用先探本机 8870 /health（loaded=true 且 queue < queue_max）→ 只用本机；本机忙（queue ≥ queue_max）就等最多 busy_wait_s，不切隧道（隧道是瓶颈）；本机不在 / 未 loaded 才用 8871 隧道（服务器上用 model.lan_url）；都不在 / 超时 = untested（reason 服务不可用 / 超时 / 本机忙），绝不判 fail。timeouts = 本机实测 P95×2、至少 60 s（11-03 近 3 天 gpu0 缓存：整张复核 n=308 P50 54 s P95 118 s；短问 n=255 P95 17.5 s），HTTP 超时 = timeouts[kind] ×（排队数+1），不超过调用方 wait_s+120。每次调用记 log（route local|tunnel|none）",
+  "laptop_prefer_tunnel": true,
+  "_laptop_prefer_tunnel": "PS-MASTER 11-06（项目方“gpu 资源不能空闲”）：笔记本上先走 8871 隧道（gpu33 看图服务，3090），不通或排满再用笔记本本机 8870；服务器（OFFLINE_SELF）不受影响",
+  "queue_max": 6,
+  "busy_wait_s": 600,
+  "poll_s": 10,
+  "health_timeout_s": 3,
+  "timeouts": {"image": 240, "video": 300, "ask": 180},
+  "balance": true, "extra_local_ports": [], "balance_lan": true, "max_wait_s": null,
+  "_b1": "B1 检测提速（11-05，默认全关）：balance=true 且在服务器上（OFFLINE_SELF）时，在『本机实例（127.0.0.1:主端口 + extra_local_ports）+ gpu36 内网入口』里挑排队最少的（并列本机优先），全忙才排队等；gpu33 起了本机看图实例（tools/vqa/start_gpu33_vqa.sh）后打开。balance_lan=false = 只用本机实例（不跨内网）。max_wait_s = 单次看图请求最长等待（秒，null = 由调用方 wait_s 定，现 900）；超时仍是 untested 不判 fail。HTTP 超时仍按 timeouts[kind]×(排队数+1)",
+  "log": "data/vqa/route.jsonl", "_w38": "W38 11-04：ask 60→180 s——gpu33 producer 同时 3 打分 + 3 重打分共用 gpu36 8870，Q10 提示词核对（ask，带图）在服务端排队超 60 s → Q10 untested → score_infra 循环（ep01 S7 t3 02:43）；超时仍是 untested 不判 fail"
+ },
+ "upscale_4k": {
+  "_doc": "R11-7：只对已批准（预览 / 定稿）的片做，后处理一步，不进出片循环。引擎 = gpu33 SeedVR2 3B（scripts/upscale_4k.py，本机 services/post/ns_post/upscale4k.py）。",
+  "engine": "seedvr2_3b",
+  "host": "gpu33",
+  "target": [
+   2160,
+   3840
+  ],
+  "only_when": [
+   "master_approved",
+   "owner_approved",
+   "final"
+  ],
+  "fallback": "sr_short=1440 + Lanczos；仍不行 = Lanczos（标 fallback）"
+ }
+}

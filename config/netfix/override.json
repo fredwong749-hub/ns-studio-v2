@@ -1,0 +1,17 @@
+{
+ "_doc": "NETFIX 临时覆盖（总调度 fredw-2b 11-01 23:3x；规则 K-OPS-N06）：服务器缺造型 A v2_s202 设定图 / refcrops / 单品图（WORKFLOW push_required 补推约 90 分钟），服务器 producer 每单被 preflight I3 / I4 挡下。资产到位前由笔记本 producer 经隧道统一派图（gpu33:0/1/3、gpu36:0/1、laptop:0；gpu36:2 VIDEO-RCA 在用，挂住）。逐台自动交还：data/autopilot/assets_ready.json 里该台 ready=true → draining（笔记本停派该台的集、等在途完成）→ server（服务器 producer 恢复本机分区）。状态在 data/netfix/override_state.json，由监管进程每拍 dispatch.reconcile() 推进。视频（night）不受影响，仍在服务器。",
+ "active": true,
+ "images_on": "laptop",
+ "hosts": [
+  "gpu33",
+  "gpu36"
+ ],
+ "until": "data/autopilot/assets_ready.json <host>.ready == true（WORKFLOW 推完、复核清单缺 0 个文件才写）",
+ "laptop_hold": [
+  "gpu36:2",
+  "laptop:0"
+ ],
+ "by": "总调度 fredw-2b",
+ "at": "2026-11-01T23:4x",
+ "laptop_hold_why": "总调度 01:2x L-100：笔记本 4080 专做看图（VLM），不出图；gpu36:2 改专做看图（vLLM），VIDEO-RCA 测试改排空闲出图道"
+}

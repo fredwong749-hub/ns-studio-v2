@@ -1,0 +1,121 @@
+{
+ "_doc": "REFLOCK 2026-10-31：出图资产参考锁定（services/agent/ns_agent/asset_refs.py，契约 docs/GEN_CONTRACT.md I2–I5、I9）。项目方原话：“在 image 里面让它知道，这个女孩要穿这个鞋子、穿这个衣服、戴这个饰品……那些 asset 都是用来做 reference 的”。每个项目登记：造型表（P1）、选定设定图、身份脸、造型部件 → 衣橱单品映射（item_map，系统提议，资产中心可改）。没有单品映射的部件用造型设定图裁切作图像参考（标“仅设定图”，提示补单品图）；连设定图都没有 → 资产缺图，阻断出图。",
+ "projects": {
+  "series10_v1": {
+   "run_dir": "data/pipeline/runs/series10_v1",
+   "looks_file": "data/pipeline/runs/series10_v1/P1_looks.json",
+   "sheets_file": "data/pipeline/runs/series10_v1/assets/sheets_chosen.json",
+   "shot_looks_file": "data/pipeline/runs/series10_v1/assets/shot_looks.json",
+   "crop_dir": "data/pipeline/runs/series10_v1/images/refcrops",
+   "board_dir": "data/pipeline/runs/series10_v1/images/refboards",
+   "faces": {
+    "lin_wan": [
+     "assets/characters/lin_wan/refs/lin_wan/ar-c2351c9dcf.png"
+    ],
+    "gu_chen": [
+     "data/assets/identity_refs/gu_chen/gu_chen_face_ref2va.png"
+    ],
+    "chen_yu": [
+     "data/assets/identity_refs/chen_yu/chen_yu_face_ref2va.png"
+    ],
+    "ch_a_lan": [
+     "data/assets/identity_refs/ch_a_lan/ch_a_lan_face_ref2va.png"
+    ]
+   },
+   "faces_note": "L-122（项目方 11-02 15:45 本人在资产页设为身份脸，16:1x AskUserQuestion“是我要换的”）：林晚身份脸 = ar-c2351c9dcf 母版脸；取代 L-086 / 11-01 的 ref2va 口径。唯一读取入口 asset_refs.face_of（K-OPS-E29）；本列表与 face_overrides 一致，旧说法见 faces_note_history。其他角色不变。",
+   "female": [
+    "lin_wan",
+    "ch_a_lan"
+   ],
+   "item_map": {
+    "lin_wan": {
+     "A": {
+      "透明12cm细高跟": "lw-shoes-lw-s01",
+      "钻石水晶甲": "lw-nails-lw-n1",
+      "短款西装外套": "am-lin_wan-33599db7"
+     },
+     "B": {
+      "12cm侧开透明细高跟": "lw-shoes-lw-s01",
+      "黑色漆皮短裙": "lw-outfit-lw-o09",
+      "钻石水晶甲": "lw-nails-lw-n1",
+      "九串铁珠": "lw-accessory-lw-a03"
+     },
+     "C": {
+      "钻石水晶甲": "lw-nails-lw-n1"
+     }
+    }
+   },
+   "item_map_note": "系统提议（REFLOCK 2026-10-31，按单品名与产品图人工比对）：S01 = 唯一的 12cm 透明细高跟；O09 = 黑色镜面漆皮超短裙；N1 = 冰川满钻尖甲（透明长甲满钻）。未映射：B 的“黑色漆皮束腰”——衣橱 LW-O10 带肩带 / 开窗，与造型 B 设定图（抹胸束腰）不一致，待项目方定以哪个为准，暂以设定图为准；细银链 / 红绳 / 九串铁珠 / 白球鞋 / 雾蓝针织长裙 / 米白衬衫 / 深灰西装裙在衣橱里没有对应产品图 → 用设定图裁切；短款西装外套 = \"__missing__\"（ASSETMASTER lib_map：库里只有顾沉男式外套 LW-O21，设定图 A 也没画外套，判缺图）；11-01 ASSETMASTER：短款西装外套 → am-lin_wan-33599db7（产品图暂定 2 张）、B 九串铁珠 → lw-accessory-lw-a03（9 颗 5mm 不锈钢本色钢珠产品图）",
+   "faces_note_history": "项目方挑定（data/assets/identity_refs/manifest.json，owner_quote “林晚A-s202 顾沉s101 陈宇s202脸”）：身份脸 = <角色>_face_ref2va.png（设定图 A-s202 / s101 / s202 左栏 YuNet 脸框裁切）。11-01 总调度 P0 更正：此前林晚误用旧母版裁切 ar-c2351c9dcf（= data/cache/refs/master_face_b8e7b00b6756，10-31 03:41 的旧母版），已改回 A-s202。阿岚用设定图 A 左栏裁切（K-AST-221）"
+  },
+  "series10_s2": {
+   "inherits": "series10_v1",
+   "_doc": "第二季（总调度 11-02）：继承第一季资产项目（角色、身份脸 L-086、现行造型设定图、单品映射）；本季新增造型 / 角色走 IMGFIX 资产流程（设定图候选 → sheet_intake 入库检查 → 自动选图 R1–R8 / VLM 平局裁决），写进本季自己的 looks_file / sheets_file，没写的回落第一季。不另造资产库",
+   "run_dir": "data/pipeline/runs/series10_s2",
+   "looks_file": "data/pipeline/runs/series10_s2/P1_looks.json",
+   "sheets_file": "data/pipeline/runs/series10_s2/assets/sheets_chosen.json",
+   "shot_looks_file": "data/pipeline/runs/series10_s2/assets/shot_looks.json"
+  },
+  "series10_v2": {
+   "_doc": "L-125 / L-126：V2 完全切割——不设 inherits；参考只认 assets_v2/manifest.json（asset_refs 资产包模式）；派生参考图在本剧 images/ 下，只在笔记本生成",
+   "run_dir": "data/pipeline/runs/series10_v2",
+   "assets_manifest": "assets_v2/manifest.json",
+   "female": [
+    "lead_f"
+   ],
+   "lead": "lead_f",
+   "_female_doc": "OVERSIGHT-F P1-5b（PROMPTFIX 20:3x）：女性角色 / 女主的唯一来源（ns_agent.cast_table）；V2 剧本新增女性角色时在这里加 id",
+   "_looks_doc": "ISS-1103-032336-3aff（W2 11-03）：资产包模式造型唯一来源 = assets_manifest 清单 looks（asset_refs.manifest_looks：部件带 item_id，S8/S9 服装 / 鞋单品图进参考槽、I4 可核）。不设 looks_file——写作链 <run_dir>/P1_looks.json 只是文字（人物页显示、asset_jobs 设定图规格直接读它），设了会让 load_looks 走文字分支、部件丢 item_id。tests/test_w2_merge_img.py 守住",
+   "sheets_file": "data/pipeline/runs/series10_v2/assets/sheets_chosen.json",
+   "shot_looks_file": "data/pipeline/runs/series10_v2/assets/shot_looks.json",
+   "crop_dir": "data/pipeline/runs/series10_v2/images/refcrops",
+   "board_dir": "data/pipeline/runs/series10_v2/images/refboards"
+  },
+  "smoke_v2": {
+   "inherits": "series10_v2",
+   "_doc": "R1 11-03 16:1x（RSI 实施包 Phase R 冒烟剧，eval/run_smoke.ps1）：继承 series10_v2 的资产包/角色/女主，只换 run_dir；不另造资产库",
+   "run_dir": "data/pipeline/runs/smoke_v2"
+  }
+ },
+ "models": {
+  "qwen_image_2.1": {
+   "slots": 3,
+   "node": "TextEncodeQwenImage21 images.image_1..3",
+   "note": "项目方 / 总调度：image1–3"
+  },
+  "qwen_image_edit_2511": {
+   "slots": 3,
+   "node": "TextEncodeQwenImageEditPlus image1..3"
+  },
+  "flux2_klein": {
+   "slots": 4,
+   "node": "FLUX.2 Klein 多参考（ReferenceLatent 链）",
+   "note": "官方支持更多参考；超过 4 张身份漂移风险上升，先按 4 用，BAKEOFF 可改"
+  }
+ },
+ "two_person": "both_faces",
+ "two_person_note": "11-01 改为 both_faces（两张身份脸各占一槽，第 3 槽 = 主体参考板；两张脸永不同槽，I9 照查）。证据：v9 验证 ep01-S4（顾沉主体）只给主体脸时林晚身份 0.19 / 0.25（不过），两脸各一槽 0.58 / 0.63，无造型参考两脸 0.88（data/pipeline/runs/series10_v1/images/reflock_val/v9/state.json）；ASSETMASTER 全量出图双人镜已按“两脸 + 参考板”跑（总调度定）。原 primary_face_only 保留为可选",
+ "board": {
+  "tile": 512,
+  "label_h": 60,
+  "max_tiles": 6
+ },
+ "sheet_layout": {
+  "half": [
+   0.0,
+   0.335
+  ],
+  "front": [
+   0.335,
+   0.556
+  ],
+  "side": [
+   0.556,
+   0.778
+  ],
+  "back": [
+   0.778,
+   1.0
+  ]
+ }
+}

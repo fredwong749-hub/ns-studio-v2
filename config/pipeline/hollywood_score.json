@@ -1,0 +1,11 @@
+{
+ "_doc": "好莱坞质感分自动打分（tools/pipeline/hollywood_tick.py，METRICS-F 11-03，总调度裁定 ISS-1103-023132-1c46 ①）。enabled = 开关；max_per_tick = 每拍最多打几张（低优先级：只在本地看图服务 queue=0 / inflight=0 时打，每张打前再探一次，Q9 一来就让路）；max_attempts = 同一张图打分失败最多重试几次；wait_s = 单张看图等待上限；require_idle = false 时不等空闲（只给排查用，生产不要关）。结果写 data/pipeline/runs/<run>/metrics/hollywood_epNN.jsonl，episode_metrics 只读。",
+ "enabled": true,
+ "max_per_tick": 1,
+ "max_attempts": 2,
+ "wait_s": 300,
+ "max_pixels": 1400000,
+ "require_idle": true,
+ "lock_stale_s": 1800,
+ "_master": "11-03 02:4x 总调度：好莱坞质感分改成自动打，不再手动跑；只在 Q9 队列空闲时执行，不挤占出图检查"
+}

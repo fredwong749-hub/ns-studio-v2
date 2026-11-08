@@ -1,0 +1,59 @@
+{
+ "schema": "nsfs.owner_delegate/1",
+ "_doc": "代选模式（L-136）开关。读写方：services/api/ns_api/owner_delegate.py（:8800 后台每拍一次；到期自动把 enabled 改成 false）。网页 #/queue 顶部显示“代选模式开启中（L-136）”+ 一键撤销。硬规定（成人镜头渲染 / 删除 / 花钱 / 推翻旧决定 / escalate token / owner_direction 升级）写死在代码里，改这里也打不开。",
+ "enabled": true,
+ "authority": {
+  "ledger": "L-136",
+  "at": "2026-11-03T02:20",
+  "quote": "你代替我选择，我睡觉了，我希望看到全部 ep，同时看到系统变得自动化。",
+  "source": "docs/master/MASTER_PICTURE.md L-136"
+ },
+ "enabled_at": "2026-11-06T19:47:31",
+ "enabled_by": "总调度（CLI）",
+ "expiry": {
+  "rule": "项目方下一次在网页上做出任何决定（data/audit 里登录项目方的写请求、2xx），或明确撤销（#/queue 一键撤销 / CLI revoke）；到期后自动关闭",
+  "on_owner_decision": true,
+  "ignore_paths": [
+   "/api/auth/",
+   "/api/feedback",
+   "/api/voices/preview",
+   "/api/events",
+   "/api/progress",
+   "/api/owner/delegate"
+  ],
+  "expired_at": null,
+  "expired_reason": null,
+  "expired_kind": null
+ },
+ "scope": [
+  "face",
+  "scene",
+  "voice",
+  "sheet",
+  "item",
+  "look",
+  "golden",
+  "gate"
+ ],
+ "never": [
+  "成人镜头渲染（只能项目方本人触发）",
+  "删除",
+  "花钱",
+  "推翻项目方以前的决定",
+  "escalate token / owner_direction 升级"
+ ],
+ "gate": {
+  "min_mean": 30,
+  "max_low_item": 2
+ },
+ "interval_s": 60,
+ "show_hours": 72,
+ "by": "总调度代选",
+ "via": "delegate:L-136",
+ "first_frame": {
+  "enabled": true,
+  "timeout_min": 30,
+  "_doc": "W18 / L-142（项目方 11-03 04:2x 点选：首帧由系统代选、事后可在 #/queue 修改）：主剧首帧有版本过“出图检测”（postflight ok + Q9 pass + 没驳回）且项目方 timeout_min 分钟内没定稿 → owner_delegate.frame_tick 按契约分（Q1 身份 + 合并看图逐条通过率）+ bundle 顺序定稿，takes.json locked_by.image 标“系统代选·可改”，写 delegate_log.jsonl / delegate_frames.json / V2_LIVE。不受上面 L-136 enabled / 到期影响；成人镜 / 成人或本地专用候选 / 项目方动过的镜一律不代（代码写死）。定稿走 frame_jobs.lock_take → L-147 定稿档开关在 config/render_quality.json auto_final_on_lock_runs",
+  "_switch": "W18 交付时默认 false：:8800 后台线程每拍 importlib.reload 本模块，代码一落盘就生效，未经 cut B 复审先不放开；总调度改 true 即按 L-142 自动代选（frames --dry 先看会代哪些镜）"
+ }
+}

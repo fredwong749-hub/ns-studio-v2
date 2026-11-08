@@ -1,0 +1,16 @@
+{
+ "_doc": "BRAIN-FW（11-06）：LLM 在环全局调度。enabled=false = API 常驻不跑（会话内 PS-MASTER 按 tools/brain/session_brain.md 当大脑）；dry_run=true = 大脑的动作只记不做。打开顺序：先 enabled=true + dry_run=true 看几轮决定（data/brain/STATUS.md），再 dry_run=false。凭据走 SDK 标准解析（ANTHROPIC_API_KEY / ant auth login 的 profile），不在这里放 key。budget_usd_day 到顶当天停。",
+ "enabled": false,
+ "dry_run": true,
+ "interval_s": 180,
+ "model": "claude-fable-5-1",
+ "effort": "high",
+ "max_tokens": 16000,
+ "max_actions_per_cycle": 6,
+ "budget_usd_day": 20.0,
+ "price_per_mtok": {"input": 10.0, "output": 50.0, "cache_read": 0.25, "cache_write": 12.5},
+ "request_timeout_s": 600,
+ "max_retries": 2,
+ "fallbacks": "default",
+ "telemetry": {"probe_timeout_s": 60, "log_tail": 600, "fail_n": 8, "decisions_n": 8, "max_bytes": 15000}
+}

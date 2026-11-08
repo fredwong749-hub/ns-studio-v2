@@ -1,0 +1,18 @@
+# 夜景叠加：场景时段含“夜”，或光线基线是夜间低照度
+id: night
+kind: overlay
+label: 夜景
+status: 建议
+match:
+  night: true
+set:
+  sampling.sampler: euler
+  post.color_match: lab_gain_bias_lerp_v1
+  acceptance.dark_run_s_max: 1.0
+when_exposure:
+  dark: {acceptance.dark_run_s_max: null}
+  black: {acceptance.dark_run_s_max: null}
+provenance:
+  sampling.sampler: {src: "HF Comfy #67：euler 让 I2V 变暗约减半（夜景最怕变暗）；res_multistep 不在夜景上试（E4 先用日景）", date: 2026-10-31, status: 建议}
+  post.color_match: {src: "h3_comfy_expert §5 发暗：以锚帧为参照按通道 gain/bias 校色（不用 LUT）", date: 2026-10-31, status: 确认}
+  acceptance.dark_run_s_max: {src: "v0 S11 中段 1.83 s 近黑；尾帧曝光意图 dark/black 时不判（refactor_proposal §2 end_frame.exposure_intent）", date: 2026-10-31, status: 确认}

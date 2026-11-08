@@ -1,0 +1,12 @@
+{
+ "_doc": "episode_run 常驻（CODER-RES 11-05，项目方批准，RSI 无人值守）：resident_sync 的 episode_run 线程每 interval_s 对每个 target 调一次 tools/master/episode_run.tick_once（推进一次，不 watch、不紧循环），写 data/pipeline/runs/<run>/episode_run/ep<NN>_status.json / _report.md；新卡点经 report_issue 去重登记到 data/pipeline/issues.jsonl。规则同命令行：不覆盖 pause_shots / hold_lanes / runaway_hold，不代项目方“用这张”。每拍重读本文件：enabled=false 即停（心跳文件 data/autopilot/episode_run_heartbeat.json 仍写 disabled）。status JSON 的 unattended 字段 = 人工干预次数 vs 自动进展（见 episode_run.unattended_metric）。",
+ "enabled": false,
+ "targets": [
+  {
+   "run": "series10_v2",
+   "ep": 1
+  }
+ ],
+ "interval_s": 300,
+ "_psm_1105": "PS-MASTER 11-05 22:1x：REVIEW-A 🔴①——regen 段对整集下达换代（ep01 已过闸 16 镜会全部重出）→ 先关常驻，FIX-A 修好后再开（ep02 用 --watch 手动跑）"
+}

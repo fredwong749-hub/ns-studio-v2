@@ -1,0 +1,99 @@
+# 镜头组（单一事实来源；DIRECTOR，总调度 fredw-2b P0，2026-11-02）
+# 起因：现行 102 条首帧作业的提示词里镜头全是“徕卡M 50mm f/2镜头”（305 次，来自 config/render_quality.json 的 style_suffix，S★ R0 预设），
+# 特写、近景、全景都是同一支 50mm。项目方 04:3x：“你用了什么镜头，多少 mm……35mm f/1.4 还是莱卡 50mm f/1.8”。
+# 做法：保持徕卡 M 系统的统一观感（S★ R0 色彩、锐度、质感不变，L-087），只按景别和情绪换焦段和光圈。镜头 / 光圈 / 景深一并写清楚。
+# 用在镜头语言模板 v2 第 ② 段（config/director/shot_spec_v2.yaml），首帧和视频共用；剧本【镜头】字段可以覆盖（只能写这里的 id 或 zh）。
+# 生效前提：和 IMGFIX 融合 A/B、灯光 A/B 合并成一组，对比“统一 50mm f/2”和“按景别选镜头”，S★ R0 观感不变才替换 style_suffix 里的镜头词（总调度亲审）。
+# 镜头型号核对：均为徕卡 M 卡口在产 / 经典型号（Summilux-M 28 / 35 / 50 f/1.4 ASPH.、Summicron-M 35 / 50 f/2、APO-Summicron-M 75 / 90 f/2 ASPH.）。
+schema: nsfs.lenses/1
+version: ln-v1-2026-11-02
+system: Leica M
+baseline: {id: summicron_50_f2, note: "S★ R0 现行统一镜头（style_suffix）；A/B 的对照臂"}
+lenses:
+  - id: summilux_28_f14
+    zh: 徕卡 Summilux-M 28mm f/1.4 镜头
+    en: "a Leica Summilux-M 28mm f/1.4 lens"
+    focal_mm: 28
+    aperture: f/2.8
+    dof_zh: 景深较深，前后景都交代清楚
+    dof_en: "a deeper depth of field that keeps the room readable"
+    sizes: [全景]
+    moods: [交代空间, 孤立, 开场]
+  - id: summilux_35_f14
+    zh: 徕卡 Summilux-M 35mm f/1.4 镜头
+    en: "a Leica Summilux-M 35mm f/1.4 lens"
+    focal_mm: 35
+    aperture: f/2
+    dof_zh: 中等景深，背景柔和可辨
+    dof_en: "a moderate depth of field with the background soft but legible"
+    sizes: [中全景, 全景]
+    moods: [日常, 行走, 环境]
+  - id: summicron_35_f2
+    zh: 徕卡 Summicron-M 35mm f/2 镜头
+    en: "a Leica Summicron-M 35mm f/2 lens"
+    focal_mm: 35
+    aperture: f/2.8
+    dof_zh: 中等景深，人物和环境一起清楚
+    dof_en: "a moderate depth of field holding both figure and setting"
+    sizes: [中景, 中全景]
+    moods: [双人, 对白, 日常]
+  - id: summicron_50_f2
+    zh: 徕卡M 50mm f/2镜头
+    en: "a Leica Summicron-M 50mm f/2 lens"
+    focal_mm: 50
+    aperture: f/2
+    dof_zh: 浅景深，背景虚化
+    dof_en: "a shallow depth of field"
+    sizes: [中景, 近景, 中近景]
+    moods: [双人, 对白]
+  - id: summilux_50_f14
+    zh: 徕卡 Summilux-M 50mm f/1.4 镜头
+    en: "a Leica Summilux-M 50mm f/1.4 lens"
+    focal_mm: 50
+    aperture: f/1.4
+    dof_zh: 浅景深，焦外柔和成光斑
+    dof_en: "a shallow depth of field with soft round bokeh"
+    sizes: [近景, 中近景]
+    moods: [克制, 暧昧, 情绪推高]
+  - id: apo_summicron_75_f2
+    zh: 徕卡 APO-Summicron-M 75mm f/2 镜头
+    en: "a Leica APO-Summicron-M 75mm f/2 lens"
+    focal_mm: 75
+    aperture: f/2
+    dof_zh: 很浅的景深，背景压缩、干净
+    dof_en: "a very shallow depth of field with a compressed, clean background"
+    sizes: [特写, 近景]
+    moods: [情绪, 高点, 克制]
+  - id: apo_summicron_90_f2
+    zh: 徕卡 APO-Summicron-M 90mm f/2 镜头
+    en: "a Leica APO-Summicron-M 90mm f/2 lens"
+    focal_mm: 90
+    aperture: f/2
+    dof_zh: 极浅景深，只留眼睛和细节锐利
+    dof_en: "an extremely shallow depth of field, only the eyes or the detail in focus"
+    sizes: [大特写, 特写]
+    moods: [细节, 高点, 冲击]
+  # ---- L-192 ③ 焦段光圈表（11-05）：全画幅等效 mm + T 值；Leica / ARRI 电影定焦命名（L-145）。K-WRT-812 / 816 的档位单一来源
+  - {id: leica_cine_28_t28, zh: 徕卡电影定焦 28mm T2.8 镜头, en: "a Leica cine prime 28mm T2.8 lens", focal_mm: 28, aperture: T2.8, dof_zh: 景深较深，空间交代清楚, dof_en: "a deeper depth of field that keeps the room readable", sizes: [全景, 中全景], moods: [交代空间, 开场], tier: establishing}
+  - {id: leica_cine_35_t4, zh: 徕卡电影定焦 35mm T4 镜头, en: "a Leica cine prime 35mm T4 lens", focal_mm: 35, aperture: T4, dof_zh: 景深深，前后景都清楚, dof_en: "a deep depth of field with the whole set legible", sizes: [全景], moods: [交代空间, 孤立], tier: establishing}
+  - {id: arri_cine_50_t2, zh: ARRI 电影定焦 50mm T2 镜头, en: "an ARRI cine prime 50mm T2 lens", focal_mm: 50, aperture: T2, dof_zh: 中等景深，人物前后错落层次清楚, dof_en: "a moderate depth of field with figures layered front to back", sizes: [中景, 中全景], moods: [双人, 对白, 日常], tier: medium}
+  - {id: arri_cine_65_t14, zh: ARRI 电影定焦 65mm T1.4 镜头, en: "an ARRI cine prime 65mm T1.4 lens", focal_mm: 65, aperture: T1.4, dof_zh: 浅景深，背景压缩成光斑, dof_en: "a shallow depth of field with the background compressed into bokeh", sizes: [近景, 中近景], moods: [克制, 对白], tier: ots_mcu}
+  - {id: arri_cine_85_t14, zh: ARRI 电影定焦 85mm T1.4 镜头, en: "an ARRI cine prime 85mm T1.4 lens", focal_mm: 85, aperture: T1.4, dof_zh: 很浅的景深，焦外是圆形光斑, dof_en: "a very shallow depth of field with round disc bokeh", sizes: [近景, 中近景, 特写], moods: [情绪, 暧昧, 过肩], tier: ots_mcu}
+  - {id: leica_cine_100_macro_t2, zh: 徕卡电影微距定焦 100mm T2 镜头, en: "a Leica cine macro prime 100mm T2 lens", focal_mm: 100, aperture: T2, dof_zh: 微距，极浅景深只留细节锐利, dof_en: "a macro lens with a razor-thin depth of field, only the detail in focus", sizes: [大特写], moods: [细节, 插入], tier: insert}
+  - {id: leica_cine_135_t12, zh: 徕卡电影定焦 135mm T1.2 镜头, en: "a Leica cine prime 135mm T1.2 lens", focal_mm: 135, aperture: T1.2, dof_zh: 极浅景深，背景完全化成光斑, dof_en: "an extremely shallow depth of field, the background dissolved into bokeh", sizes: [特写, 大特写], moods: [情绪, 高点, 冲击], tier: closeup}
+# 景别 → 默认镜头（情绪命中 moods 时在同景别候选里优先）；decider = code
+by_size:    # 缺省（编译器没读到剧本【镜头】/【光学】时的兜底）= L-192 档（PS-MASTER 11-05 定：建立→28/35、中景双人→50、近景/过肩→85、特写→135/100、插入→100 微距）；
+            # 旧 L-145 档（summilux_50 / apo_summicron_75…）只在剧本【镜头】显式写 id 时用。by_kind 与 by_size 是同一张表的两种索引（CODER-PT prompt_template_v2.lens_of 读 by_kind）
+  大特写: [leica_cine_135_t12, leica_cine_100_macro_t2]
+  特写: [leica_cine_135_t12, arri_cine_85_t14]
+  近景: [arri_cine_85_t14, arri_cine_65_t14]
+  中近景: [arri_cine_85_t14]
+  中景: [arri_cine_50_t2]
+  中全景: [leica_cine_28_t28, arri_cine_50_t2]
+  全景: [leica_cine_28_t28, leica_cine_35_t4]
+by_kind:    # L-192 焦段表按镜头类型（模板 v2 兜底：分镜没写【镜头】时 lens_kind → 这里；单一来源，run_style 不再另写一份）
+  establishing: leica_cine_28_t28       # 建立（全景 / 中全景）24–35mm T2.8
+  two_shot: arri_cine_50_t2             # 双人（≥2 露脸）与单人中景 50mm T2
+  ots_or_single_mcu: arri_cine_85_t14   # 过肩、单人近景 / 中近景 85mm T1.4
+  closeup: leica_cine_135_t12           # 特写 135mm T1.2（表里“100mm T1.4”按 CODER-LENS 登记档取 135）
+  insert: leica_cine_100_macro_t2       # 插入（物件 / 局部特写）100mm 微距 T2

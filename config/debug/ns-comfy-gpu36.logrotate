@@ -1,0 +1,10 @@
+# DEBUG-RSI 11-02（总调度 fredw-2b 批，K-OPS-E07）：gpu36 ComfyUI 日志轮转；copytruncate = 不重启 ComfyUI、不打断作业
+/root/work/fredw/comfy/logs/gpu0.log /root/work/fredw/comfy/logs/gpu1.log /root/work/fredw/longshot/logs/lane.log {
+    size 50M
+    rotate 7
+    compress
+    delaycompress
+    missingok
+    notifempty
+    copytruncate
+}

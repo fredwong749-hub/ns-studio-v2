@@ -1,0 +1,135 @@
+{
+  "writer_backend": "claude_agent",
+  "writer_backend_note": "L-109（项目方 11-02 03:3x）：测试期写作 / 评审交 Claude agent（claude_agent），上线切回 api。读取方 tools/script_rsi/autoflow_agent.backend()",
+  "_doc": "统一模型与 API 配置（docs/canvas-ui-spec-v3-merge.md §8.2，fredw-92/W1 2026-10-30）。不含密钥：密钥放 config/llm_providers.local.json {\"providers\":{<id>:{\"api_key\":...}}} 或环境变量 key_env；接口只回 has_key。项目方 2026-10-30 夜：语言模型 = abliteration large-flash，千问写作模型撤下（不再有本地 Qwen 选项）。base_url 以后可改指 gpu3 LLM 网关 Docker。",
+  "providers": {
+    "abliteration": {
+      "name": "abliteration.ai",
+      "base_url": "https://api.abliteration.ai/v1",
+      "models": [
+        "abliterated-model-large-flash",
+        "abliterated-model-large-v2"
+      ],
+      "default_model": "abliterated-model-large-flash",
+      "key_env": "ABLITERATION_API_KEY",
+      "key_files": [
+        "config/abliteration.local.json"
+      ],
+      "timeout_s": 1800,
+      "params": {
+        "temperature": 0.7,
+        "max_tokens": 32000,
+        "reasoning": null
+      },
+      "pricing_source": "models",
+      "reasoning_body": {
+        "on": {
+          "reasoning_effort": "high"
+        },
+        "off": {
+          "reasoning_effort": "none"
+        },
+        "off_unsupported": [
+          "abliterated-model-large-v2"
+        ],
+        "doc": "https://docs.abliteration.ai/capabilities/thinking.md"
+      },
+      "_doc": "OpenAI 兼容；默认写作模型（docs/TODO_v1_close.md §0）。key_files = 旧文件读兼容。单价读 GET /models 的 pricing。推理：官方文档 large-flash 用 reasoning_effort none 关闭、默认 high；large-v2 不能关闭。"
+    },
+    "deepseek": {
+      "name": "DeepSeek",
+      "base_url": "https://api.deepseek.com",
+      "models": [
+        "deepseek-flash",
+        "deepseek-v4-pro"
+      ],
+      "default_model": "deepseek-flash",
+      "key_env": "DEEPSEEK_API_KEY",
+      "timeout_s": 1800,
+      "params": {
+        "temperature": 0.7,
+        "max_tokens": 8000,
+        "reasoning": null
+      },
+      "reasoning_body": {
+        "on": {
+          "thinking": {
+            "type": "enabled"
+          }
+        },
+        "off": {
+          "thinking": {
+            "type": "disabled"
+          }
+        },
+        "doc": "https://api-docs.deepseek.com/guides/thinking_mode"
+      },
+      "_doc": "OpenAI 兼容，base_url 与模型名摘自官方文档 https://api-docs.deepseek.com/（2026-10-30 查）；未配 key，项目方填 key 前请再核对模型名与输出上限。推理开关 thinking.type enabled/disabled（默认开）。单价：/models 不给，显示未知。"
+    },
+    "minimax": {
+      "name": "MiniMax",
+      "base_url": "https://api.minimax.io/v1",
+      "models": [
+        "MiniMax-M3.1-Flash",
+        "MiniMax-M3"
+      ],
+      "default_model": "MiniMax-M3.1-Flash",
+      "key_env": "MINIMAX_API_KEY",
+      "timeout_s": 1800,
+      "params": {
+        "temperature": 0.7,
+        "max_tokens": 32000,
+        "reasoning": null
+      },
+      "reasoning_body": {
+        "on": {},
+        "off": {
+          "thinking": {
+            "type": "disabled"
+          }
+        },
+        "off_unsupported": [
+          "MiniMax-M3.1-Flash"
+        ],
+        "doc": "https://platform.minimax.io/docs/api-reference/text-openai-api"
+      },
+      "_doc": "推理：官方文档只有 MiniMax-M3 能 thinking.type=disabled，M3.1-Flash 不能关闭（发了会 400，系统不发并提示）；默认开。OpenAI 兼容，base_url 与模型名摘自官方文档 https://platform.minimax.io/docs/api-reference/text-openai-api（2026-10-30 查，国际站；国内账号用 https://api.minimaxi.com/v1）；未配 key，填 key 前请再核对。"
+    }
+  },
+  "purposes": {
+    "script_write": {
+      "provider": "abliteration",
+      "model": "abliterated-model-large-flash"
+    },
+    "script_repair": {
+      "provider": "abliteration",
+      "model": "abliterated-model-large-flash"
+    },
+    "director_boost": {
+      "provider": "abliteration",
+      "model": "abliterated-model-large-flash"
+    },
+    "lora_llm": {
+      "provider": "abliteration",
+      "model": "abliterated-model-large-flash"
+    },
+    "prompt_rewrite": {
+      "provider": "abliteration",
+      "model": "abliterated-model-large-flash"
+    },
+    "edit_plan": {
+      "provider": "abliteration",
+      "model": "abliterated-model-large-flash"
+    },
+    "owner_chat": {
+      "provider": "claude_cli",
+      "model": "fable",
+      "timeout_s": 180,
+      "switch_to": {
+        "provider": "abliteration",
+        "model": "abliterated-model-large-flash"
+      },
+      "_doc": "W30 PLAN_OWNER_CHAT 分期 2（项目方 11-03 Q3=Fable）：开发期 claude_cli = 无头 claude -p（命令取 config/pipeline/agent_dispatcher.json claude_cmd，--tools \"\" 不开任何工具）。开发完成后只改这里：provider/model 换成 switch_to 的值（abliteration flash），不改代码。读取方 services/api/ns_api/owner_chat.py"
+    }
+  }
+}

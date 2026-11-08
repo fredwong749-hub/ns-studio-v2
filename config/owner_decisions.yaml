@@ -1,0 +1,933 @@
+# 项目方决策 → 可机检断言（RECALL 2026-11-01，起因：项目方原话“你需要有一个 master full picture 来修整个 system”）
+# 跑法：.venv/Scripts/python.exe -X utf8 tools/qa/decision_check.py [--no-api]
+# 账本全文（原话、期望 / 实测状态）见 docs/master/MASTER_PICTURE.md §1；这里只放能自动断言的那部分。
+# 检查类型：
+#   json   {file, path: [键…], op: eq|in|not_in|keys_subset|keys_superset|len_eq|contains|empty|names_eq, value}
+#   api    {url, list: [键…], field, op: subset|superset|len_eq, value}     （:8800 未起时记“跳过”）
+#   grep_absent / grep_present {pattern, paths: [文件或目录], glob?}
+#   exists / absent {paths: [...]}
+#   任一类型可加 pending_until: {paths: [...], why}：条件文件不全时不符记 ⏳ 待开（不算 ❌；VQAGATE 11-01）
+# 状态：每条检查结果 ✅ / ❌；跳过记 ⏭。新决策先进 MASTER_PICTURE 账本，再在这里加检查。
+
+cast: &cast [lin_wan, gu_chen, chen_yu, ch_a_lan]
+cast_names: &cast_names [林晚, 顾沉, 陈宇, 阿岚]
+cast_plus_narrator: &cast_nar [lin_wan, gu_chen, chen_yu, ch_a_lan, narrator]
+series10_scenes: &scenes [sk_office_night, sk_gu_apartment, sk_home_kitchen, sk_studio, sk_elevator, sk_alley_ballroom]
+
+checks:
+  # ---------------- 剧本 / 演员表
+  - id: D-SCR-01
+    decision: L-031（10 集新剧 series10_v1 取代 60 集；“全部灌进最新的 10 集剧本和图片”）
+    title: 正式剧本 = series10_v1，10 集
+    type: json
+    file: data/import/script_v2.json
+    path: [episodes]
+    op: len_eq
+    value: 10
+  - id: D-SCR-02
+    decision: L-031 / L-033（林晚保留，顾沉、陈宇沿用，新增阿岚）
+    title: 正式剧本人物登记表 = 林晚 / 顾沉 / 陈宇 / 阿岚
+    type: json
+    file: data/import/script_v2.json
+    path: [globals, character_registry]
+    op: names_eq
+    value: *cast_names
+  - id: D-SCR-03
+    decision: L-031
+    title: /api/episodes 返回 10 集（V1 已冻结，钉 series10_v1 查）
+    type: api
+    run: series10_v1
+    url: /api/episodes
+    list: []
+    op: len_eq
+    value: 10
+  - id: D-SCR-04
+    decision: L-036（ep03 不改发色）+ L-005（发色雾霾蓝）
+    title: 林晚锁定外貌含雾霾天蓝发色
+    type: grep_present
+    pattern: misty sky-blue
+    paths: [data/import/script_v2.json]
+  - id: D-SCR-05
+    decision: L-035（林晚不要“左耳后小痣”，标志物用钻石水晶甲）
+    title: P1_looks 里没有“痣 / mole”
+    type: grep_absent
+    pattern: "痣|mole"
+    paths: [data/pipeline/runs/series10_v1/P1_looks.json]
+
+  # ---------------- 清理旧剧 / 外国人
+  - id: D-CLN-01
+    decision: L-030 / L-041 / L-058（旧剧本、旧图片、外国人全部删掉；先隔离）
+    title: config/voices.json 只含 series10 演员 + 旁白
+    type: json
+    file: config/voices.json
+    path: [characters]
+    op: keys_subset
+    value: *cast_nar
+  - id: D-CLN-02
+    decision: L-030 / L-058
+    title: /api/assets/characters 不含 series10 以外的人物（V1 已冻结，钉 series10_v1 查）
+    type: api
+    run: series10_v1
+    url: /api/assets/characters
+    list: [characters]
+    field: id
+    op: subset
+    value: *cast
+  - id: D-V2-01
+    decision: L-125 / L-126（V2 完全切割：网页只显示 V2；人物只来自 V2 剧本和资产清单）
+    title: 当前剧（V2）/api/assets/characters 只含 V2 资产清单 / V2 剧本人物，不含任何 V1 人物
+    type: v2_isolation
+    url: /api/assets/characters
+    list: [characters]
+    field: id
+    manifest: assets_v2/manifest.json
+    script: data/import/runs/series10_v2/script_v2.json
+    v1_cast: *cast
+  - id: D-V2-02
+    decision: L-125（V2 第一季十集）
+    title: V2 导入后 /api/episodes 返回 10 集
+    type: api
+    url: /api/episodes
+    list: []
+    op: len_eq
+    value: 10
+    pending_until:
+      paths: [data/import/runs/series10_v2/IMPORTED]
+      why: V2 剧本还在写（20:10 起），导入完成后写 IMPORTED 标记再查
+  - id: D-OPS-128
+    decision: L-128（项目方 11-02 19:1x：gpu33 / gpu36 是自有服务器，local_only 资产可在两台生成；成人画面仍只由项目方触发）
+    title: hosts.json 里笔记本 / gpu33 / gpu36 都是 owner_controlled=true
+    type: cmd
+    cmd: ["-c", "import json,sys;d=json.load(open('config/factory/hosts.json',encoding='utf-8'));sys.exit(0 if all(d['hosts'][h].get('owner_controlled') is True for h in ('gpu33','gpu36','laptop')) else 1)"]
+  - id: D-CLN-03
+    decision: L-030 / L-058
+    title: /api/looks 不含 series10 以外的人物
+    type: api
+    url: /api/looks
+    list: [characters]
+    field: id
+    op: subset
+    value: *cast
+  - id: D-CLN-04
+    decision: L-030 / L-058
+    title: /api/voices 不含 series10 以外的人物
+    type: api
+    url: /api/voices
+    list: [characters]
+    field: cid
+    op: subset
+    value: *cast_nar
+  - id: D-CLN-05
+    decision: L-030 / L-058
+    title: /api/assets/scenes 只含 series10 的 6 个场景（V1 已冻结，钉 series10_v1 查；MERGE-OPS-O 11-03）
+    type: api
+    run: series10_v1
+    url: /api/assets/scenes
+    list: [scenes]
+    field: scene_id
+    op: subset
+    value: *scenes
+  - id: D-CLN-06
+    decision: L-030 / L-058
+    title: 代码里不再硬编码旧 60 集 Alex/Ryan/Kai/Leo
+    type: grep_absent
+    pattern: '"alex"|"ryan"|\("Kai"|\("Leo"'
+    paths: [packages/schema/ns_schema/looks.py, services/agent/ns_agent/looks.py, services/agent/ns_agent/state_timeline.py, services/post/ns_post/speakers.py, data/looks/looks.json, data/looks/schedule.json]
+  - id: D-CLN-07
+    decision: L-058 + VIDEO10 报告（旧剧 BGM 被 series10 ep01 误用）
+    title: data/music 下没有旧剧 60 集 BGM
+    type: absent
+    paths: [data/music/ep01.wav, data/music/ep02.wav]
+  - id: D-CLN-08
+    decision: L-058
+    title: 旧 60 集成人强制表已清（force_adult 无 ep>10）
+    type: grep_absent
+    pattern: '"ep(1[1-9]|[2-6][0-9])-S'
+    paths: [config/adult_overrides.json]
+
+  # ---------------- LoRA / 出图配方
+  - id: D-LORA-01
+    decision: L-046（默认出图预设里的林晚出图 LoRA“A. 去掉”）+ GEN_CONTRACT I8
+    title: 自动补 LoRA 表里没有 lin_wan_qi / lnwan_qi
+    type: grep_absent
+    pattern: "lin_wan_qi|lnwan_qi"
+    paths: [config/auto_lora_triggers.json]
+    exclude_line: '"removed"'
+  - id: D-LORA-02
+    decision: L-046
+    title: render_quality 的 identity_loras 不含 lin_wan_qi
+    type: grep_absent
+    pattern: '"lin_wan_qi_v1\.safetensors": *0\.'
+    paths: [config/render_quality.json]
+  - id: D-LORA-03
+    decision: L-046
+    title: 正式剧本 globals.lora_triggers / 镜头 img_triggers 不含 lnwan_qi
+    type: grep_absent
+    pattern: lnwan_qi
+    paths: [data/import/script_v2.json]
+  - id: D-LORA-04
+    decision: L-046 + GEN_CONTRACT I8
+    title: 契约禁用表仍挡 lin_wan_qi_v1（防回流）
+    type: json
+    file: config/gen_contract.json
+    path: [lora_banned]
+    op: contains
+    value: lin_wan_qi_v1.safetensors
+  - id: D-LORA-05
+    decision: L-058（旧 LoRA 隔离）
+    title: 笔记本项目内没有已隔离的旧 LoRA
+    type: absent
+    paths: [models_cache/civitai/RealStockings_QWEN.safetensors, models_cache/h3-realism-people-t2v-i2v-r2v.safetensors]
+  - id: D-IMG-01
+    decision: L-018（徕卡 S★ 为默认出图预设）
+    title: default_preset = leica_sstar
+    type: json
+    file: config/render_quality.json
+    path: [default_preset]
+    op: eq
+    value: leica_sstar
+    # K-OPS-D02（CLEANUP 11-01 补登记）：过期口径 = 10-30 旧风格后缀“85mm f/1.2 大光圈 / 奶油虚化 / 浓郁饱和暖调”（L-002 ⤴，被 L-018 S★ + 契约 I7 取代；L-087 R0 维持）
+    stale_terms:
+      - '85mm\s*(人像镜头)?\s*f/1\.2'
+      - '大光圈、浓郁(饱和)?暖调'
+      - '浓郁饱和(的)?暖(色)?调'
+      - '奶油(般)?(虚化|焦外|柔焦)(光斑)?(?!\s*/)'
+    # ⤴ MERGE-IMG-O 11-03（ISS-1103-030156-9fcb）：L-126 / L-130 之后写作规则不再写死 V1 的 S★ 后缀，改写“按本剧风格配置 config/compile/run_style.json”——这就是本条决定在写作规则里的新口径（V1 默认预设仍 = leica_sstar，由上面的 json 检查锁）
+    new_terms: ['S★', 'leica_sstar', '50mm f/2', 'run_style\.json', '本剧风格配置']
+    propagate: [config/script_chat_rules.md, config/script_chat_rules_appendix.md, docs/owner_requirements_for_writer.md]
+    stale_allow: [docs/script_chat_rules_audit.md, docs/uimaster/LOCKS.md, docs/master/MASTER_PICTURE.md, 'docs/audit/*', 'docs/ep02_iter/*', config/gen_contract.json,
+                  docs/production_issues.md, docs/qa_issues.md, 'docs/design/*']   # 审计 / 授权日志 / 账本 / ep02 历史 / 契约 I7 禁用词定义本身 / 10-29 问题日志 / T59 设计稿样例数据
+  - id: D-IMG-02
+    decision: L-051（“v9 v10+场景底图这个还可以”，较新者为准）
+    title: 全量重出预设 frame_redo_preset = frame_v9
+    type: json
+    file: config/render_quality.json
+    path: [frame_redo_preset]
+    op: eq
+    value: frame_v9
+  - id: D-IMG-03
+    decision: L-018
+    title: 契约白名单含 krea2_film_texture
+    type: json
+    file: config/gen_contract.json
+    path: [lora_allow]
+    op: keys_superset
+    value: [krea2_film_texture_qwen21.safetensors]
+  - id: D-IMG-04
+    decision: L-026（角色设定图：林晚A-s202 顾沉s101 陈宇s202脸）
+    title: 身份参考登记 = 项目方挑定的那组
+    type: json
+    file: data/assets/identity_refs/manifest.json
+    path: [owner_quote]
+    op: eq
+    value: 林晚A-s202 顾沉s101 陈宇s202脸
+  - id: D-IMG-05
+    decision: L-040（阿岚设定图用暂定版）
+    title: 阿岚有身份参考脸
+    type: exists
+    paths: [data/assets/identity_refs/ch_a_lan/ch_a_lan_face_ref2va.png]
+
+  # ---------------- 声音
+  - id: D-VOC-01
+    decision: L-037（旁白 = QAg 深夜电台·温柔）
+    title: 旁白音色 = narrator_qag，且旁白说话人 = narrator
+    type: json
+    file: config/voices.json
+    path: [characters, narrator, voice]
+    op: eq
+    value: narrator_qag
+  - id: D-VOC-02
+    decision: L-037
+    title: 旁白说话人键 voiceover_speaker = narrator
+    type: json
+    file: config/voices.json
+    path: [voiceover_speaker]
+    op: eq
+    value: narrator
+  - id: D-VOC-03
+    decision: L-037
+    title: QAg 音色资产在
+    type: exists
+    paths: [data/assets/voices/narrator_qag/voice.json, data/assets/voices/narrator_qag/ref.wav]
+  - id: D-VOC-04
+    decision: L-078（音色按 QAg 方法自动选，“我来不及筛选”；取代 L-057）
+    title: series10 四位角色都有音色条目（含阿岚）
+    type: json
+    file: config/voices.json
+    path: [characters]
+    op: keys_superset
+    value: *cast
+  - id: D-VOC-05
+    decision: L-078（林晚不再用 60 集旧 Kokoro zf_067）
+    title: 林晚音色已不是旧 zf_067
+    type: json
+    file: config/voices.json
+    path: [characters, lin_wan, voice]
+    op: not_in
+    value: [zf_067]
+  - id: D-VOC-06
+    decision: VIDEO10 依赖（night.py 只在 voices.json 标 series10_v1 时合成对白）
+    title: voices.json 顶层 series = series10_v1
+    type: json
+    file: config/voices.json
+    path: [series]
+    op: eq
+    value: series10_v1
+  - id: D-VOC-07
+    decision: L-027（写作规则去掉 6 处“偏慢”，改正常节奏）
+    title: 写作规则里没有“偏慢 / 语速偏慢”
+    type: grep_absent
+    pattern: "偏慢"
+    paths: [config/script_chat_rules.md, config/script_chat_rules_appendix.md, config/recipes/writer_knowledge.md, config/qwen_writer_system_prompt.txt]
+  - id: D-VOC-08
+    decision: L-028（纯独白镜加“嘴唇闭合”）
+    title: H3 编译器有独白闭唇句
+    type: grep_present
+    pattern: lips remain completely closed
+    paths: [services/agent/ns_agent/h3_prompt.py]
+  - id: D-BGM-01
+    decision: L-024（整集统一 BGM）
+    title: series10 有整集 BGM（data/music/series10/ep01.wav）
+    type: exists
+    paths: [data/music/series10/ep01.wav]
+
+  # ---------------- UI / 交互
+  - id: D-UI-01
+    decision: L-032（改名 momoso Agentic Drama Studio）
+    title: 页面标题 = momoso Agentic Drama Studio
+    type: grep_present
+    pattern: momoso Agentic Drama Studio
+    paths: [apps/web/index.html]
+  - id: D-UI-02
+    decision: L-043（登录即本人、一键确认、自动审计）
+    title: 登录中间件与审计在
+    type: exists
+    paths: [services/api/ns_api/auth.py]
+
+  # ---------------- 11-01 追加（总调度转）
+  - id: D-IMG-06
+    decision: L-017 被 frame_v9 取代（总调度 11-01 裁定：图片单遍锐化即定稿，不再有定稿档）
+    title: auto_final_on_lock 保持 false
+    type: json
+    file: config/render_quality.json
+    path: [auto_final_on_lock]
+    op: eq
+    value: false
+  - id: D-OPS-01
+    decision: L-076（方案 A：常驻制作监督自动推进，项目方只管删除 / 花钱 / 推翻旧决定 / 挑身份参考）
+    title: 规则 K-OPS-A01 在
+    type: grep_present
+    pattern: "id: K-OPS-A01"
+    paths: [knowledge/rules]
+    glob: "*.yaml"
+  - id: D-OPS-02
+    decision: L-076
+    title: 制作监督入口和说明在（tools/autopilot/producer.py、docs/AUTOPILOT.md §7）
+    type: grep_present
+    pattern: '^## 7\. 制作监督（PRODUCER）'
+    paths: [docs/AUTOPILOT.md]
+  - id: D-OPS-03
+    decision: L-076 / L-077（导入可用系统身份 PRODUCER，带审计；P4 阻断 = 0 才行）
+    title: producer.py 以 PRODUCER 身份运行
+    type: grep_present
+    pattern: 'AGENT = "PRODUCER"'
+    paths: [tools/autopilot/producer.py]
+  - id: D-CLN-09
+    decision: L-079（先隔离、验证，最后项目方本人运行删除脚本）；⤴ 11-02 13:2x 项目方在待你看队列同意 L-058，并本人两次下令执行 -Delete，笔记本和两台服务器的隔离区都已删除
+    title: 隔离区已按项目方决定删除（不得再出现）
+    type: absent
+    paths: [data/_quarantine_20261101, data/_archive/20261031, data/renders/_archive_60ep_20261031]
+  # ---------------- 视频基底（WORKFLOW fredw-2b 派，2026-11-01）
+  - id: D-VID-01
+    decision: L-088（项目方 11-01 18:0x：视频全部用皮卡来做；⤴ 取代 16:20 L-082 的“重出镜走 Pika、已通过镜保留”）
+    title: series10 首帧路线默认配方 = i2va_pika_flex（露脸 / 无人露脸）
+    type: json
+    file: data/pipeline/runs/series10_v1/video/recipe_choice.json
+    path: [face_default]
+    op: eq
+    value: i2va_pika_flex
+    # K-OPS-D02 全量同步（tools/qa/decision_propagation.py，RSI 11-01）：过期口径 = series10 默认 i2va_pdd2 / H3+PDD 两段式
+    stale_terms:
+      - '(默认|default|现行)\W{0,6}(配方\W{0,4}|路线\W{0,4})?(=\s*)?i2va_pdd2'
+      - 'i2va_pdd2\W{0,4}(现为|是|为)?\s*(默认|default)'
+      - '"?(face|noface)_default"?\s*:\s*"i2va_pdd2"'
+      - '(默认|default)\W{0,10}(H3\s*\+\s*PDD|I2VA\s*\+\s*FL2VA-Acc\s*PDD|PDD\s*两段式)'
+    new_terms: ['i2va_pika_flex', 'Pika\s*(H3\s*)?Flex', 'pika_flex']
+    propagate: [knowledge/rules/render_video_s10.yaml, docs/PIPELINE_CHAIN.md, data/pipeline/runs/series10_v1/video/recipe_choice.json,
+                tools/series10_video/night.py]
+    # docs/series10_video/STATUS.md 由 night.py 每轮自动重写（K-OPS-D04）→ 同步对象是 night.py 生成 STATUS 的那段（写上当前配方，归 PROD；总调度 11-01）
+  - id: D-VID-02
+    decision: 同 D-VID-01
+    title: 无人露脸镜默认配方 = i2va_pika_flex
+    type: json
+    file: data/pipeline/runs/series10_v1/video/recipe_choice.json
+    path: [noface_default]
+    op: eq
+    value: i2va_pika_flex
+  - id: D-VID-03
+    decision: 同 D-VID-01（泛红防护保留：LEARNED_SPECS B“提示词含 flush/blush 描述的镜头不用 Pika”）
+    title: flush_risk overlay 仍禁 Pika 配方（含 i2va_pika_flex）
+    type: grep_present
+    pattern: 'block_recipes: \[dialogue_closeup_pika, static_emotion_pika, i2va_pika_flex\]'
+    paths: [services/recipes/recipes/overlays/flush_risk.yaml]
+  # ---------------- 看图闭环转拦截 + 图片闸门先于视频（RSI 登记，2026-11-01；VQAGATE 落实代码）
+  - id: D-VID-04
+    decision: L-088（Ref2VA 兜底取消，没有首帧的镜等图片重做后走 Pika）
+    title: Ref2VA 默认也是 i2va_pika_flex
+    type: json
+    file: data/pipeline/runs/series10_v1/video/recipe_choice.json
+    path: [ref_default]
+    op: eq
+    value: i2va_pika_flex
+  - id: D-VQA-01
+    decision: 项目方 2026-11-01 原话“启动图像识别模型,然后自动检测,一旦发现不对,叫系统重写做”“image做出来后,用本地图像模型去检测图片是否达标……然后再跑视频rendering”（总调度 fredw-2b 转；MASTER_PICTURE §1 账本编号待 RECALL 补）
+    title: 看图复核闭环 enforce = true（命中就按 next_prompt 重出；图片过闸门后才进视频）。⤴ L-196（11-05 20:2x）局部修订：首 / 尾帧只有 gen_contract blocking_items（Q1 / count / text / adult）挡，Q9 看图照跑照记但不再触发重出（D-V2-196）；本条 judge.enforce 仍为 true（看图闭环本身不关）
+    type: json
+    file: config/vqa.json
+    path: [judge, enforce]
+    op: eq
+    value: true
+    # K-OPS-D02：过期口径 = VQA / 视线检测“只记录、不拦截”“标定过 0.85 并经总调度批准才转阻断”
+    stale_terms:
+      - '(VQA|看图|视线|gaze|Q9|V9|闭环|vqa).{0,60}只记录.{0,30}(不拦|不阻断|不触发重跑|不重跑)'
+      - '(VQA|看图|视线|gaze|G1|检测器|Q9|V9|闭环).{0,40}(只记录|只作记录)'
+      - '只记录期'
+      - '标定.{0,40}0\.85.{0,40}(批准|才|之后|后)'
+      - '一致率.{0,10}0\.85.{0,60}(批准|才能阻断|才阻断|转阻断)'
+      - '"?enforce"?\s*[=:]\s*false'
+      - 'BLOCK\s*=\s*False'
+    new_terms: ['转拦截', 'enforce"?\s*[:=]\s*true', '先于视频', '闸门先于', '命中就重出']
+    stale_allow: [docs/ITERATION_PROTOCOL.md, knowledge/rules/ops_decisions.yaml, 'docs/series10_video/ep*_review.md', 'docs/audit/*', docs/master/MASTER_PICTURE.md, docs/master/TODO_BOARD.md, 'docs/master/handover/*', docs/master/OVERSIGHT_LOG.md, BACKLOG.md, ITERATION_LOG.md]   # ⤴ 总调度 11-04 08:4x：工人交付报告 / 审计记录 / 停车场 / 轮次账本是记录流，不是口径来源；ep01 冲刺 L-182～L-185 把部分判定项改只记录（细动作/道具/非点选配饰），enforce 仍 true、点选造型/身份/人数/看镜头仍阻断   # 决定本身的记录 / 审片当时的快照；⤴ W11 11-03：V2_LIVE.md（report_issue 自动卡点流水）改由 decision_propagation.LOG_STREAMS 统一不扫，不在单条决定里放过
+    propagate: [docs/REQUIREMENTS.md, docs/vqa/STATE.md, docs/acting/STATE.md, docs/GEN_CONTRACT.md, docs/SOP_production.md,
+                config/vqa.json, knowledge/rules/vqa.yaml, knowledge/rules/acting.yaml]
+  - id: D-VQA-02
+    decision: 同 D-VQA-01 第二句（L-081“视频只派过了看图检查的首帧”）。总调度 11-01 17:3x 定：先保持 false，打开条件 = 80 镜现行首帧回扫并 apply 完成（tools/vqa/after_network.py 满足条件后自动改 true，写 data/vqa/gate_scan/complete.json）；没打开前这条 ❌ 是预期提醒，防止忘开
+    title: 视频只派图片闸门（Q9）通过的首帧 = config/vqa.json gate.video_requires_q9 true
+    type: json
+    file: config/vqa.json
+    path: [gate, video_requires_q9]
+    op: eq
+    value: true
+    pending_until: {paths: [data/vqa/gate_scan/complete.json], why: "80 镜回扫 + apply 完成、拦截名单交总调度亲审后才开（tools/vqa/after_network.py 写 complete.json，总调度审完 --open）"}
+
+  # ---------------- 节奏：镜数上限装得下 总时长 ÷ 6（RSI 登记，2026-11-01；总调度定 G29 方案 A）
+  - id: D-SCR-06
+    decision: 总调度 fredw-2b 2026-11-01 定 MASTER_PICTURE G29 方案 A：“镜数上限改成 max(8, 轮次 + 独白, ⌈目标秒数 ÷ 6⌉)，只增加生成量，不改集长，不推翻旧决定……已出片的镜不动，新的镜数只用于之后的写作和返修”（起因：项目方 R11-2 / R11-3“剧情镜头还是很慢”）
+    title: 导入器 / 写作输入的镜数上限含 ⌈总时长 ÷ 6⌉
+    type: grep_present
+    pattern: 'PACE_SHOT_S = 6'
+    paths: [services/agent/ns_agent/importer/script_md.py]
+    stale_terms:
+      - 'max\(8,\s*说话轮次\s*\+\s*独白段数\)(?!\s*,)'
+      - 'max\(8,\s*轮次\s*\+\s*独白\)(?!\s*,)'
+      - '7–9\s*秒常见'
+    new_terms: ['⌈(总时长|各镜时长之和)\s*÷\s*6⌉', '⌈目标秒数\s*÷\s*6⌉', 'target_duration_s or 0\) // 6', 'PACE_SHOT_S']
+    propagate: [config/script_chat_rules.md, docs/production_rules_v3.md, config/qwen_writer_system_prompt.txt, docs/qwen_writing_contract.md,
+                tools/pipeline/writer_prompt.py, services/agent/ns_agent/importer/script_md.py, tools/validate_qwen_script.py]
+    stale_allow: [docs/rules_gap_analysis.md, docs/master/MASTER_PICTURE.md, 'docs/audit/*', docs/rsi/*, knowledge/rules/writer_iteration.yaml, config/pipeline/chain.yaml]   # 分析记录 / 缺口表 / 审计 / RSI 报告 / chain.yaml 的 evidence 行在叙述旧口径
+  # ---------------- 表演 / 导演 / 镜头三套规则 + 全量返修（SCRIPT-RSI 登记，2026-11-01 L-090）
+  - id: D-SCR-07
+    decision: L-090（项目方 11-01 18:2x：“演员表现：所有图片不要看镜头，不要看镜头！……你把演员的演戏规则、导演的规则、镜头的规则都做上去，把剧本改一下，重新更新一下规则。”）。落实：QW-A6 / A7 / A8 / AX1 新 lint、QW-A1 方向词；K-WRT-T03 返修重切；frame_job 视线补句逐人覆盖、framing 双人句去掉朝向镜头；Pika 等全部配方继承视线句（测试锁）；写作模型按新规则返修 10 集（台词逐字、集总时长不变）
+    title: 写作机检里有“img 每个在画的人写视线落点”（QW-A7）和轴线（QW-AX1）
+    type: grep_present
+    pattern: '"QW-A7"'
+    paths: [tools/qa/acting_lints.py]
+    stale_terms:
+      - '各自至少四分之三侧脸朝向镜头'
+      - 'three-quarter view toward the camera'
+      - 'QW-T1 / QW-T2 固定 warn（逐镜返修不能改镜数'
+    new_terms: ['QW-A7', 'QW-AX1']
+    propagate: [knowledge/rules/writer_iteration.yaml, config/script_chat_rules_appendix.md, docs/acting/PERFORMANCE_RULES.md,
+                tools/validate_qwen_script.py, tools/qa/acting_lints.py]   # acting_lints.py 总调度 11-01 晚登记给 ITERAUDIT（与 SCRIPT-RSI 协作）
+    known_residuals:   # 总调度 11-01 晚：维持 D-SCR-06 镜数上限不变（不在同一天第二次推翻刚定的规则）
+      - {lint: QW-T1, count: 7, why: "已知、由镜数上限所致：返修不改镜数和集总时长，这 7 镜的时长超过“单镜 ≤6 秒”的线；等下一次整集重写时再处理"}
+    stale_allow: [docs/master/MASTER_PICTURE.md, 'docs/video_rca/*', 'docs/audit/*', 'docs/rsi/*', knowledge/rules/render_video_rca.yaml,
+                  docs/acting/PERFORMANCE_RULES.md, 'data/script_rsi/*']   # 这些文件在叙述旧口径 / 记录改动前原文
+  # ---------------- 林晚身份脸 = A-s202 高清脸部裁切（RSI 登记，2026-11-01 L-086）
+  - id: D-AST-86a
+    decision: ⤴ L-122（项目方 11-02 15:45 自己在资产页设为身份脸，16:0x AskUserQuestion“是我要换的”）取代 L-086 的那张脸；以下为 L-086 原文：L-086（项目方 11-01 17:2x AskUserQuestion“只是嫌画质差 (Recommended)”：脸不换，从设定图左边的大头重新高清裁一张脸登记为身份脸；以后“设为身份脸”只接受脸部裁切）
+    title: 林晚出图身份脸 = ar-c2351c9dcf 母版脸（L-122 取代 L-086 的 hd_A_s202；不是整张设定图）
+    type: json
+    file: data/looks/face_overrides.json
+    path: [series10_v1, lin_wan]
+    op: eq
+    value: assets/characters/lin_wan/refs/lin_wan/ar-c2351c9dcf.png
+    stale_terms: ['身份脸.{0,6}(=|是|用)\s*整张(4 栏)?设定图', 'face_overrides.{0,20}(指向|=)\s*整张设定图']   # CLEANUP 11-01 补登记
+    stale_allow: [docs/master/MASTER_PICTURE.md, 'docs/audit/*']
+  - id: D-AST-86b
+    decision: 同 L-086
+    title: identity_refs/manifest.json 登记的林晚身份脸 = 同一张（L-122）
+    type: json
+    file: data/assets/identity_refs/manifest.json
+    path: [chars, lin_wan, file]
+    op: eq
+    value: assets/characters/lin_wan/refs/lin_wan/ar-c2351c9dcf.png
+  - id: D-AST-86c
+    decision: 同 L-086（以后“设为身份脸”只接受脸部裁切）
+    title: 后端 set_face 有脸部裁切校验
+    type: grep_present
+    pattern: 'ok, why = face_crop_check'
+    paths: [services/api/ns_api/character_hub.py]
+  - id: D-IMG-87a
+    decision: L-087（项目方 11-01 17:5x：“……无论是画面效果还是颜色,都非常满意……很棒哎!”；AskUserQuestion 选“R0 现在这样”）
+    title: 徕卡 S★ 的锐化参数不变（USM 半径 1.2 / 60% / 阈值 2）——代码内置预设
+    type: grep_present
+    pattern: '"sharpen": \{"enabled": True, "radius": 1.2, "amount": 0.6, "threshold": 2\}'
+    paths: [services/render_router/ns_render/image_params.py]
+    stale_terms: ['(减弱|关掉|去掉|改弱).{0,6}(USM|锐化)', '(USM|锐化).{0,12}(减弱|关掉|改弱)', '改 S★ 默认之前要先改 Q4']
+    new_terms: ['R0']
+    propagate: [knowledge/rules/research_realism.yaml, data/ab/realism_ab/gpu_plan.json]
+    stale_allow: ['docs/audit/RESEARCH_r01.md']   # AUDIT 复核记录（历史，写于 L-087 之前）
+  - id: D-IMG-87b
+    decision: 同 L-087
+    title: 徕卡 S★ 的锐化参数不变——config/render_quality.json leica_sstar（list 不能按 json 路径取，由测试断言）
+    type: grep_present
+    pattern: 'def test_leica_sstar_sharpen_unchanged_l087'
+    paths: [tests/test_realism_lint.py]
+  - id: D-IMG-87c
+    decision: 同 L-087
+    title: S★ 风格后缀原文不变（含“焦点锐利 / 暖调”）
+    type: grep_present
+    pattern: '"style_suffix": "专业电影画面，徕卡M 50mm f/2镜头，焦点锐利，微反差强，皮肤纹理清晰，自然高光，暖调通透，干净真实"'
+    paths: [config/render_quality.json]
+
+  # ---------------- CLEANUP（总调度 fredw-2b 派，2026-11-01 18:3x，L-091）：今天决定的过期口径补登记 + 二次隔离
+  - id: D-VID-88
+    decision: L-088（项目方 11-01 18:0x：“视频：全部用皮卡来做。如果皮卡做不了，就等皮卡安装完再做。”取代 L-082 的“已通过的镜头不动”）
+    title: series10 视频只走 Pika（config/pipeline/video_policy.json pika_only.enabled = true；无 pdd2 回退、无 Ref2VA 兜底）
+    type: json
+    file: config/pipeline/video_policy.json
+    path: [pika_only, enabled]
+    op: eq
+    value: true
+    stale_terms:
+      - '已(经)?通过的镜头(都)?不动'
+      - '(?<!不)(换回|回退到?|退回)\s*i2va_pdd2'
+      - 'Ref2VA\s*兜底(不变|保留|照旧)'
+      - '纯 Ref2VA 24 步只用于'
+    new_terms: ['L-088', 'pika_only', '全部用\s*(皮卡|Pika)', '视频全部\s*i2va_pika_flex']
+    propagate: [config/pipeline/video_policy.json, docs/PIPELINE_CHAIN.md, knowledge/rules/render_video_s10.yaml]
+    stale_allow: [docs/master/MASTER_PICTURE.md, 'docs/audit/*']
+  - id: D-POST-84
+    decision: L-084（项目方 11-01 16:22：“s5等视频出来很糊……估计你的参数坏了”——成片一律用原片合成、禁用 540×960 代理）
+    title: 规则在位：成片只用原片（或原片放大版）合成，代理只给审片页
+    type: grep_present
+    pattern: '成片只用原片'
+    paths: [knowledge/rules/render_video_s10.yaml]
+    stale_terms: ['只放大定稿片', '(成片|合成)\W{0,4}(用|走)\s*540\s*[×x]\s*960\s*代理']
+    stale_allow: [docs/master/MASTER_PICTURE.md, 'docs/audit/*', 'docs/series10_video/ep*_review.md']   # 审片页快照记录当时用的是代理
+  - id: D-ACT-90
+    decision: L-090（项目方 11-01 18:2x：“所有图片不要看镜头，不要看镜头！”）；写作链落实见 D-SCR-07（SCRIPT-RSI 登记）
+    title: 写作知识包里有“不写演员看镜头”
+    type: grep_present
+    pattern: '不写演员看镜头'
+    paths: [config/recipes/writer_knowledge.md]
+    stale_terms: ['视线[（(][^）)]{0,40}看向镜头', '看向镜头\s*/\s*看向']   # 把“看向镜头”列为可选视线 = 过期口径
+  - id: D-CLN-10
+    decision: L-091（项目方 11-01 18:3x：“把旧的东西全部移出……把规则跟最新的讨论内容 update 一次”）；沿用 L-079 只隔离、项目方本人删除
+    title: 第二次隔离的清单、项目方删除脚本、知识库归档都在
+    type: exists
+    paths: [data/_quarantine_20261101b/MANIFEST.md, ops/cleanup/delete_quarantine_20261101b.ps1, knowledge/archive/superseded_20261101.yaml]
+  - id: D-CLN-11
+    decision: L-030 / L-058 / L-091（旧 60 集外国配角全部撤下；series10 演员表只有 林晚 / 顾沉 / 陈宇 / 阿岚）
+    title: 写作模型读的规则 / 附录 / 知识包 / 审片提示词不再列旧 60 集配角
+    type: grep_absent
+    pattern: '\b(Alex|Ryan|Kai|Leo)\b'
+    paths: [config/script_chat_rules_appendix.md, config/script_chat_rules.md, config/recipes/writer_knowledge.md, config/recipes/director_system_prompt.md, config/qwen_writer_system_prompt.txt]
+    stale_terms: ['\b(Alex|Ryan|Kai|Leo)\b']
+    stale_allow: [docs/master/MASTER_PICTURE.md, docs/MORNING_DECISIONS.md, docs/script_chat_rules_audit.md, docs/parser_diff.md, 'docs/ux_round5/*', 'docs/audit/*',
+                  docs/assetux/rounds.md, docs/rules_gap_analysis.md, docs/uimaster/LOCKS.md,
+                  knowledge/rules/writer_series10.yaml]   # 决定记录 / 审计 / 解析器对照（test_parser_alignment 引用）/ UI 历史稿 / HC-05“不写表外人名”规则的证据
+  # ---------------- 好莱坞 10 集 + 集时长 60–120 + 铅笔裙（RSI r7 登记，L-092；项目方 11-01 21:4x AskUserQuestion）
+  - id: D-SCR-08
+    decision: L-092（项目方 11-01 21:4x：“改成 60–120 秒”，取代 QW-E3 的 50–75 秒 / 目标 60–65；镜数上限 D-SCR-06 跟着 ⌈秒数 ÷ 6⌉ 自动变）
+    title: 导入器 / 校验器的集时长通过范围 = 60–120 秒
+    type: grep_present
+    pattern: 'EPISODE_SECONDS = \(60, 120\)'
+    paths: [services/agent/ns_agent/importer/script_md.py]
+    stale_terms:
+      - '50\s*[–-]\s*75\s*秒'
+      - '各镜.{0,12}之和\s*50\s*[–-]\s*75'
+      - '75\s*[–-]\s*90\s*秒?\s*(只提示|warn)'
+      - 'EPISODE_S(ECONDS)?\s*=\s*\(50,\s*75\)'
+      - '且\s*50–75'
+    new_terms: ['60\s*[–-]\s*120', 'EPISODE_S(ECONDS)?\s*=\s*\(60,\s*120\)']
+    propagate: [services/agent/ns_agent/importer/script_md.py, tools/validate_qwen_script.py, packages/schema/ns_schema/upstream_common.py,
+                tools/pipeline/writer_prompt.py, config/script_chat_rules.md, config/qwen_writer_system_prompt.txt, docs/production_rules_v3.md,
+                docs/qwen_writing_contract.md, tools/validate_script_strict.py]
+    stale_allow: [docs/master/MASTER_PICTURE.md, 'docs/audit/*', 'docs/rsi/*', 'docs/video_rca/*', 'data/script_rsi/*', docs/rules_gap_analysis.md,
+                  'knowledge/rules/writer_iteration.yaml', 'knowledge/rules/writer_series10.yaml', docs/CORE_appendix.md, 'docs/release/*',
+                  docs/script_chat_rules_audit.md, knowledge/rules/writer_hollywood.yaml]   # 账本 / 报告 / 历史审计 / 规则 evidence 在叙述旧口径
+  - id: D-SCR-08b
+    decision: L-092（项目方 11-01 21:4x：ep01 林晚人物卡“允许，改成铅笔裙 (Recommended)”——“深灰西装裙”改成“深灰铅笔裙”，中英文一致，造型本身不变；HOLLYWOOD 人物卡不变量的唯一例外）
+    title: HOLLYWOOD 集头不变量只允许 ep01 林晚造型行这一处字面例外
+    type: grep_present
+    pattern: 'HEAD_EXCEPTIONS: dict\[int, list\[tuple\[str, str, str\]\]\] = \{1: \[\("\*\*造型｜林晚\*\*", "深灰西装裙", "深灰铅笔裙"\)\]\}'
+    paths: [tools/script_rsi/hollywood.py]
+  - id: D-SCR-09
+    decision: L-096（项目方 11-02 00:4x：“……我起码要达到 50 分，就是你给的那个分数，50 over 50。”；AskUserQuestion“允许，剧情和人物不变 (Recommended)”——台词可为潜台词重写，发生了什么、谁说的、人物关系和设定不变；L-097 预算“$50” ⤴ L-098 01:08“50 美金，尽量少收一点，太贵了”→ 总调度定 r5 总上限 $15、每集 ≤ $3）
+    title: HOLLYWOOD r5 不变量 = 剧情事实不变（说话人逐条顺序代码核对 + 独立事实核对调用），不再要求台词逐字
+    type: grep_present
+    pattern: '"id": "F2", "name": "剧情事实不变（独立事实核对调用）"'
+    paths: [tools/script_rsi/hollywood_r5.py]
+  - id: D-WRT-702
+    decision: 总调度 11-01 晚 r7：收编 VIDEO-RCA K-WRT-702（分拍不写对身上衣服的整理动作），lint 号 QW-W11
+    title: 写作机检里有 QW-W11
+    type: grep_present
+    pattern: '"QW-W11"'
+    paths: [tools/qa/writer_lints.py]
+  # ---------------- 林晚造型 A 设定图换回 v2_s202（RSI 入账，IMGFIX 执行；L-093）
+  - id: D-AST-93
+    decision: L-093（项目方 11-01 21:4x AskUserQuestion：林晚造型 A 设定图“换回 v2_s202 (Recommended)”；取代 11-01 10:57 的 s101 挑选——当时 v2 不在候选里）
+    title: 林晚造型 A 当前设定图 = adopted/lin_wan_lookA_v2_s202_sleevefix.png（L-101：v2_s202 正面栏补左臂外套袖，总调度按 L-098 代为点选）
+    type: grep_present
+    pattern: 'adopted/lin_wan_lookA_v2_s202_sleevefix\.png'
+    paths: [data/pipeline/runs/series10_v1/assets/sheets_chosen.json]
+  # ---------------- 提炼：判断 → 策略 / 规则 / 编排器（DISTILL；L-102）
+  - id: D-OPS-102a
+    decision: L-102（项目方 11-02 01:4x：“所有的 learning 规则都要写到这个系统里……所有工作尽量写成一个代码库，来 monitor 整个 process”）
+    title: 策略层、判断清单、统一编排器、覆盖率入口都在
+    type: exists
+    paths: [config/policies/resources.yaml, config/policies/handback.yaml, config/policies/budget.yaml, config/policies/retry.yaml, config/policies/gates.yaml, config/policies/deploy.yaml, config/policies/decisions.yaml, tools/autopilot/flow.py, tools/autopilot/policy.py]
+  - id: D-OPS-102b
+    decision: L-102（§G1-2：编排器给每个环节标 decider）
+    title: 编排器判断点带 decider 标注
+    type: grep_present
+    pattern: 'DECIDERS = \("code", "local_model", "api_model", "owner", "claude"\)'
+    paths: [tools/autopilot/flow.py]
+  # ---------------- 身份脸逐 run 断言（DISTILL；总调度 11-02 03:0x：同类事故第二次）
+  - id: D-AST-86d
+    decision: L-086（林晚身份脸 = lin_wan_face_hd_A_s202 高清裁）；总调度 11-02 03:0x：对 runs.json 每个 run 的每个角色用生产入口解析身份脸，必须等于项目方定的那张
+    title: 每个 run 每个角色的身份脸（asset_refs.face_of）= 项目方定的那张；子 run 继承的角色 = 父 run
+    type: cmd
+    cmd: [tools/qa/identity_face_check.py]
+  # ---------------- H3 时间码只用于切镜，镜内自然英文分拍（TIMELINE-O；L-141）
+  - id: D-PRM-141
+    decision: L-141（项目方 11-03 03:2x 拍板 ISS-6b8d：“按官方写法来”——At MM:SS.mmm 只用于切镜，镜内分拍写自然英文时间顺序）
+    title: lint 有 RL-T9（镜内不许 At 时间码），写手包注入 L-141 写法
+    type: grep_present
+    pattern: 'RL-T9'
+    paths: [services/recipes/ns_recipes/lint.py]
+
+  # ---------------- V2 决策补登（MERGE-OPS-O 11-03，L-137 授权；原文见 docs/master/MASTER_PICTURE.md §1）
+  - id: D-V2-127
+    decision: L-127（项目方 11-02 19:0x：V2 方向——00 后模特 × 金钱与爱情 × 3 个男人；Fable 写；时尚杂志艳丽浓郁、4K、Vogue 式子弹时间运镜；都市 BGM；上海时尚音色）
+    title: V2 方向原话落在 docs/v2/DIRECTION_V2.md（决定 L-127）
+    type: grep_present
+    pattern: 'L-127'
+    paths: [docs/v2/DIRECTION_V2.md]
+  - id: D-V2-129
+    decision: L-129（项目方 11-02 21:2x 运镜页：幻想段 bolt_push_settle、现实段 handheld_follow；orbit_slowmo 没选中停用；2.5D 视差不用）
+    title: camera_moves.yaml 里 orbit_slowmo 按 L-129 停用
+    type: grep_present
+    pattern: 'disabled_by: "L-129'
+    paths: [config/director/camera_moves.yaml]
+  - id: D-V2-130
+    decision: L-130（项目方 11-02 21:2x 调色页：幻想段 fantasy C 黄金时刻，现实段 reality C 第 2 版）
+    title: run_style.json 记了 L-130 选定的两套调色
+    type: grep_present
+    pattern: 'L-130'
+    paths: [config/compile/run_style.json]
+  - id: D-V2-131
+    decision: L-131（项目方 11-02 21:3x 配乐页选定 A 外滩夜光 / B 静安秀场 / C 海派霓虹 三条）
+    title: config/music_v2.json 是 L-131 的 V2 曲库
+    type: json
+    file: config/music_v2.json
+    path: [decision]
+    op: eq
+    value: L-131
+  - id: D-V2-132
+    decision: L-132（项目方 11-02 21:2x 音色页：lead_f=b、m1=b、m2=c、m3=c）
+    title: voices_v2.json 记了 L-132 选定的 4 个音色
+    type: grep_present
+    pattern: 'L-132'
+    paths: [config/voices_v2.json]
+  - id: D-V2-133
+    decision: L-133（项目方 11-02 21:3x：“缺信息就按已有设定写成具体内容”）
+    title: 好莱坞写手模板红线用 L-133 原句
+    type: grep_present
+    pattern: '缺信息就按已有设定写成具体内容'
+    paths: [config/prompts/hollywood_writer.md]
+  - id: D-V2-134
+    decision: L-134（项目方 11-02 21:5x：#/queue 是统一待办通知中心，点一条跳到对应页面）
+    title: /api/owner/inbox 已挂到 API
+    type: grep_present
+    pattern: 'owner_inbox'
+    paths: [services/api/ns_api/app.py]
+  - id: D-V2-135
+    decision: L-135（项目方“你决定就好”：周序沿用 m2_c；卓琳、唐瑶各出 3 个候选进待办）
+    title: voices_v2.json 里周序映射到 m2
+    type: grep_present
+    pattern: '"ch_zhou_xu": "m2"'
+    paths: [config/voices_v2.json]
+  - id: D-V2-136
+    decision: L-136（项目方 11-03 02:2x：“你代替我选择”→ 系统代选模式；成人镜头 / 删除 / 花钱 / 推翻旧决定不在授权内）
+    title: 代选模式开关 config/pipeline/owner_delegate.json 记账 L-136
+    type: grep_present
+    pattern: '"ledger": "L-136"'
+    paths: [config/pipeline/owner_delegate.json]
+  - id: D-V2-137
+    decision: L-137（项目方 11-03 03:1x：V2 并回 V1 系统，以 V1 编译 / 契约 / 调度为主干）
+    title: 导入闸门执行 v1_leak（assert_no_v1）、派单按剧（V2 primary 有专属 control）
+    type: grep_present
+    pattern: 'def v1_gate'
+    paths: [tools/import_script.py]
+  - id: D-V2-137b
+    decision: L-137
+    title: dispatch.py 按 legacy_unprefixed_run 区分旧路径格（V2 primary 不再被 extra_runs 排除）
+    type: grep_present
+    pattern: 'def legacy_run_id'
+    paths: [tools/netfix/dispatch.py]
+  - id: D-V2-138
+    decision: L-138（项目方 11-03 03:1x：无头 Claude 自动派单器“做完测过就开”，限 2 并发、只写交稿文件）
+    title: agent_dispatcher.json 记 L-138 批准
+    type: grep_present
+    pattern: 'L-138'
+    paths: [config/pipeline/agent_dispatcher.json]
+  - id: D-V2-139
+    decision: L-139（项目方 11-03 03:1x：设定图 / 单品裁图只在代选模式开着时自动，平时由项目方在 #/queue 挑）
+    title: asset_jobs.py 的自动登记受 L-139 约束
+    type: grep_present
+    pattern: 'L-139'
+    paths: [tools/pipeline/asset_jobs.py]
+  - id: D-V2-140
+    decision: L-140 资产并行部分已被 11-05 项目方“素材工人怎么提效？全部显卡给他”取代（L-197 记账：asset_worker 开放全部 6 道、max_parallel=6）
+    title: asset_worker max_parallel = 6（L-197 取代 L-140 的 2）
+    type: json
+    file: config/pipeline/asset_worker.json
+    path: [max_parallel]
+    op: eq
+    value: 6
+  - id: D-V2-142
+    decision: L-142（项目方 11-03 04:2x：ep01 首帧由系统代选——过检 + 总调度亲审后；项目方事后可在 #/queue 修改）
+    title: 计划 v3 定稿记了 L-142；代选走 L-136 同一开关（owner_delegate.py），不另开入口
+    type: grep_present
+    pattern: 'L-142'
+    paths: [docs/master/PLAN_V2_MASTER.md]
+  - id: D-V2-143
+    decision: L-143（项目方 11-03 04:2x：IMGLAB 结构化控制 ControlNet pose/depth、Face/HandDetailer、PuLID、IC-Light ep01 不上；ep02 起逐项 A/B、指标证明才留）。L-192 ②（11-05）局部修订：构图走“3D 摆位 → 深度 / 姿势控制图 → Qwen-Image ControlNet 出图”，先在 tools/previz（CODER-PV）对 S4 试 3 版给项目方看；项目方点头铺开时本条改为“生产工作流的 ControlNet 节点受按剧开关控制、默认关”，在那之前生产 workflows.py 仍不含（AUDIT-RULES 11-05 注）
+    title: 生产出图工作流（ns_render/workflows.py）不含结构化控制节点（previz 试验路径在 tools/previz，不在此文件）
+    type: grep_absent
+    pattern: 'ControlNet|PuLID|IC-Light|FaceDetailer|HandDetailer'
+    paths: [services/render_router/ns_render/workflows.py]
+  - id: D-V2-144
+    decision: L-144（项目方 11-03 04:2x：harness 余下 switch / deliver 复审门 / brief 在 ep01 完成后做；期间复审由总调度手工派 Fable）
+    title: 计划 v3 定稿记了 L-144（ep01 完成后再做 harness 余下三件）
+    type: grep_present
+    pattern: 'L-144'
+    paths: [docs/master/PLAN_V2_MASTER.md]
+
+  # ---------------- ep01 收尾决策 L-186…L-192（AUDIT-RULES 11-05 补登；原文见 docs/master/MASTER_PICTURE.md §1 末尾）
+  - id: D-V2-187
+    decision: L-196（项目方 11-05 原话“我需要你全自动，不要检测那么多了”，修订 L-187：重试用尽自动取最高分版进片，闸门只留 Q1 / 人数 / 文字水印 / 成人安全）
+    title: producer.json review_adopt_auto = true（L-196 开；原 L-187 默认关已修订）
+    type: json
+    file: config/pipeline/producer.json
+    path: [review_adopt_auto]
+    op: eq
+    value: true
+  - id: D-V2-188
+    decision: L-188（项目方 11-04 20:4x “用 L1”：只写有动机主光 + 光比 ≤3:1 + 负补光 + 背景低 1–2 档，禁平光句；sk_white_cyc 换低调底图；多人三层站位；post_film 开 / 关 USM；祁念短款裸粉甲）
+    title: 写作规则有 L-188 光线条（K-WRT-807 / QW-L1 阻断）
+    type: grep_present
+    pattern: 'L-188'
+    paths: [knowledge/rules/writer_camera.yaml]
+  - id: D-V2-188b
+    decision: L-188 ①禁平光句——编译配置里不得再有“正面高亮 / 把影子打平 / flattening the shadows / 白幕反射补脸”
+    title: run_style.json / render_quality.json 无平光句
+    type: grep_absent
+    pattern: '正面高亮|把影子打平|flattening the shadows|白幕反射补脸|bright ring light from the front'
+    paths: [config/compile/run_style.json, config/render_quality.json]
+  - id: D-V2-189
+    decision: L-189（项目方 11-04 20:4x：KPI“好莱坞质感分（VLM）”改为确定性“画面指数”+ 亲看抽检；本地 VLM 只做单图缺陷）
+    title: 画面指数模块在（tools/imglab/picture_index.py，CODER-SCORE 尺子 v2）
+    type: exists
+    paths: [tools/imglab/picture_index.py]
+  - id: D-V2-190
+    decision: L-190（项目方 11-05 10:5x 自动发版）→ 11-07 被项目方转来的《审计与修复指令 20261106》Step 1 取代：冻结自动 cut，只留手工发版；冒烟 ≥6/8 后由项目方解冻
+    title: release.json enabled = false（审计冻结期：release_tick 不自动 cut / deploy）
+    type: json
+    file: config/pipeline/release.json
+    path: [enabled]
+    op: eq
+    value: false
+  - id: D-V2-191
+    decision: L-191（项目方 11-05 12:xx 选 A：ep01 首帧改 35 步 base 定稿档；多画人由 Q1 + 看图人数闸挡）
+    title: render_quality.json first_frame_tier.runs.series10_v2.default = base35（⤴ L-206：ep02 起 turbo_previz，见 D-V2-206）
+    type: json
+    file: config/render_quality.json
+    path: [first_frame_tier, runs, series10_v2, default]
+    op: eq
+    value: base35
+  - id: D-V2-206
+    decision: L-206 ②A（项目方 11-06 选“①A ②A”：ep02 起首帧改 8 步 turbo + 机位摆位图，修订 L-191）
+    title: render_quality.json first_frame_tier.runs.series10_v2.from_episode.2 = turbo_previz
+    type: json
+    file: config/render_quality.json
+    path: [first_frame_tier, runs, series10_v2, from_episode, "2"]
+    op: eq
+    value: turbo_previz
+  - id: D-V2-192a
+    decision: L-192 ①（项目方 11-05 16:3x 运镜表选 A：白名单扩为 6 种 static / push_in / pull_out / bolt_push_settle / handheld_follow / pedestal_up；truck / arc 复测后再定）
+    title: camera_moves.yaml 记了 L-192 启用（pull_out / pedestal_up enabled_by L-192）
+    type: grep_present
+    pattern: 'enabled_by: "L-192'
+    paths: [config/director/camera_moves.yaml]
+  - id: D-V2-192b
+    decision: L-192 ①“双人镜只用推 / 拉 / 固定 / 手持”——编译层 multi_person_moves 白名单 + camera_norm.multi_person_fallback
+    title: camera_moves.yaml 有 multi_person_moves
+    type: grep_present
+    pattern: '^multi_person_moves:'
+    paths: [config/director/camera_moves.yaml]
+  - id: D-V2-192c
+    decision: L-192 ③（焦段光圈表：建立 24–35mm T2.8–4 / 双人 40–50 T2 / 过肩单人 65–85 T1.4–2 / 特写 85–135 T1.2–1.4 / 物件 100 微距；背景须有远处实景光源；lens_sim 按 85mm f/1.2 重标定）
+    title: 写作规则有 L-192 焦段光圈表条（K-WRT L3 / QW-L9）且编译兜底表记 L-192
+    type: grep_present
+    pattern: 'L-192'
+    paths: [knowledge/rules/writer_camera.yaml, config/compile/run_style.json]
+
+  # ---------------- 11-05 晚 L-191 配方 / L-193…L-196 + 当天运维规矩（RULES-1105 补登；规则层 K-OPS-I11…I14 / K-OPS-D05 / D06 / K-REN-963 / K-REV-807）
+  - id: D-V2-191b
+    decision: L-191 + cfg 小批（PS-MASTER 11-05 18:59：cfg3 身份+人数 5/12、cfg2 5/11、cfg1.5 7/12 但画面变平 → 保持 cfg 3.0，电影感优先）
+    title: render_quality.json base35 档 = 35 步 cfg 3.0（K-REN-963 首帧配方）
+    type: json
+    file: config/render_quality.json
+    path: [first_frame_tier, base35, cfg]
+    op: eq
+    value: 3.0
+  - id: D-V2-191c
+    decision: L-191 / L-192 配方（PS-MASTER 11-05 17:52 cut L：series10_v2 prompt_template image / video 开 v2）
+    title: run_style.json series10_v2 提示词模板 image = v2
+    type: json
+    file: config/compile/run_style.json
+    path: [runs, series10_v2, prompt_template, image]
+    op: eq
+    value: v2
+  - id: D-V2-193
+    decision: L-193（项目方 11-05 18:2x “gpu3 和 gpu6 一起跑，加快”→ 选 B：首帧跨两台 lane_relay 今天开）
+    title: lane_relay.json enabled = true（gpu33 producer 借 gpu36 道出首帧）
+    type: json
+    file: config/pipeline/lane_relay.json
+    path: [enabled]
+    op: eq
+    value: true
+  - id: D-V2-193b
+    decision: L-193 / L-194（只放行 gpu36 的道；gpu33:2 坏卡永不借）
+    title: lane_relay.json lanes 只含 gpu36:0 / gpu36:1 / gpu36:2
+    type: json
+    file: config/pipeline/lane_relay.json
+    path: [lanes]
+    op: keys_subset
+    value: ["gpu36:0", "gpu36:1", "gpu36:2"]
+  - id: D-V2-193c
+    decision: L-194（gpu36 三张卡都借给首帧阶段，不只是 gpu36:0）
+    title: lane_relay.json lanes 含 gpu36:0 / 1 / 2 三道
+    type: json
+    file: config/pipeline/lane_relay.json
+    path: [lanes]
+    op: keys_superset
+    value: ["gpu36:0", "gpu36:1", "gpu36:2"]
+  - id: D-V2-194
+    decision: L-194（项目方 11-05 19:5x 原话“授权：gpu36 三张卡（0/1/2）都归 NS 项目用，可以在 gpu36:2 启动 ComfyUI……修订 L-100 和‘不碰 gpu36:2’”）
+    title: hosts.json gpu36:2 enabled = true
+    type: json
+    file: config/factory/hosts.json
+    path: [hosts, gpu36, lanes, "gpu36:2", enabled]
+    op: eq
+    value: true
+  - id: D-V2-194b
+    decision: L-194（gpu36:2 不再专用看图：出图 + 视频）
+    title: hosts.json gpu36:2 roles = [image, video]
+    type: json
+    file: config/factory/hosts.json
+    path: [hosts, gpu36, lanes, "gpu36:2", roles]
+    op: eq
+    value: [image, video]
+  - id: D-V2-194c
+    decision: L-194（视频阶段全卡集中：ep01 视频按镜跨两台，权重按道数 gpu36 三道比 gpu33 两道 = 3:2）
+    title: video_shard.json 开、ep01 分片 hosts = gpu36 + gpu33
+    type: json
+    file: config/pipeline/video_shard.json
+    path: [runs, series10_v2, eps, "1", weights]
+    op: keys_superset
+    value: [gpu36, gpu33]
+  - id: D-V2-194d
+    decision: L-194（视频按镜跨两台同时开，L-193 ②）
+    title: video_shard.json enabled = true
+    type: json
+    file: config/pipeline/video_shard.json
+    path: [enabled]
+    op: eq
+    value: true
+  - id: D-V2-195
+    decision: L-195（项目方 11-05 20:0x 选 B：提示词阶段按镜判，过关的镜先出图；取代 L-140 整集就绪才出图）
+    title: sop_gate.json whole_episode_prompts = false
+    type: json
+    file: config/pipeline/sop_gate.json
+    path: [whole_episode_prompts]
+    op: eq
+    value: false
+  - id: D-V2-202
+    decision: L-202（项目方 11-06 08:0x 选 A“按镜判”：资产就绪按镜判，本镜用到的脸 / 造型 / 场景底图齐了就出首帧和视频，缺的镜单独等、补齐自动放行；取代 L-140 整集资产齐了才出图）
+    title: sop_gate.json whole_episode_assets = false
+    type: json
+    file: config/pipeline/sop_gate.json
+    path: [whole_episode_assets]
+    op: eq
+    value: false
+  - id: D-V2-196
+    decision: L-196（项目方 11-05 20:2x “我需要你全自动，不要检测那么多了”：首 / 尾帧闸门只留 Q1 身份、人数、无字幕水印、成人安全；Q9 / QB / Q10 只记录不挡）。⤴ L-200（11-06 07:3x）修订硬项清单：加 gaze 视线 / 排排站；⤴ L-203（11-06 08:3x）再加 FL 首尾帧差异（只对尾帧）
+    title: gen_contract.json blocking_items = [Q1, count, text, adult, gaze, FL]
+    type: json
+    file: config/gen_contract.json
+    path: [blocking_items]
+    op: eq
+    value: [Q1, count, text, adult, gaze, FL]
+  - id: D-V2-203
+    decision: L-203（项目方 11-06 08:3x “你所有的首尾帧都是一模一样的图片……现在全部都错了”，选 A：撤回 L-197 A 不出尾帧；每镜首尾帧都出、视频在两张不同画面之间生成 FL2VA）
+    title: run_style.json runs.series10_v2.video_mode.mode = fl2va（I2VA 开关关，代码路径保留）
+    type: json
+    file: config/compile/run_style.json
+    path: [runs, series10_v2, video_mode, mode]
+    op: eq
+    value: fl2va
+  - id: D-V2-203b
+    decision: L-203（尾帧按落幅单独构图出图，脸 / 服装 / 场景照参考保持一致，不再拿首帧做小改）
+    title: run_style.json runs.series10_v2.last_frame_mode = compose
+    type: json
+    file: config/compile/run_style.json
+    path: [runs, series10_v2, last_frame_mode]
+    op: eq
+    value: compose
+  - id: D-V2-203c
+    decision: L-203（出图后比对首尾两张，太像就重出尾帧；太像的版本不进 best_effort 采用）
+    title: producer.py 有 fl_bad 且 never_adopt 把它与 gaze_bad 并列
+    type: grep_present
+    pattern: 'def fl_bad'
+    paths: [tools/autopilot/producer.py]
+  - id: D-V2-200
+    decision: L-200（项目方 11-06 07:3x 看 ep01 总览选 A：首帧硬闸加“视线 / 排排站”——任何人看镜头、或多人正面并排站成一排合影式 = 不过、换种子重出，不能被“用尽采用最好一版”采用）
+    title: 排排站硬闸由 G1 几何判 lineup_geo 执行（blocking.py 硬项；11-06 W-DETECT 复审：看图 lineup 措辞未标定改只记录，硬闸不变）
+    type: grep_present
+    pattern: 'lineup_geo'
+    paths: [services/agent/ns_agent/gen_contract/blocking.py]
+  - id: D-V2-200b
+    decision: L-200（看镜头 / 排排站的版本不进 review_adopt / best_effort 采用）
+    title: producer.py 有 gaze_bad 且 safe_take 先查它
+    type: grep_present
+    pattern: 'def gaze_bad'
+    paths: [tools/autopilot/producer.py]
+  - id: D-V2-196b
+    decision: L-196（QB 共用验收不再挡：不跑，省整张再看一遍）
+    title: producer.json accept.run_qb = false
+    type: json
+    file: config/pipeline/producer.json
+    path: [accept, run_qb]
+    op: eq
+    value: false
+  - id: D-V2-OPS-I11
+    decision: K-OPS-I11（RULES-1105 11-05：deploy 改了派单相关配置 → 紧急 producer 重启；根因 20:00–20:15 gpu33 producer 卡在 30 分钟重启间隔外）
+    title: system_version.py 有 dispatch_restart_plan（派单配置变更自动升 urgent）
+    type: grep_present
+    pattern: 'def dispatch_restart_plan'
+    paths: [tools/qa/system_version.py]

@@ -1,0 +1,16 @@
+{
+ "_doc": "SELF-HEAL 11-05：tools/master/health_tick.py 的开关与阈值（autoflow_resident 里的健康线程每 every_s 秒读一次，改这里不用重启）。apply=false（默认）= 只检查 + 报告，修复只记 dry；PS-MASTER 观察一两个小时无误报后把 apply 改 true 即全自动（有退避 + 熔断）。",
+ "apply": false,
+ "every_s": 45,
+ "confirm_ticks": 2,
+ "max_restarts_per_hour": 3,
+ "backoff_base_s": 60,
+ "backoff_max_s": 900,
+ "idle_lane_min": 5,
+ "kill_duplicates": false,
+ "ignore_tunnel_ports": [],
+ "checks": {"laptop_procs": true, "tunnels": true, "server": true, "gpu_idle": true, "holds": true, "stale_prompt": true, "deploy_stale": true},
+ "_apply_checks": "FIX-ORCH O5（11-06，L-205 全权）：全局 apply 仍 false，这两项修复单独放开——stale_prompt → sop_gate 自动探针（锁按 pid 不叠跑、超时退避）；deploy_stale → 只重启笔记本常驻（ops/restart_resident_sync.ps1 / lane_relay serve / autoflow 写旗交 guard），同一 key 30 分钟最多一次；服务器 producer / night 的 rq_restart 仍 dry（随全局 apply）",
+ "apply_checks": {"stale_prompt": ["probe_stale"], "deploy_stale": ["restart_resident_sync", "stop_start_lane_relay", "flag_restart_autoflow"]},
+ "min_gap_s": {"deploy_stale": 1800}
+}

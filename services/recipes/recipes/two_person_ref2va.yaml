@@ -1,0 +1,47 @@
+# Ref2VA multiframe：每个在画角色一个 <Subject N>（身份参考图），首帧 <Picture 1> 钉在 frame 0
+id: two_person_ref2va
+extends: two_person
+label: 双人·参考图锁身份（Ref2VA）
+status: 建议
+experiment: E5
+priority: 25
+match:
+  min_faces: 2
+mode: ref2va
+model:
+  unet: minimax_h3_ref2va_pruned_int8_convrot.safetensors
+ref2va:
+  enabled: true
+  ref_image_size: match
+  first_frame_slot0: false
+  add_guide_first_frame: false
+  max_refs: 9
+  identity_crops:
+    林晚: data/assets/identity_refs/lin_wan/lin_wan_face_ref2va.png
+    顾沉: data/assets/identity_refs/gu_chen/gu_chen_face_ref2va.png
+    陈宇: data/assets/identity_refs/chen_yu/chen_yu_face_ref2va.png
+prompt:
+  format: ref-en
+  words_min: 350
+  words_max: 500
+lane:
+  only: [0, 1, 3]
+fallback: [two_person]
+provenance:
+  status: {src: "lab_recipes.md 批 2：X1 S6 / X3·X4 S2 / X6 S10 Ref2VA 在静止、泛红、身份三项全面领先（S2 X4：SFace 0.81、cheek_red 0.08、J4 1.03；S6 mean 1.28、S10 1.35，FL2VA 全部 ≤0.49）；总调度 10-31 19:20 要求“对白近景 / 静态情绪 → Ref2VA”写进配方（V2）", date: 2026-10-31, status: 建议}
+  experiment: {src: "h3_comfy_expert §8", date: 2026-10-31, status: 待验}
+  priority: {src: "V2：排在 two_person（30）之前、long_take（20）之后——长镜头仍走基模 24 + I2VA（lab_recipes.md：R9 S11 pass）", date: 2026-10-31, status: 建议}
+  match: {src: "同 two_person（≥2 个在画露脸角色）", date: 2026-10-31, status: 建议}
+  mode: {src: "Comfy multiframe 文档；项目方工作流 Realistic AI Video MiniMax H3.json", date: 2026-10-31, status: 待验, experiment: E5}
+  model.unet: {src: "项目方工作流节点 74；只在 gpu33 有（lab_recipes.md：gpu36 缺 ref2va unet 和 fp16 VAE）", date: 2026-10-31, status: 确认}
+  ref2va.enabled: {src: "E5", date: 2026-10-31, status: 待验}
+  ref2va.ref_image_size: {src: "源码 match=等面积只缩；MiniMaxAI HF #91 max 未救回身份；max 待 E12", date: 2026-10-31, status: 建议, experiment: E12}
+  ref2va.first_frame_slot0: {src: "V2 20:20 改 false：lab_recipes.md E5 multiframe（定稿首帧作 ref_image_0 + AddGuide）实测构图保住，但身份回到首帧水平（SFace 0.35–0.49）、S6 又几乎不动（0.39）；纯 Ref2VA（X4/X6）SFace 0.81、S6/S10 通过。代价：构图不跟定稿首帧（方案 B 走保构图路线）", date: 2026-10-31, status: 建议}
+  ref2va.add_guide_first_frame: {src: "同上（E5 结论），关", date: 2026-10-31, status: 建议}
+  ref2va.max_refs: {src: "节点 ≤9 张", date: 2026-10-31, status: 确认}
+  ref2va.identity_crops: {src: "lab_recipes.md X4：整张定妆图会把项链和粉裙带进画面，脸部裁切后 SFace 0.75→0.81、cheek_red 0.08。19:30 前用 data/ab/lab_ref2va/lin_wan_facecrop.png（取自 lin_wan.png）。20:00 起换成项目方挑定的身份图裁切（原话“林晚A-s202 顾沉s101 陈宇s202脸”，data/assets/identity_refs/manifest.json，by=owner；ArcFace 裁切对设定图 0.883 / 0.822 / 0.843，林晚对定妆 0.901）", date: 2026-10-31, status: 建议}
+  prompt.format: {src: "官方 ref-en 六段（conformance R1）", date: 2026-10-31, status: 确认}
+  prompt.words_min: {src: "ref-en §5.2 生成任务 350–500 词", date: 2026-10-31, status: 确认}
+  prompt.words_max: {src: "同上", date: 2026-10-31, status: 确认}
+  lane.only: {src: "lab_recipes.md：Ref2VA 权重只在 gpu33；gpu36 缺 ref2va unet 和 fp16 VAE（Singularity ref2va 社区许可，先不当默认）", date: 2026-10-31, status: 确认}
+  fallback: {src: "V2：Ref2VA 不行时回到基模 24 + 只给首帧（two_person）", date: 2026-10-31, status: 建议}

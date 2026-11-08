@@ -1,0 +1,28 @@
+{
+ "schema": "nsfs.kickoff/1",
+ "_doc": "开项目确认单（L-215 / L-216，W-KICKOFF 11-07）：项目方的参与全部前置到开项目；开工后流水线不等项目方。读写方 tools/pipeline/kickoff.py（checklist 生成确认单 / record 记答复）。policy 每部剧一份，缺的项按 defaults（零等待）。改这里不能打开 L-128 以外的硬规矩（删除 / 花钱 / 密钥 / gpu33:2 仍写死在代码里）。",
+ "defaults": {
+  "adult_authorization": "all",
+  "look_confirm": "auto",
+  "picks": "delegate_always",
+  "asset_failure": "best_effort",
+  "review_needed": "never_blocks",
+  "asset_revise": "notice"
+ },
+ "_defaults_doc": {
+  "adult_authorization": "all = 项目级常设授权（L-216）：导入稿里新出现的成人镜自动写进触发清单（by=项目方（开项目常设授权 L-216），via=kickoff）；none = 旧行为，等项目方逐镜点",
+  "look_confirm": "auto = 每集造型按 P1 排期 / hub_episode_looks / shot_looks 自动确认（不投“确认本集造型”）；ask = 旧行为",
+  "picks": "delegate_always = 代选永远开（项目方在网页做决定不再让代选到期；他的选择照样随时覆盖）；expire = 旧 L-136 到期规则",
+  "asset_failure": "best_effort = 自动重排用尽后依次：去掉易出错元素重出 → 换一批远种子 → 借同人另一套造型最接近的通过图；都不行标 best_effort、记日志、继续，不投卡；ask = 旧行为（需要修改描述卡）",
+  "review_needed": "never_blocks = 待复核只记录，不挡任何阶段（各闸门已同口径）",
+  "asset_revise": "notice = “需要修改描述”改成灰色“事后可改”告知，不进待办计数；card = 旧行为"
+ },
+ "runs": {
+  "series10_v2": {
+   "policy": {},
+   "answers": {},
+   "confirmed_at": null,
+   "_note": "series10_v2 开工于 L-215 之前；项目方 11-07 04:1x / 04:2x 对话（L-215 / L-216）= 按默认零等待执行"
+  }
+ }
+}

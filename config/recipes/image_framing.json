@@ -1,0 +1,22 @@
+{
+ "_doc": "PROMPT 2026-10-31（knowledge K-REN-101 / K-REN-102）：出图提示词按景别取舍造型部件、首句写景别构图（services/agent/ns_agent/framing.py）。总调度 2026-10-31 定：新剧本 / 新集默认开；默认项目（为他而骚，本仓库根）ep02 整集关（方案 A/B 正用已定稿首帧跑片，不触发重出），现有各集已定稿首帧的镜保持旧提示词（keep_locked_shots）。其它项目按项目根目录名在 per_project 里另配。",
+ "default": true,
+ "per_project": {
+  "__default__": {
+   "off_episodes": [
+    2
+   ],
+   "keep_locked_shots": true
+  }
+ },
+ "close_no_lower": true,
+ "_close_no_lower_doc": "K-REN-707（IMGFIX 11-02，总调度 fredw-2b 定“现在就打开”）：特写 / 近景 / 中近景不注入看不见的下半身单品 / 描述（长腿、露出长腿、裙、鞋）；并列造型 / “穿…”首句不当下半身主体。回退 = 设 false",
+ "keep_subject": true,
+ "_keep_subject_doc": "K-REN-901（IMGLAB 11-02，总调度 04:3x 批）：按景别删句时保住主语（被删分句以人名开头 → 名字补到下一个保留分句前；视线句不删）。false = 回退旧行为。回归：tools/imglab/orphan_check.py",
+ "two_face_close": "two_shot_mcu",
+ "_two_face_close_doc": "K-REN-902（IMGLAB 11-02）：脸部特写 + ≥2 人露脸 → 首句改双人近景构图（two_shot_mcu）；off = 旧行为（同时写“脸占六成”和“两张脸都入画”，preflight I6 会拦）",
+ "partial_only": true,
+ "_partial_only_doc": "K-REN-903（IMGLAB 11-02，总调度批）：在画的人全是局部（不露脸）→ 局部特写首句 + 画面上沿在下颌以下、去脸部通用句与“不露脸”否定句、局部人物锁收窄（成年女性 / 成年男性，肩颈局部不带发色句）；视线句只给露脸的人补。false = 旧行为。回归：tools/imglab/orphan_check.py noface_terms",
+ "promptfix": {"face_exposure_guard": true, "partial_wardrobe_scope": true, "blocking_from_cast": true, "last_face_guard": true, "seed_stream": true, "hand_ref_focus_only": true, "back_view_guard": true},
+ "_promptfix_doc": "PROMPTFIX 11-02（总调度 fredw-2b，ALIGNMENT 第 3-6 步；fb-0004..0007 + ep07-S3 尾帧陌生人）：face_exposure_guard = K-REN-950（cast 局部但近景及更远、主体是人 → 报 cast_face_conflict 并送身份脸）；partial_wardrobe_scope = K-REN-951（局部不露脸的人只送部位内单品，不送设定图 / 整套板，不补“要穿全”）；blocking_from_cast = K-REN-952（cast x 编成站位契约 + 固定站位句）；last_face_guard = K-REN-953（尾帧结束状态写到脸 → 补送身份脸）；seed_stream = K-REN-954（用过的种子不再用）；hand_ref_focus_only = K-REN-955（手部单品图只在手部局部特写进参考槽）。false = 旧行为"
+}

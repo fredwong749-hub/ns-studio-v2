@@ -1,0 +1,24 @@
+# 走动全身：全景 / 远景，或动作里有位移（走、跑、转身离开……）
+id: walk_fullbody
+extends: _base
+label: 走动全身
+status: 建议
+priority: 50
+match:
+  any_visible: true
+  locomotion: true
+loras:
+  motion_repair:
+    file: Motion_Repair_V2.safetensors
+    strength: 0.4
+    enabled: false
+guidance:
+  max_shot_s_suggest: 6
+  face_min_height_frac: 0.12
+fallback: [walk_fullbody_motion_repair]
+provenance:
+  status: {src: "S1 走路：基模 24 步只给首帧 J4 1.12、无脚重影（MOT）；Motion Repair 未测", date: 2026-10-31, status: 建议}
+  loras.motion_repair: {src: "JOKER141 HF（单段约 0.9，修慢动作 / 异常肢体轨迹）；gpu33 有 Motion_Repair_V2.safetensors；默认关。V2 10-31：0.9→0.4（lab_recipes.md D1 S1：0.9 让 J4 1.14→1.35，动作量不增；0.4 = 社区中位，未测）", date: 2026-10-31, status: 待验, experiment: E6}
+  guidance.max_shot_s_suggest: {src: "h3_comfy_expert §5 脸漂移：远景写 5–6 s；LEARNED_SPECS C 单镜上限 6 s", date: 2026-10-31, status: 建议}
+  guidance.face_min_height_frac: {src: "Carasibana：头占画面太小时 H3 画不好（阈值为推断）", date: 2026-10-31, status: 待验}
+  fallback: {src: "rules.yaml R-STILL / R-GHOST 升级到 Motion Repair 变体", date: 2026-10-31, status: 待验, experiment: E6}

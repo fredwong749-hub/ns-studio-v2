@@ -1,0 +1,14 @@
+# 提示词编译插件登记表（唯一一份，人写配置；IMGMASTER 合入，imgfix_* 插件文件登记给 IMGFIX）。
+# 规则：每条 = {id, segment, rule_id, order, enabled}；segment 只能是五段之一（framing / continuity / characters / action / constraints）；
+#   rule_id 必须是 knowledge/rules 里存在且带 check 的规则（G1）；enabled=true 的条目违反任何一条 → 编译报错（失败关闭，不跳过）。
+#   代码里 @plugin("<id>") 注册的实现必须在这里有 enabled 条目，否则也报错。插件签名固定 (segment_text, shot, continuity) -> segment_text。
+# blocked_by 只给 enabled: false 的条目写：说明为什么还不能启用（缺规则 / 缺 check）。（11-02 三条缺口已补，现无禁用项）
+plugins:
+  - {id: cont_scene_block,    segment: continuity, rule_id: K-WRT-H23, order: 10, enabled: true}   # 场景表去掉“光线”，换成 continuity 主光 / 站位；整场逐字相同
+  - {id: env_dedupe,          segment: action,     rule_id: K-WRT-H25, order: 10, enabled: true}   # 去掉本镜正文里不带人名的环境 / 灯光分句（改由 continuity 供）
+  - {id: scene_detail_guard,  segment: action,     rule_id: K-WRT-H23, order: 5 , enabled: true}   # “本镜场景”里的左右 / 前后和 continuity 冲突 → 删该分句并记 trace
+  - {id: outer_items,         segment: characters, rule_id: K-REN-707, order: 10, enabled: true}   # 外层单品补句（原 frame_job.outer_items_note）
+  - {id: text_fallback,       segment: constraints, rule_id: K-AST-263, order: 10, enabled: true}  # 槽位不足的文字说明（原 plan.prompt_note）
+  - {id: eyeline,             segment: action,     rule_id: K-REN-710,   order: 30, enabled: true}   # 视线补句（原 frame_job.eyeline_note）
+  - {id: garment_detail,      segment: characters, rule_id: K-REN-709,  order: 20, enabled: true}   # 袖子 / 领口登记描述句（原 garment_detail_note）
+# 景别首句（framing 段）由 compiler.compile_shot 原样透传，规则 K-REN-101（已补 check），不是插件

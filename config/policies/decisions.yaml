@@ -1,0 +1,517 @@
+# 判断清单（DISTILL 11-02 r1，L-102 / ITERATION_PROTOCOL §G1）：11-01 16:46 – 11-02 01:4x 总调度和各 agent 做过的判断，
+# 现在是否已经由代码 / 规则 / 本地模型执行。素材：docs/overnight/morning_20261102.md、MASTER_PICTURE §1 L-080…L-102、docs/CHANGELOG_AGENTS.md。
+# 字段：
+#   cat      选图 | 资源 | 交还 | 止损 | 部署 | 看图口径 | 流程
+#   coded    yes（代码 / 规则 / 本地模型执行，带 check）| partial（部分执行或只记录）| no（只在聊天 / 报告里）
+#   where    执行它的文件 / 规则号 / 策略项（policy.py ref_check 核对路径存在）
+#   decider_now / decider_target   code | local_model | api_model | owner | claude
+#   plan     coded≠yes 时必填：代码化方案（policy yaml + 代码 / knowledge 规则 + check / 本地 VLM 或便宜 API 判定 prompt）
+# 统计由 tools/autopilot/flow.py coverage 生成 → data/autopilot/coverage.json
+schema: nsfs.decisions/1
+round: distill-r1-20261102
+decisions:
+  # ---------------- 选图 / 驳回
+  - id: DJ-01
+    cat: 选图
+    decision: ep05-S3 v8/v9 驳回（局部特写拉成人像、发色丢）；ep10-S8 v8、ep05-S5 v10 判过
+    trigger: 全量重做后的替换版
+    basis: 镜头原文景别 vs 出图；造型发色
+    coded: "yes"
+    where: config/vqa.json checks.framing_mismatch / hair_mismatch（blocking）；gates.blocking_checks
+    decider_now: local_model
+    decider_target: local_model
+  - id: DJ-02
+    cat: 选图
+    decision: 首帧看镜头 = 拦（视频片头看镜头的根在首帧，49/54）
+    trigger: 任何首帧 / 尾帧
+    basis: L-090；VIDEO-RCA r1
+    coded: "yes"
+    where: config/vqa.json checks.eye_contact(blocking) + ns_qc.gaze_mp；编译器视线句 K-REN-G01 / K-REN-703
+    decider_now: local_model
+    decider_target: local_model
+  - id: DJ-03
+    cat: 选图
+    decision: 全量重做首批单人看镜头 + 缺外套 → 暂停 producer、派 IMGFIX 修根因（19:41）
+    trigger: 规则 / 资产换版后的第一批出图
+    basis: 同一缺陷在首批多张出现 = 根因在提示词或资产，换 seed 无用
+    coded: "yes"
+    where: services/agent/ns_agent/vqa/canary.py（tests/test_vqagate.py::test_canary_after_redo_pauses_on_shared_failure）；gates.canary_after_redo
+    decider_now: code
+    decider_target: code
+  - id: DJ-04
+    cat: 选图
+    decision: 双人句切回实测句（ep01-S5 v5 两人看镜头）；单人侧脸句采用（0/8 看镜头）
+    trigger: 生产反例
+    basis: A/B 实测（双人换句 3/4→0/4）
+    coded: "yes"
+    where: services/recipes/ns_recipes（framing.two_shot_clause 测试锁）；K-REN-703 ⤴
+    decider_now: code
+    decider_target: code
+  - id: DJ-05
+    cat: 选图
+    decision: 人物走样根因 = 局部人物被双人句写成两张脸（IMGFIX 纠正总调度判断）→ 21 镜驳回重出
+    trigger: 项目方 00:05 指出 ep02-S4 脸不对
+    basis: 在画 / 局部人数与双人句触发条件
+    coded: "yes"
+    where: K-REN-705（framing.faced_people / partial_clause）；K-AST-263
+    decider_now: code
+    decider_target: code
+  - id: DJ-06
+    cat: 选图
+    decision: 造型 A 设定图正面栏缺左臂袖（总调度亲看设定图）→ 局部重绘修源头，不改 S★ R0
+    trigger: 首帧单袖、视频外套漂移反复出现
+    basis: 同一缺陷跨多镜 → 查参考资产本身
+    coded: "yes"
+    where: services/agent/ns_agent/sheet_intake.py（K-AST-264，接进 character_hub.set_sheet / tools/assetmaster/choose.py）；config/prompts/asset_sheet_inspect.md（本地 VLM 补充）；gates.asset_sheet_complete_before_use
+    decider_now: code
+    decider_target: code
+    plan: 已由 IMGFIX r6 sheet_intake 落地（IN1 袖子镜像、IN2 外层 Q2 探针）；剩余：同一 outfit_mismatch / clothing_state 跨 ≥3 镜时自动复查该造型设定图（asset_sheet_inspect）
+  - id: DJ-07
+    cat: 选图
+    decision: 袖子修复采用候选 1（双袖深灰 + 米白袖口、框外像素 0 差、Q1 0.962）
+    trigger: 24 张候选
+    basis: sleeve_check 契约 5 项 + L-098 全权委托
+    coded: "yes"
+    where: tools/asset_repair/repair.py（契约 R1–R8 代码判 + 自动选图，K-AST-265；24 张候选复跑仅 v4_d92_s20261102 全过，与人工一致；≥2 张全过时本地 VLM 平局裁决——该分支未实测）；gates.asset_auto_adopt
+    decider_now: code
+    decider_target: code
+    plan: 平局裁决分支（local_model）待首次实际触发后验证
+  - id: DJ-08
+    cat: 选图
+    decision: 背影后脑被 retinaface 认成多一张脸 → 本地 VLM 复核后再挡
+    trigger: 背影镜 Q1 误挡
+    basis: 契约 Q1 陌生脸 vs 看图 people
+    coded: "yes"
+    where: services/agent/ns_agent/gen_contract/postflight.py stranger_boxes；K-REV-V14；gates.back_view_stranger_recheck
+    decider_now: local_model
+    decider_target: local_model
+  - id: DJ-09
+    cat: 选图
+    decision: s20261304 顾沉看镜头被总调度目检发现、自动检查漏检 → 加回归
+    trigger: 人工抽看发现漏检
+    basis: 漏检 = 检测器缺陷
+    coded: "yes"
+    where: tools/vqa/regression_check.py + data/vqa/regression/（12/12）；iter_gate Q2；gates.missed_defect_to_regression
+    decider_now: code
+    decider_target: code
+  - id: DJ-10
+    cat: 选图
+    decision: 总览上看镜头的图 = 旧剧本候选挂在新镜号下，非新出 → 按剧本版本过滤 + 旧版隔离
+    trigger: 项目方截图
+    basis: 候选的 script sha
+    coded: "yes"
+    where: services/api/ns_api/takes_ui.py；gates.stale_candidates_hidden
+    decider_now: code
+    decider_target: code
+  - id: DJ-11
+    cat: 选图
+    decision: 只给项目方看过契约的候选；出图交付前总调度亲审签 master_review
+    trigger: 任何审片页
+    basis: feedback-only-show-passing；OT9
+    coded: partial
+    where: tools/qa/iter_gate.py --for-owner；gates.only_show_passing
+    decider_now: claude
+    decider_target: local_model
+    plan: master_review 签字改为“契约逐项全过 + VQA 全过 + 回归集全过”三项机检通过即签（by=POLICY）；总调度只抽检
+  # ---------------- 资源
+  - id: DJ-12
+    cat: 资源
+    decision: 59 项尽力版挡住下游 42 项 → reset-best-effort 43 项
+    trigger: GPU 空转、ready 对象为 0
+    basis: 尽力版在规则 / 资产修好之前产生
+    coded: "yes"
+    where: tools/autopilot/producer.py（K-OPS-E11 自动重置 / K-OPS-E12 不进合成）；gates.best_effort_policy
+    decider_now: code
+    decider_target: code
+  - id: DJ-13
+    cat: 资源
+    decision: 跳板慢 → 生产改服务器常驻；代码分级推送（先 ≤10 MB 起卡）
+    trigger: 跳板 17–20 KB/s
+    basis: 生产路径不跨跳板（L-099）
+    coded: "yes"
+    where: tools/autopilot/resident_sync.py（tier 推送）；K-OPS-W07
+    decider_now: code
+    decider_target: code
+  - id: DJ-14
+    cat: 资源
+    decision: GPU 分工 L-100：笔记本 4080 + gpu36 GPU2 专做看图，出图道 5 条
+    trigger: 看图是瓶颈（VLM 等卡 722–1062 s）
+    basis: 本机看图峰值 13.3 GB > 12 GB，不能与出图轮流
+    coded: "yes"
+    where: resources.image_lanes / resources.vlm_dedicated_lanes（drift_checked：producer.IMAGE_LANES、config/netfix/override.json）
+    decider_now: code
+    decider_target: code
+  - id: DJ-15
+    cat: 资源
+    decision: 切线路全局 pause 12 分钟未恢复 → 直接 resume；以后只许滚动切换、暂停 ≤3 分钟自动恢复
+    trigger: 系统 / agent 暂停超时
+    basis: GPU 空转
+    coded: "yes"
+    where: tools/autopilot/policy.py pause_decision → tools/autopilot/producer.py 每拍（K-OPS-E08）；resources.pause_max_s
+    decider_now: code
+    decider_target: code
+  - id: DJ-16
+    cat: 资源
+    decision: 打分积压闸 = 2 × 道数 × 看图实例数；顶满不派单
+    trigger: 契约打分 24 s → 506–1483 s
+    basis: 线程等打分致 GPU 空转（K-OPS-E05）
+    coded: "yes"
+    where: tools/autopilot/producer.py score_backlog_max；resources.score_backlog
+    decider_now: code
+    decider_target: code
+  - id: DJ-17
+    cat: 资源
+    decision: 服务器积压闸按 6 条道算是错的，应按本机 3 条
+    trigger: gpu33 停派（01:31）
+    basis: 本机道表
+    coded: partial
+    where: resources.score_backlog.lanes_scope=local
+    decider_now: claude
+    decider_target: code
+    plan: FACTORY 方案 C 服务器 producer 只加载本机道表（self.lanes = 本机），公式不变；policy_check 已锁公式
+  - id: DJ-18
+    cat: 资源
+    decision: 连接风暴根治（连接池、ControlMaster、新建连接闸门、object_info 缓存、香港中转）
+    trigger: 服务器连接一直断（P0）
+    basis: 笔记本 26 个 ssh、MaxStartups
+    coded: "yes"
+    where: tools/netfix/rssh.py、tools/netfix/rsh.py、tools/netfix/tunnel_supervisor.py；K-OPS-N07 / N08
+    decider_now: code
+    decider_target: code
+  - id: DJ-19
+    cat: 资源
+    decision: 实验只用空闲道、生产优先；服务器探测限线程 + timeout
+    trigger: gpu36 满载实验 gpu33 空；V7 复测吃满 96 核
+    basis: K-OPS-V13 / E06
+    coded: partial
+    where: tools/video_rca/srv_run.py；resources.experiments_yield_to_production / remote_probe_limits
+    decider_now: code
+    decider_target: code
+    plan: rsh.py 默认包 timeout + nice + 线程上限（resources.remote_probe_limits）
+  - id: DJ-20
+    cat: 资源
+    decision: 两次受控重启合并为一次（DEBUG-RSI 修复 + NETFIX 切线）
+    trigger: 多个 loop 都要求重启 producer
+    basis: 每次重启都有空转
+    coded: "yes"
+    where: tools/autopilot/restart_queue.py（K-OPS-W16）；resources.rolling_restart
+    decider_now: code
+    decider_target: code
+  # ---------------- 交还
+  - id: DJ-21
+    cat: 交还
+    decision: 交还条件 = 服务器 preflight dryrun 0 挡（assets_ready“缺 0”是假的）
+    trigger: 交还后派单被 preflight I5 全挡
+    basis: 推送清单 ≠ preflight 依赖
+    coded: "yes"
+    where: tools/factory/deps.py、tools/factory/sync.py；handback.preflight_dryrun_ok
+    decider_now: code
+    decider_target: code
+  - id: DJ-22
+    cat: 交还
+    decision: 交还条件加 refs sha 一致（47/50 镜身份脸解析成旧脸）
+    trigger: 服务器缺覆盖类配置
+    basis: preflight 只查存在不查内容
+    coded: "yes"
+    where: tools/factory/sync.py refs_mismatch；handback.refs_match
+    decider_now: code
+    decider_target: code
+  - id: DJ-23
+    cat: 交还
+    decision: assets_ready.ready=true 只能由 FACTORY verify 写（WORKFLOW 自写被改回）
+    trigger: draining 期间全空
+    basis: 写入口唯一
+    coded: "yes"
+    where: tools/autopilot/policy.py handback_ok；handback.ready_writer
+    decider_now: code
+    decider_target: code
+  - id: DJ-24
+    cat: 交还
+    decision: 服务器代码低于 min_code_sv（sv-01 不读 lookA_hold）→ 不许交还 / 不许派
+    trigger: gpu36 派了 hold 内 ep02-S1/S2
+    basis: L-099b D9
+    coded: "yes"
+    where: tools/autopilot/policy.py code_sv_problem ← tools/factory/decisions_guard.py（服务器每拍，F09 拒派）；policy.deployed_sv / handback_ok（交还）；K-OPS-X08
+    decider_now: code
+    decider_target: code
+  - id: DJ-25
+    cat: 交还
+    decision: refs 不一致期间出的 take 驳回；暂停两台 → 补齐 → 恢复
+    trigger: 01:32 P0
+    basis: 不一致的参考出的图不可信
+    coded: "no"
+    where: handback.pause_on_mismatch
+    decider_now: claude
+    decider_target: code
+    plan: refs_match 由 true 变 false → dispatch 自动切回 draining，并对该时段 take 走 master_reject（不计次）
+  # ---------------- 止损
+  - id: DJ-26
+    cat: 止损
+    decision: 写作预算总 $15、每集 $3、连续 1 轮不涨即停
+    trigger: L-098
+    basis: 项目方“太贵了”
+    coded: "yes"
+    where: tools/script_rsi/hollywood_r5.py COST_CAP_USD / EP_CAP_USD / NO_GAIN_STOP；budget.*（drift_checked）
+    decider_now: code
+    decider_target: code
+  - id: DJ-27
+    cat: 止损
+    decision: 未达 95 分时“先导入最高分版开工”
+    trigger: 预算 / 轮数用完
+    basis: 项目方 22:3x 选择
+    coded: "yes"
+    where: tools/autopilot/policy.py pick_import；budget.import_best_when_capped
+    decider_now: code
+    decider_target: code
+  - id: DJ-28
+    cat: 止损
+    decision: 冲高分时写作方加情节被核对拦 → 改逐行补丁模式 + 事实表硬约束
+    trigger: r5 首批停在 39.7–42.3
+    basis: 事实核对器 0 偏差
+    coded: "yes"
+    where: tools/script_rsi/hollywood_r5.py gate5（F1 / F2）；config/prompts/hollywood_facts.md
+    decider_now: code
+    decider_target: code
+  - id: DJ-29
+    cat: 止损
+    decision: 评审噪声先修尺子（评审改可核对清单；三评审极差 >3 记 unstable；V7 只算台词时段）
+    trigger: 分数忽高忽低 / 噪声凑出“过”
+    basis: 量表不稳时分数涨没涨不可信
+    coded: partial
+    where: tools/script_rsi/hollywood_r5.py score5 unstable；tools/autopilot/policy.py noise_stop；budget.judge_noise_*
+    decider_now: claude
+    decider_target: code
+    plan: hollywood_r5 每轮调 policy.noise_stop，stop=true → 本轮不计入“涨没涨”、停写作、先改 hollywood_judge.md 清单
+  - id: DJ-30
+    cat: 止损
+    decision: 写作模型选 flash-high（ep04 同请求 46.6 vs medium 42.0；large-v2 推理吃满无正文弃用）
+    trigger: 换写作模型
+    basis: 同请求 A/B
+    coded: partial
+    where: tools/script_rsi/hollywood_r5.py make_writer
+    decider_now: claude
+    decider_target: code
+    plan: 新写作模型先跑 hollywood_r5 同请求 A/B（固定 ep、固定评审），分高且有正文才换；结果写 config/llm_providers.json
+  - id: DJ-31
+    cat: 止损
+    decision: 运镜用词改编译层规范化，不花写作费用
+    trigger: 导演 / 镜头用词不统一
+    basis: 确定性能修的不发回写作模型
+    coded: "yes"
+    where: services/recipes/ns_recipes/lint.py（K-REN-706 / RL-P1）；budget.prefer_compile_layer
+    decider_now: code
+    decider_target: code
+  - id: DJ-32
+    cat: 止损
+    decision: SeedVR2 静区闪烁 1.67× 超线不用 → 合成只用原片 + lanczos
+    trigger: 清晰度方案对比
+    basis: 闪烁指标
+    coded: "yes"
+    where: tools/series10_video/upscale_preview.py；L-084
+    decider_now: code
+    decider_target: code
+  - id: DJ-33
+    cat: 止损
+    decision: 后期层 A/B（27.8→31.2）通过才接进合成链
+    trigger: DIRECTOR r1
+    basis: 成片分
+    coded: "yes"
+    where: tools/director/post_pass.py、tools/director/film_score.py；gates.post_layer_enabled（flow.py 比较）
+    decider_now: code
+    decider_target: code
+  # ---------------- 部署
+  - id: DJ-34
+    cat: 部署
+    decision: 每次迭代 cut 系统版本并 deploy 两台
+    trigger: 收轮
+    basis: L-095
+    coded: "yes"
+    where: tools/qa/system_version.py；deploy.cut_every_iteration
+    decider_now: code
+    decider_target: code
+  - id: DJ-35
+    cat: 部署
+    decision: 只推 tag 内文件（cut 后新建文件被推送闸误判）；gpu36 单独 deploy sv-03
+    trigger: gpu36 deploy 被拦
+    basis: L-099b D9
+    coded: "yes"
+    where: tools/qa/system_version.py deploy_host（export_tag 快照，K-OPS-F06 / F07）；deploy.push_tag_files_only
+    decider_now: code
+    decider_target: code
+  - id: DJ-36
+    cat: 部署
+    decision: :8800 只在 /api/jobs 空闲时重启
+    trigger: API 改动需要重启
+    basis: 不打断在跑任务
+    coded: "yes"
+    where: tools/uirsi/api_restart_guard.py tick ← tools/autopilot/flow.py tick（每拍，接重启队列）；deploy.restart_api_when_idle
+    decider_now: code
+    decider_target: code
+  # ---------------- 看图口径
+  - id: DJ-37
+    cat: 看图口径
+    decision: 看图闸门拦截 + 自动重出（现行口径见 config/owner_decisions.yaml D-VQA-01）
+    trigger: L-080
+    basis: 项目方原话
+    coded: "yes"
+    where: config/vqa.json judge.enforce；gates.image_gate_enforce
+    decider_now: local_model
+    decider_target: local_model
+  - id: DJ-38
+    cat: 看图口径
+    decision: 两边统一口径 B；标定一致率 ≥0.93 的项才拦；Q2 外套探针未达标只记录；extra_limbs 不单独拦
+    trigger: gpu36 对照 29 对
+    basis: GATE_CALIBRATION
+    coded: partial
+    where: config/vqa.json；docs/vqa/GATE_CALIBRATION.md；gates.calibration_min_agreement
+    decider_now: claude
+    decider_target: code
+    plan: 标定脚本输出一致率后，policy_check 禁止一致率 < 0.93 的项设 blocking=true
+  - id: DJ-39
+    cat: 看图口径
+    decision: MediaPipe 垂眼 / 闭眼排除、俯仰上限 0.12→0.2；V6 多肢 = 手数 > 人数×2 且看图同时命中
+    trigger: 误报 1/4
+    basis: 总调度亲审 4 张
+    coded: "yes"
+    where: tools/series10_video/score_clip.py；gates.gaze_rules / extra_limbs_rule
+    decider_now: code
+    decider_target: code
+  - id: DJ-40
+    cat: 看图口径
+    decision: Q1 按转角分档（要看图身份 ok）；侧脸句 SFace 降到 ~0.7 时等契约 Q1 再定
+    trigger: 侧脸句引入
+    basis: 契约 Q1
+    coded: "yes"
+    where: services/agent/ns_agent/vqa/contract.py q1_yaw_relax
+    decider_now: code
+    decider_target: code
+  - id: DJ-41
+    cat: 看图口径
+    decision: “Pika 无顿挫”判断有误 → 4 帧一顿，去抖门槛 1.25→1.2
+    trigger: 冒烟片
+    basis: J4 量化
+    coded: "yes"
+    where: config/pipeline/video_policy.json dejudder.j4_gt；gates.video_stutter_j4_gt
+    decider_now: code
+    decider_target: code
+  - id: DJ-42
+    cat: 看图口径
+    decision: 外套中途消失根因 = 分拍写“整理外套”动作 → 写作 lint
+    trigger: Pika 冒烟
+    basis: 8/8 vs 0/2
+    coded: "yes"
+    where: QW-W11（tools/qa/writer_lints.py）；K-WRT-702
+    decider_now: code
+    decider_target: code
+  # ---------------- 流程
+  - id: DJ-43
+    cat: 流程
+    decision: 剧本导入走 PRODUCER 通道；导入被权限系统拦下 → 交项目方本人执行
+    trigger: HOLLYWOOD 选出导入稿
+    basis: /api/script-inbox/import 只收 by=owner 或 PRODUCER 令牌；权限系统 Modify Shared Resources
+    coded: partial
+    where: tools/autopilot/producer.py import_staged
+    decider_now: owner
+    decider_target: code
+    plan: 项目方 11-01 方案 A 已授权 PRODUCER 导入；无人值守时编排器经 PRODUCER 令牌调 producer.py import-staged（不冒用 owner 身份）；Claude 驱动时被权限系统拦则交项目方
+  - id: DJ-44
+    cat: 流程
+    decision: 导入前不开全量出图；导入后重编作业、jobs_vs_import ok 才派
+    trigger: 剧本返修中
+    basis: 旧剧本出的图会作废
+    coded: "yes"
+    where: tools/autopilot/full_redo.py gates_ok / image_jobs_green；tools/autopilot/episode_pipeline.py prepare
+    decider_now: code
+    decider_target: code
+  - id: DJ-45
+    cat: 流程
+    decision: jobs.json 早于 L-088 → night 起前重编 + 派单时再验配方；旧编译稿 RL-E3=0 才起 night
+    trigger: AUDIT P1
+    basis: K-OPS-Q24 / W11
+    coded: "yes"
+    where: tools/series10_video/night.py；K-OPS-Q24 / K-OPS-W11
+    decider_now: code
+    decider_target: code
+  - id: DJ-46
+    cat: 流程
+    decision: 驳回即撤下当前版本（set_active 唯一入口 + 审计）
+    trigger: RSI r5 设计冲突
+    basis: L-089
+    coded: "yes"
+    where: tools/autopilot/producer.py master_reject；retry.reject_clears_active
+    decider_now: code
+    decider_target: code
+  - id: DJ-47
+    cat: 流程
+    decision: 身份脸只收脸部裁切（宽高比 0.6–1.6、人脸占比 ≥12%）
+    trigger: 整张设定图被设为身份脸
+    basis: L-086
+    coded: "yes"
+    where: config/face_reference.json；D-AST（decision_check）
+    decider_now: code
+    decider_target: code
+  - id: DJ-48
+    cat: 流程
+    decision: 资产修复期间受影响造型的首尾帧暂缓派单（lookA_hold），修好后解除 + 旧图驳回不计次
+    trigger: 设定图缺陷
+    basis: 用坏参考出图白花 GPU
+    coded: "yes"
+    where: tools/autopilot/producer.py asset_hold_objects；K-OPS-E04；tools/imgfix/lookA_adopt.py
+    decider_now: code
+    decider_target: code
+  - id: DJ-49
+    cat: 流程
+    decision: 项目方误点造型 A → 确认“只是点着看”→ 恢复；已定决策防误点
+    trigger: 人物中心误点
+    basis: L-093
+    coded: "yes"
+    where: services/api/ns_api/takes_ui.py（UIRSI r40 已定决策防误点）；decision_check D-AST-93
+    decider_now: code
+    decider_target: code
+  - id: DJ-50
+    cat: 流程
+    decision: 鞋按每镜剧本造型；集时长 60–120 秒；镜数上限 max(8, 轮次+独白, ⌈秒数÷6⌉)
+    trigger: 项目方选择
+    basis: L-092 / L-094；D-SCR-06 / 08
+    coded: "yes"
+    where: services/agent/ns_agent/importer/script_md.py shot_cap；QW-E3
+    decider_now: code
+    decider_target: code
+  - id: DJ-51
+    cat: 流程
+    decision: 每个判断都写成代码 / 规则 / prompt；一个编排器；decider 标注
+    trigger: L-102
+    basis: 项目方原话
+    coded: "yes"
+    where: tools/autopilot/flow.py；tools/autopilot/policy.py；K-OPS-X01 / X02
+    decider_now: code
+    decider_target: code
+  - id: DJ-52
+    cat: 止损
+    decision: 预览交付棘轮：成片分 ≥ max(30, 该集历史最好 − 1)，口型重出单 0，视线 A1 无零分
+    trigger: 总调度批复 DISTILL r1（film_score_min 未定）
+    basis: 项目方定过成片只出预览；DIRECTOR 成片分 /50
+    coded: "yes"
+    where: tools/autopilot/policy.py delivery_check / update_best；gates.delivery_gate；tools/autopilot/flow.py delivery 段
+    decider_now: code
+    decider_target: code
+  - id: DJ-53
+    cat: 部署
+    decision: data/ 里的决策 / 配置类文件随系统版本打快照、回滚一起恢复；新剧本从 config/ 默认值生成
+    trigger: WORKFLOW 指出 recipe_choice 等不进版本，重建环境会丢
+    basis: G1 / 新剧本冷启动
+    coded: partial
+    where: tools/autopilot/state_snapshot.py；config/policies/state_files.yaml；K-OPS-X06
+    decider_now: code
+    decider_target: code
+    plan: system_version.py cut 调 state_snapshot.snapshot(sv)、rollback 调 restore（FACTORY 负责接入，它正在改部署闸门）；library.py 落地后同时 put 进本地库
+  - id: DJ-54
+    cat: 流程
+    decision: 多剧并行：每部剧一个 run_id（独立 run 目录 / 登记表 / 作业 / 渲染目录），导入新剧本只新增 run、不替换正式剧；GPU 正式剧优先、新剧用空档；项目方闸门只留“填 P0 Brief”和“看预览确认交付”
+    trigger: 项目方要从 #/script-create 新建剧本，同时 series10 继续生产
+    basis: 总调度 11-02 02:4x
+    coded: partial
+    where: resources.multi_run / run_priority；budget.writing_per_run；tools/autopilot/flow.py（按 run 登记表 runs.json 读多 run，登记表待 WORKFLOW 建）
+    decider_now: code
+    decider_target: code
+    plan: DEBUG-RSI（producer 多 run + 优先级派单）、WORKFLOW（runs.json + episode_pipeline 按 run）、FACTORY（服务器按 run_id 分 inbox / outbox / expected_refs）按 docs/AUTOPILOT.md §0.1 落地

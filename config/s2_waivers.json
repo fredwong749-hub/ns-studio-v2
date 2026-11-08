@@ -1,0 +1,17 @@
+{
+ "_doc": "S2 一次性豁免，按剧 + 集匹配（MERGE-OPS-O 11-03，L-137）：条目带 run 只对该剧有效；不带 run 的老条目只对 V1。只由 tools/s2_waiver.py（项目方本人运行）写。",
+ "waivers": [
+  {
+   "episode": 2,
+   "skip": [
+    "plate"
+   ],
+   "owner_quote": "造型确认，这次跳过底图",
+   "scope": "ep02 本次端到端测试渲染",
+   "by": "owner",
+   "at": "2026-10-30T21:51:49",
+   "revoked": false,
+   "run": "series10_v1"
+  }
+ ]
+}

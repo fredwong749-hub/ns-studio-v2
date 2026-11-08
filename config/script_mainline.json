@@ -1,0 +1,7 @@
+{
+  "note": "剧本导入页的“主线”候选（相对仓库根的路径，可多个）。项目方 2026-10-30：“还是用qwen写吧，api那个太贵了” → 主线 = Qwen 逐镜返修循环的实时输出；abliteration 版留作历史候选。换主线只改这里。",
+  "mainline": [
+    "data/staging_v3/merged/漆皮之下·十日_series10_v1_rsiD07_ep01_ep02_ep03_ep04_ep05_ep06_ep07_ep08_ep09_ep10_v3.md"
+  ],
+  "_cleanup": "K-OPS-Q31（CLEANUP 11-01）：剧本导入页的主线 = 现行导入来源（ns_api.import_sources.mainline，从 script_v2.json sources 自动推导） ∪ 这里项目方指定的；推导不出来时只用这里。⤴ 原主线 = 60 集旧稿 v3.1（已取代）"
+}

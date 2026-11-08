@@ -1,0 +1,101 @@
+# NETFIX 11-02（总调度 fredw-2b 00:5x；规则 K-OPS-N08）：项目自己的 ssh 配置（WSL OpenSSH 用，-F 指定），不改用户 ~/.ssh/config。
+# 主路：香港中转 hkjump(47.243.63.181) → 194relay(sz194.instameta.org，必须写域名) → gpu33/gpu36；备用：直连 194relay → gpu。
+# known_hosts 用项目内 config/netfix/known_hosts（hkjump 指纹 SHA256:IrIRIa+ucfx1CxhkWG4lEsDI58vb1EZ03/rOR7uPHtY，总调度 00:5x ssh-keyscan 核对与项目方文档一致）。
+# WSL 侧同内容见 ssh_config.wsl（路径不同）。
+Host *
+    UserKnownHostsFile "/mnt/d/NS-Final Studio/config/netfix/known_hosts"
+    StrictHostKeyChecking yes
+    IdentitiesOnly yes
+    BatchMode yes
+    ConnectTimeout 20
+    ServerAliveInterval 10
+    ServerAliveCountMax 3
+    TCPKeepAlive yes
+Host hkjump
+    HostName 47.243.63.181
+    User fong
+    IdentityFile ~/.ssh/id_ed25519_gpu36
+Host 194relay-hk
+    HostName sz194.instameta.org
+    Port 19422
+    User fong
+    IdentityFile ~/.ssh/id_rsa_gpu33
+    IdentityFile ~/.ssh/id_ed25519_gpu36
+    ProxyJump hkjump
+Host 194relay
+    HostName sz194.instameta.org
+    Port 19422
+    User fong
+    IdentityFile ~/.ssh/id_rsa_gpu33
+    IdentityFile ~/.ssh/id_ed25519_gpu36
+Host gpu33-hk
+    HostName 10.0.0.33
+    User root
+    HostKeyAlias gpu33
+    IdentityFile ~/.ssh/id_rsa_gpu33
+    ProxyJump 194relay-hk
+Host gpu36-hk
+    HostName 10.0.0.36
+    User root
+    HostKeyAlias gpu36
+    IdentityFile ~/.ssh/id_ed25519_gpu36
+    ProxyJump 194relay-hk
+Host gpu33
+    HostName 10.0.0.33
+    User root
+    HostKeyAlias gpu33
+    IdentityFile ~/.ssh/id_rsa_gpu33
+    ProxyJump 194relay
+Host gpu36
+    HostName 10.0.0.36
+    User root
+    HostKeyAlias gpu36
+    IdentityFile ~/.ssh/id_ed25519_gpu36
+    ProxyJump 194relay
+# ---- r3：-tb = 经 base-b（直连跳板）的第二条底座，端口 22361 / 22331
+# ---- r2：底座隧道端口经 Windows 侧 stdio 桥（WSL NAT 访问不到 Windows 127.0.0.1）
+Host gpu36-t
+    HostName 127.0.0.1
+    User root
+    HostKeyAlias gpu36
+    IdentityFile ~/.ssh/id_ed25519_gpu36
+    ConnectTimeout 15
+    ProxyCommand "/mnt/d/NS-Final Studio/.venv/Scripts/python.exe" -u "D:/NS-Final Studio/tools/netfix/tcpbridge.py" 127.0.0.1 22360
+Host gpu33-t
+    HostName 127.0.0.1
+    User root
+    HostKeyAlias gpu33
+    IdentityFile ~/.ssh/id_rsa_gpu33
+    IdentityFile ~/.ssh/id_ed25519_gpu36
+    ConnectTimeout 15
+    ProxyCommand "/mnt/d/NS-Final Studio/.venv/Scripts/python.exe" -u "D:/NS-Final Studio/tools/netfix/tcpbridge.py" 127.0.0.1 22330
+Host gpu36-tb
+    HostName 127.0.0.1
+    User root
+    HostKeyAlias gpu36
+    IdentityFile ~/.ssh/id_ed25519_gpu36
+    ConnectTimeout 15
+    ProxyCommand "/mnt/d/NS-Final Studio/.venv/Scripts/python.exe" -u "D:/NS-Final Studio/tools/netfix/tcpbridge.py" 127.0.0.1 22361
+Host gpu33-tb
+    HostName 127.0.0.1
+    User root
+    HostKeyAlias gpu33
+    IdentityFile ~/.ssh/id_rsa_gpu33
+    IdentityFile ~/.ssh/id_ed25519_gpu36
+    ConnectTimeout 15
+    ProxyCommand "/mnt/d/NS-Final Studio/.venv/Scripts/python.exe" -u "D:/NS-Final Studio/tools/netfix/tcpbridge.py" 127.0.0.1 22331
+Host gpu36-tc
+    HostName 127.0.0.1
+    User root
+    HostKeyAlias gpu36
+    IdentityFile ~/.ssh/id_ed25519_gpu36
+    ConnectTimeout 15
+    ProxyCommand "/mnt/d/NS-Final Studio/.venv/Scripts/python.exe" -u "D:/NS-Final Studio/tools/netfix/tcpbridge.py" 127.0.0.1 22362
+Host gpu33-tc
+    HostName 127.0.0.1
+    User root
+    HostKeyAlias gpu33
+    IdentityFile ~/.ssh/id_rsa_gpu33
+    IdentityFile ~/.ssh/id_ed25519_gpu36
+    ConnectTimeout 15
+    ProxyCommand "/mnt/d/NS-Final Studio/.venv/Scripts/python.exe" -u "D:/NS-Final Studio/tools/netfix/tcpbridge.py" 127.0.0.1 22332

@@ -1,0 +1,21 @@
+# 泛红风险叠加：本镜提示词（H3 正文 / 首帧 / motion）里有脸红类描述词。
+# 这是**渲染参数触发**（LEARNED_SPECS B：flush 描述 + Pika 会放大泛红），不是内容检测，不改任何文字。
+id: flush_risk
+kind: overlay
+label: 泛红风险（脸红类描述）
+status: 建议
+match:
+  flush_words: true
+words: [flush, flushed, blush, blushing, redden, reddened, reddening, crimson cheeks, rosy cheeks, red-faced, 潮红, 绯红, 泛红, 脸红, 红晕, 发红, 涨红, 羞红, 红了脸, 脸颊红, 面红]
+block_recipes: [dialogue_closeup_pika, static_emotion_pika, i2va_pika_flex]
+set:
+  post.skin_guard: false
+  acceptance.cheek_a_drift_max: 6.0
+keyframe_hints:
+  krea2_strength: 0.25
+provenance:
+  words: {src: "VIDEO-RCA r1（11-01 19:0x）：补 redden / reddening / rosy cheeks / red-faced 与中文 发红 / 涨红 / 羞红 / 红了脸 / 脸颊红 / 面红（ep05-S4 写 redden 原先拦不住；子串匹配）；LEARNED_SPECS B：提示词含 flush/blush 描述的镜头不用 Pika（S2/S4 Pika a*p95 43.9/43.2）", date: 2026-10-31, status: 建议}
+  block_recipes: {src: "同上；11-01 WORKFLOW 加 i2va_pika_flex（series10 默认改 Pika 后泛红防护照旧，compiler.blocked_swap 换 i2va_pdd2）", date: 2026-11-01, status: 建议}
+  post.skin_guard: {src: "skin guard 待验（要先加嘴唇排除）；规则表 R-RED 可在第 2 次打开", date: 2026-10-31, status: 待验}
+  acceptance.cheek_a_drift_max: {src: "LEARNED_SPECS A 泛红闸门", date: 2026-10-31, status: 确认}
+  keyframe_hints.krea2_strength: {src: "LEARNED_SPECS B 关键帧 krea2 0.5→0.25（有脸近景）；关键帧阶段，不在视频图里，交出图链路", date: 2026-10-31, status: 待验}

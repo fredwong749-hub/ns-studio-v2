@@ -1,0 +1,29 @@
+# 两段式（E1）：0.52 MP 跑高 σ 段 → 3D latent 放大到 768×1344 → 低 σ 段。只用于独立镜头，不用于尾帧续接链
+# 结构照 ganloss i2v latent upscale 工作流：两个 ImageToVideo 条件（低分辨率 / 目标分辨率）各配一个 guider
+id: long_take_two_stage
+extends: long_take
+label: 两段式（试验·放大器待许可登记）
+status: 待许可登记
+experiment: E1
+selectable: false
+two_stage:
+  enabled: true
+  pass1: [544, 960]
+  split_step: 12
+  upscaler_model: minimax_h3_latent_upscaler_3d_conv_v1_bf16.safetensors
+  upscaler_precision: fp16
+  temporal_chunking: true
+  force_unload: true
+fallback: []
+provenance:
+  status: {src: "LBH 3D 上采样器许可未登记（总调度 2026-10-31：标待许可登记、不设默认）", date: 2026-10-31, status: 待许可登记}
+  experiment: {src: "h3_comfy_expert §8 E1", date: 2026-10-31, status: 待验}
+  selectable: {src: "许可未登记，不能被自动选中", date: 2026-10-31, status: 确认}
+  two_stage.enabled: {src: "E1", date: 2026-10-31, status: 待验, experiment: E1}
+  two_stage.pass1: {src: "h3_comfy_expert §2：第一段 0.3–0.5 MP（9:16 0.52 MP = 544×960）；aifuturetech 'first pass barely matters'", date: 2026-10-31, status: 待验}
+  two_stage.split_step: {src: "24 步第 12 步 σ≈0.923（项目方工作流 20/10 同 σ；LBH / ganloss 0.9035）", date: 2026-10-31, status: 待验}
+  two_stage.upscaler_model: {src: "gpu33 现有 models/latent_upscale_models/minimax_h3_latent_upscaler_3d_conv_v1_bf16.safetensors（_meta/gpu33.tsv）", date: 2026-10-31, status: 待许可登记}
+  two_stage.upscaler_precision: {src: "项目方工作流节点 80 fp16", date: 2026-10-31, status: 待验}
+  two_stage.temporal_chunking: {src: "LBH changelog：chunking 修末尾闪烁；<32 latent 帧可关", date: 2026-10-31, status: 待验}
+  two_stage.force_unload: {src: "项目方工作流节点 80", date: 2026-10-31, status: 待验}
+  fallback: {src: "阶梯末级 → 待项目方", date: 2026-10-31, status: 确认}

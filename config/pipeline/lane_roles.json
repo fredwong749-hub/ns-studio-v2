@@ -1,0 +1,69 @@
+{
+ "_doc": "L-206（项目方 11-06）工位分卡单一来源：每条道一个角色（image 出图 / review 审图 / video 视频），出图调度（producer）、视频调度（night/vidgen）、看图路由（vqa client / score）都只读这里。phase=frames（首尾帧阶段）用 frames 表；本集首尾帧全部定下（passed / best_effort）后自动切到 videos 表（每卡一集至多切换一次）。enabled=false = 旧行为（全部道共享）。坏卡 gpu33:2 永不出现。",
+ "enabled": true,
+ "from_episode": 1,
+ "phases": {
+  "frames": {
+   "image": [
+    "gpu33:0",
+    "gpu33:1",
+    "gpu36:0",
+    "gpu36:1"
+   ],
+   "review": [
+    "gpu33:3"
+   ],
+   "video": [
+    "gpu36:2"
+   ]
+  },
+  "videos": {
+   "image": [],
+   "review": [
+    "gpu33:3"
+   ],
+   "video": [
+    "gpu33:0",
+    "gpu33:1",
+    "gpu33:3",
+    "gpu36:0",
+    "gpu36:1",
+    "gpu36:2"
+   ]
+  }
+ },
+ "image_prefetch_depth": 1,
+ "review": {
+  "vqa_instances": 3,
+  "lane": "gpu33:3",
+  "port_base": 8870,
+  "lan_url": "http://10.0.0.33:8870",
+  "vqa_instances_by_phase": {
+   "frames": 3,
+   "videos": 1
+  },
+  "lan_proxy": {
+   "enabled": true,
+   "bind": "10.0.0.33",
+   "port": 8870,
+   "allow": [
+    "10.0.0.36"
+   ],
+   "target": "127.0.0.1:8870"
+  },
+  "_lan_proxy": "11-06 22:5x 项目方批准开审图内网入口（L-208 ②A）；只听 10.0.0.33:8870、只认 10.0.0.36。L-207：gpu33 审图位内网入口（tools/netfix/review_lan_proxy.sh，lan_proxy.py 反向：只听 10.0.0.33:8870、只认 10.0.0.36），供 gpu36 视频打分走 lan_url；resident_sync 每拍保活；enabled=false = 不起（gpu36 打分退旧路由 / 未测）"
+ },
+ "_review": "视频打分（score_clip V9 看图 + 身份）也只去审图位：打分进程在 gpu33 → 127.0.0.1:port_base；在 gpu36 → lan_url（必须 10. 内网地址，K-REV-V01；需要 gpu33 上有只认 10.0.0.36 来源的内网入口，同 tools/netfix/lan_proxy 反向）。lan_url 不合规 / 没配 = 旧路由（config/vqa.json route）",
+ "hold_regen_downstream": true,
+ "_hold_regen_downstream": "某镜首帧在换代（regen / master_reject 未 cleared）时，不派它的尾帧、不派它的视频，等新首帧定下再派（L-206；ep01 S2/S4/S16 白跑）",
+ "_L207": "L-207（项目方 11-06）：一集严格三段 首尾帧（出图 4 + 审图 1 + 视频 1）→ 首尾帧全定下后 全部 6 张卡做视频（gpu33:3 同时保留 1 个看图实例供视频打分，约 7.5 GB + H3 约 13 GB，ComfyUI --reserve-vram 9）→ 合成（CPU，可与下一集首尾帧重叠）→ 下一集首尾帧。run 级排序源 = data/pipeline/lane_roles_state.json <run>._active（producer 写；只有 active 集在 frames 段才派首尾帧；下一集等 active 集视频全定下）；成人镜不计。",
+ "frames_idle_fallback_s": 1200,
+ "idle_overlap_s": 120,
+ "_idle_overlap_s": "11-07 PS-MASTER（项目方“GPU 资源不能空闲”）：L-207 下 active 集没活给某条道、该道连续空闲 ≥ 这么多秒 → 允许接下一集首尾帧（0 = 关）",
+ "_frames_idle_fallback_s": "C2（L-207 复审）：首尾帧阶段 ≥1 镜定下、没有 ready/running 的首尾帧 → 立刻进 videos；或定下数连续这么多秒没变且没有在跑 → 进 videos（卡住的镜之后就绪照常回切）",
+ "review_scale": {
+  "enabled": true,
+  "timeout_s": 300
+ },
+ "_review_scale": "L-207 阶段钩子：active 集 phase 变化时 producer 跑 tools/vqa/review_instances.sh scale N（N = review.vqa_instances_by_phase[phase]）；审图台本机 subprocess / 笔记本 rssh；后台线程 + 超时 + 幂等（data/pipeline/review_scale.json）；失败只记日志、用活着的实例"
+}

@@ -1,0 +1,31 @@
+# FACTORY（总调度 11-02 04:0x，VQAGATE 查出 gaze_mp 在生产静默失效）：服务器工厂运行依赖清单。
+# deploy 前在目标机核对（tools/factory/server_deps.py，system_version.deploy_host 调用）：缺包 / 版本不符 / 模型 sha 不符 → 拒绝部署、不排重启。
+# 改依赖 = 改这里 + 随 sv 发版；装包仍需人工 / FACTORY 执行（免费包），清单只核对不自动安装。
+venvs:
+  /root/work/fredw/offline_20261101/venv:          # producer / night 用的解释器
+    imports:                                        # 必须能 import（模块名）
+      - numpy
+      - cv2
+      - mediapipe
+      - mediapipe.tasks.python.vision
+      - matplotlib
+      - PIL
+      - yaml
+    versions:                                       # pip 包名: 期望版本（只核对写了的）
+      mediapipe: "1.2.0"
+binaries:                                           # producer / night 的 PATH（$OFF/bin 在最前，resident_restart.sh / systemd env）上必须找得到
+  path_prefix: /root/work/fredw/offline_20261101/bin
+  required:                                         # VIDLAB 11-02：gpu33 缺 ffmpeg，V7 / SFace 视频打分跑不了
+    - ffmpeg                                        # imageio-ffmpeg 静态 7.0.2，链到 /root/work/fredw/tools_bin，再链进 $OFF/bin
+    - ffprobe                                       # tools/series10_video/ffprobe_shim.py（用 ffmpeg -i 解析）
+models:                                             # 相对 producer 仓库根目录
+  models_cache/vision/face_landmarker.task: 64184e229b263107bc2b804c6625db1341ff2bb731874b0bcc2fe6544e0bc9ff
+  models_cache/vision/selfie_multiclass_256x256.tflite: c6748b1253a99067ef71f7e26ca71096cd449baefa8f101900ea23016507e0e0
+host_models:                                        # 只装在某台上的模型（绝对路径），按主机核对（IMGLAB 11-02：异常检测，来源 docs/research/imglab/install_plan_bases.md）
+  gpu36:
+    /root/work/fredw/hf_models/oneformer_ade20k_swin_tiny/pytorch_model.bin: 909b07dbf4129c2bbb8df4498e35dcd46f305e3ec45329d3ff6d4f0360de27f3
+    /root/work/fredw/hf_models/Depth-Anything-V2-Small-hf/model.safetensors: 3152477ce0d8d6978d76b995120de97cb5b928701fd0f817769f59e249a16b70
+host_venvs:                                         # 只在某台上要求的解释器依赖
+  gpu36:
+    /root/work/fredw/venv:
+      imports: [transformers]

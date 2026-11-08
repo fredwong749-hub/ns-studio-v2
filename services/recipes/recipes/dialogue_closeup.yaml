@@ -1,0 +1,16 @@
+# 对白近景：画面里有人开口说话（H3 原声对白），近景 / 特写 / 中近景 / 中景
+id: dialogue_closeup
+extends: _base
+label: 对白近景
+status: 确认
+priority: 40
+match:
+  any_visible: true
+  speaking_on_screen: true
+  size_in: [极近特写, 大特写, 特写, 中近景, 近景, 中景]
+prompt:
+  max_speakers: 1
+fallback: [dialogue_closeup_pika]
+provenance:
+  prompt.max_speakers: {src: "本地规则 H3-D7（普通对话镜每镜一人发声）；config/render_quality.json post.dialogue_source=h3", date: 2026-10-31, status: 确认}
+  fallback: {src: "refactor_proposal §7.4 第 3 级：official_base → pika_flex 只给首帧（flush 镜头禁用，见 overlays/flush_risk）", date: 2026-10-31, status: 建议}

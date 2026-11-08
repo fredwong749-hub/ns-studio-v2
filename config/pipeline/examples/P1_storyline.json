@@ -1,0 +1,21 @@
+{
+  "schema": "nsfs.storyline/1",
+  "title": "<剧名，照抄提纲>",
+  "premise": "<一段话：全剧前提>",
+  "world": {"setting": "<地点与社会环境>", "era": "<年代>", "rules": ["<世界规则 1>"]},
+  "characters": [
+    {"name": "<中文名>", "char_id": "ch_<id>", "role": "<主角/对手/配角>", "age": 25, "gender": "女",
+     "zh_look": "<年龄段>｜<体型>｜<发型发色>｜<服装主色>｜<标志物>｜<不可变特征>",
+     "en_phrase": "<a 25-year-old East Asian woman with ... hair, ... face, ... build>",
+     "voice_phrase": "<a ... Mandarin voice, mid-high register, ... pace>",
+     "relations": [{"to": "<中文名>", "relation": "<关系>"}], "first_episode": 1}
+  ],
+  "scenes": [
+    {"scene_id": "sk_<id>", "name": "<名称>", "space": "<空间描述，只写环境>", "time_of_day": "<时段>",
+     "light": "<光源、方向、色温>", "fixtures": "<1–3 件固定陈设>"}
+  ],
+  "episodes": [
+    {"episode": 1, "title": "<集标题>", "owner_line": "<逐字照抄提纲第 1 集一句话>", "logline": "<本集一段话>",
+     "characters": ["<中文名>"], "scenes": ["sk_<id>"], "intimate": false, "carry_out": "<结尾留给下一集的状态>"}
+  ]
+}

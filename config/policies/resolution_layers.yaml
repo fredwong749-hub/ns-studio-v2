@@ -1,0 +1,47 @@
+# 解析层登记（WORKFLOW 11-02，总调度 P0：第二季身份脸漏继承 face_overrides）
+# 解析层 = 不在 config/recipes/asset_refs.json 里、却会改变“某镜用哪张参考图”的覆盖文件，格式 {project: {...}}。
+# 规则（K-OPS-W19）：
+#   1. 参考图解析只走 ns_agent.asset_refs（face_of / item_map / quarantine / hub_extra_looks），生产、dryrun、测试同一入口；
+#   2. inherit=first_hit：继承链上第一个写了该键的项目生效（子季设了用子季的，没设用父季的）；
+#      inherit=layered：父季先、子季后逐层深合并；inherit=none：每季自己的（按集排期，集号每季不同）；
+#   3. 本表每个文件都必须进 FACTORY 依赖闭包（tools/factory/deps.py 的 dryrun 读文件钩子会记录；若文件不存在则记缺）
+#      和 SENTINEL S6 配置一致探针（config/policies/sentinel.yaml S6_config_parity.value.files）；
+#   4. 新增覆盖文件先登记到这里，tests/test_resolution_layers.py 会核对 asset_refs.py 里所有覆盖文件常量都已登记。
+schema: nsfs.resolution_layers/1
+layers:
+  - path: data/looks/face_overrides.json
+    const: FACE_OVERRIDES
+    reader: ns_agent.asset_refs.face_of
+    inherit: first_hit
+    what: 身份脸覆盖（L-122：林晚 = ar-c2351c9dcf 母版脸，取代 L-086 的 hd_A_s202）
+    source: L-086 / L-087 / D-AST-86
+  - path: data/looks/item_map_overrides.json
+    const: OVERRIDES
+    reader: ns_agent.asset_refs.item_map
+    inherit: layered
+    what: 造型 → 单品映射覆盖（资产中心写）
+    source: L-094 / IMGFIX
+  - path: data/looks/item_map_quarantine.json
+    const: QUARANTINE
+    reader: ns_agent.asset_refs.quarantine
+    inherit: layered
+    what: 单品映射隔离（不进参考图）
+    source: REFLOCK
+  - path: data/looks/hub_extra_looks.json
+    const: HUB_LOOKS
+    reader: ns_agent.asset_refs.hub_extra_looks
+    inherit: layered
+    what: 资产中心新增造型
+    source: 资产中心
+  - path: data/looks/hub_episode_looks.json
+    const: HUB_EP_LOOKS
+    reader: ns_agent.asset_refs.episode_look_override
+    inherit: none
+    what: 资产中心按集排期（集号每季不同，不继承）
+    source: 资产中心
+# 不是按 project 分的全局文件（不参与继承，但改了会影响参考图，仍须进 S6）：
+global:
+  - path: data/looks/wardrobe.json
+    what: 衣柜单品（全局）
+  - path: data/looks/schedule.json
+    what: 按集造型排期（界面 / SOP 读；wizard 写）

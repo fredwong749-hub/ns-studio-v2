@@ -1,0 +1,25 @@
+{
+ "_doc": "跨机借道（CODER-XH 11-05，默认关）：gpu33 的 producer 把 gpu36:0 当作自己的出图道用（ep01 首帧 3 道 → 4 道）。服务器之间不互连（K-OPS-Y02），所以走笔记本：笔记本 tools/autopilot/lane_relay.py serve 起一个白名单 HTTP 代理（只放行 ComfyUI 出图要用的接口，上游 = 笔记本到 gpu36:0 的现成隧道 18288），再用一条 ssh -R 把代理端口挂到 gpu33 的 127.0.0.1:listen_port；gpu33 producer 把该端口当 gpu36:0 的 ComfyUI 地址。出的图原样经 HTTP 回到 gpu33 的 data/，之后走 producer 原有的登记 / 打分 / 闸门。开 = enabled:true 后 ① 笔记本跑 lane_relay.py serve ② gpu33 producer 重启（读配置）。只许 image 角色的道；gpu33:2 永远拒绝（L-194 11-05：gpu36:0/1/2 全归 NS，gpu36:1 / gpu36:2 一并借出）。阶段交接（出图 → 视频）：写 data/pipeline/lane_relay_hold.json {\"hold\":[\"gpu36:1\",\"gpu36:2\"]}（或 \"all\"），producer 现读，不再派首帧，还给 gpu36 本机视频；删文件恢复。",
+ "enabled": true,
+ "consumer_host": "gpu33",
+ "lanes": {
+  "gpu36:0": {
+   "listen_port": 28288,
+   "upstream": "http://127.0.0.1:18288",
+   "ssh_target": "gpu33-t",
+   "max_inflight": 2
+  },
+  "gpu36:1": {
+   "listen_port": 28289,
+   "upstream": "http://127.0.0.1:18289",
+   "ssh_target": "gpu33-t",
+   "max_inflight": 2
+  },
+  "gpu36:2": {
+   "listen_port": 28290,
+   "upstream": "http://127.0.0.1:18290",
+   "ssh_target": "gpu33-t",
+   "max_inflight": 2
+  }
+ }
+}

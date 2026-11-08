@@ -1,0 +1,38 @@
+# VIDEO10（2026-10-31）：保构图快档——只给首帧（I2VA）+ FL2VA-Acc 8NFE 两段式（K-REN-019，方案 B 的 B2 去掉修脸）。
+# 用在：无人露脸的镜头（手 / 物件 / 空镜，没有身份参考可锁）；以及 S10V-1 对照里的“首帧构图”组。
+id: i2va_pdd2
+extends: _base
+label: 只给首帧·PDD 8 步两段式（FL2VA-Acc）
+status: 待验
+experiment: PLANB-B2
+priority: 23
+selectable: false
+mode: i2va
+sampling:
+  attention: comfy kitchen attention
+  pdd:
+    enabled: true
+    file: MiniMax-H3-FL2VA-Acc-8Step.safetensors
+    nfe: "8"
+    lora_strength: 1.0
+    head_strength: 1.0
+    on_off_grid: error
+two_stage:
+  enabled: true
+  pass1: [544, 960]
+  split_step: 4
+  upscaler_model: minimax_h3_latent_upscaler_3d_conv_v1_fp16.safetensors
+  upscaler_precision: fp16
+  temporal_chunking: true
+  force_unload: true
+fallback: [establishing]
+provenance:
+  status: {src: "planB_report §3：B2 S2/S3/S4/S6 通过，同 seed 与基模 24 相当（S2 0.86/1.06/0.09 vs 0.87/1.13/0.08），生成约 9 min/158 帧；K-REN-019", date: 2026-10-31, status: 待验, experiment: PLANB-B2}
+  experiment: {src: "planB_report", date: 2026-10-31, status: 待验}
+  priority: {src: "selectable false，只由 tools/series10_video 指定", date: 2026-10-31, status: 待验}
+  selectable: {src: "同上", date: 2026-10-31, status: 确认}
+  mode: {src: "只给定稿首帧（K-REN-004）", date: 2026-10-31, status: 确认}
+  sampling.attention: {src: "planB B2 实跑 kitchen；K-REN-R12", date: 2026-10-31, status: 建议, experiment: E3}
+  sampling.pdd: {src: "planb_run.py pdd2 实跑参数（FL2VA-Acc-8Step，nfe 8，1.0/1.0，on_off_grid error）", date: 2026-10-31, status: 待验, experiment: PLANB-B2}
+  two_stage: {src: "planb_run.py：544×960 PDD σ 前 4 步 → MinimaxH3LatentUpscaler3D(conv_v1_fp16) → 768×1344 首帧重新编码条件、后 4 步", date: 2026-10-31, status: 待验, experiment: PLANB-B2}
+  fallback: {src: "不过 → 基模 24 只给首帧（establishing）", date: 2026-10-31, status: 建议}

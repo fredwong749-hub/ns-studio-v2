@@ -1,0 +1,252 @@
+{
+ "_doc": "生成契约（docs/GEN_CONTRACT.md）的机器可读参数。代码：services/agent/ns_agent/gen_contract/（preflight / postflight / report）。阈值改动要带证据并进 knowledge（K-REV-230 起）与 RSI_LEDGER。",
+ "version": "v1-2026-10-31",
+ "image_models": [
+  "qwen_image_2.1",
+  "qwen_image_edit_2511",
+  "flux2_klein"
+ ],
+ "lora_allow": {
+  "krea2_film_texture_qwen21.safetensors": "项目方 2026-10-31 选出图配置 C / 徕卡 S★（krea2 0.5）；config/render_quality.json image_presets leica_sstar"
+ },
+ "lora_allow_scoped": {
+  "bakeoff": {
+   "Qwen-Image-Edit-2511-Lightning-4steps-V1.0-bf16.safetensors": "步数蒸馏（lightx2v/Qwen-Image-Edit-2511-Lightning@107d238，Apache-2.0）；只限 BAKEOFF 对照，未进生产白名单",
+   "FireRed-Image-Edit-1.1-Lightning-8steps-v1.2.safetensors": "官方 8 步加速（FireRedTeam@8625b60，Apache-2.0）；只限 BAKEOFF",
+   "krea2_turbo_lora_rank_64_bf16.safetensors": "Raw→Turbo 蒸馏（Comfy-Org/Krea-2@1171f4d）；只限 BAKEOFF",
+   "krea2_identity_edit_v2.safetensors": "编辑能力本身（conradlocke/krea2-identity-edit@f33b262，许可仅限非商用——进生产前须项目方确认许可）；项目方 10-31 批准装 krea2edit 插件“A. 装”；只限 BAKEOFF",
+   "krea2_general_edit_v2.safetensors": "同上（非商用许可）；只限 BAKEOFF",
+   "civitai/lenovo_qwen21.safetensors": "写实 LoRA（Civitai 1662740 / v3349565，sha256 7f1e95c3ec1e…dab447c0e，作者推荐 cfg 3–4 beta；出图可商用）；R11-13 A/B qa_lenovo 替 krea2 0.5 → 0.7；只限 BAKEOFF",
+   "civitai/niceasians_qwen21.safetensors": "写实 LoRA（sha256 57d622238be9…26cd9841b2；许可未登记——进生产前须核许可）；会偏向通用亚洲脸，A/B 必看 Q1；R11-13 qa_niceasian；只限 BAKEOFF",
+   "civitai/grainscape_qwen21.safetensors": "胶片颗粒写实 LoRA（Civitai 1332651，sha256 b04b226561c5…e1dc2bf，作者推荐 0.7；出图可商用）；R11-13 qa_grain；只限 BAKEOFF"
+  },
+  "_note": "作用范围白名单（REFLOCK 2026-11-01 应 BAKEOFF 请求）：preflight 请求带 \"scope\": \"bakeoff\" 时才认；生产提交（无 scope）仍只认 lora_allow。进生产须带 A/B 证据移入 lora_allow"
+ },
+ "lora_banned": {
+  "lin_wan_qi_v1.safetensors": "已证伪 + 项目方决定去掉：同流程挂 0.6 身份 0.926→0.823（RSI_LEDGER B6 / K-AST-R04）；项目方 2026-10-31 “默认出图预设里的林晚出图 LoRA 还要不要用？—— A. 去掉”",
+  "glamour_realism_qwen21.safetensors": "config/visual_bible.toml [realism].banned_loras（D3）"
+ },
+ "trigger_banned_in_image": {
+  "lnwan_qi": "lin_wan_qi_v1 的触发词（LoRA 已禁）",
+  "lnwan01": "视频身份触发词，不得进图像提示词（K-REN-103）"
+ },
+ "suffix_preset": "leica_sstar",
+ "suffix_banned": [
+  "柔焦",
+  "奶油",
+  "浓郁饱和",
+  "色彩丰富艳丽",
+  "油光",
+  "油亮",
+  "creamy",
+  "soft focus",
+  "oily",
+  "glossy skin",
+  "塑料感",
+  "塑料皮肤",
+  "磨皮",
+  "plastic skin",
+  "airbrushed",
+  "beauty filter"
+ ],
+ "suffix_banned_note": "I7：旧头 / visual_bible fallback_suffix 里的“奶油般柔焦虚化”“浓郁饱和的暖色调电影调色”“色彩丰富艳丽”会让皮肤发油发糊（项目方批评“油光、假”）。剧本正文里写服装材质的“漆皮光泽”不在此列——只查系统后缀段（提示词最后一个“【场景】”段之后 / 预设后缀位置）与整句“油光落皮肤”类写法",
+ "require_ref_lines": true,
+ "blocking_items": ["Q1", "count", "text", "adult", "gaze", "FL"],
+ "vqa_skip_nonblocking": true,
+ "_vqa_skip_nonblocking": "L-205 P2（KPI 一集 ≤50 min）：true = blocking_items 生效时，非硬项的看图子检查不跑（Q1a 逐人头发看图、Q1x 同场跨镜、Q10 服装“谁穿什么”），记 na skipped_nonblocking（只记录）；硬项照跑：视线 reask_eye（L-200）、Q1 复核带、背影多脸复核 / 人数、文字、成人、FL。代码 ns_agent.vqa.contract.skip_nonblocking。false / 删键 = 全跑（旧口径）",
+ "_blocking_items_l203": "L-203（项目方 11-06 08:3x“你所有的首尾帧都是一模一样的图片”）加 FL 首尾帧差异硬项（只有尾帧阶段有此项）：尾帧出图后与通过契约的首帧比对（services/agent/ns_agent/gen_contract/first_last.py），太像 = 不过、换种子重出尾帧；不进 review_adopt / best_effort 采用（producer.fl_bad）。阈值见 first_last",
+ "first_last": {"struct_max": 0.80, "ssim_max": 0.85, "width": 256},
+ "_first_last": "L-203 首尾帧比对阈值：struct = 24×42 模糊亮度相关（ns_qc.media.structure_match，色彩无关只看大构图）≥ struct_max 判太像；ssim = 缩到宽 256 的亮度 SSIM ≥ ssim_max 判太像。11-06 在 ep01 已出的 111 对首尾帧上校准：struct 中位 0.82 / p75 0.94（项目方点名几乎一样的 S1 v7 = 0.858、S2 v3 = 0.828；真推近的 S8 v21 = 0.736）；ssim 中位 0.57 / p90 0.78",
+ "_blocking_items": "L-196 项目方 11-05“我需要你全自动，不要检测那么多了”：首 / 尾帧闸门只有这些硬项挡（Q1 身份 / count 人数 / text 文字水印字幕 / adult 成人安全）；其余项（Q1a/Q1x/Q2–Q5/Q7/Q8/Q9 其余缺陷/Q10 其余/QB）照跑照记、不挡（services/agent/ns_agent/gen_contract/blocking.py）。删本键 = 旧口径。L-200（项目方 11-06 看 ep01 总览：三人正面排排站看镜头被“用尽采用最好一版”采用）加 gaze 视线 / 排排站：画中任何人看镜头（Q9 eye_contact / G1 YuNet）或多人正面并排站成一排合影式（Q9 lineup，config/vqa.json checks.lineup）= 不过、换种子重出；看图与 G1 都有结论时以看图为准；这类版本不进 review_adopt / best_effort 采用（tools/autopilot/producer.py gaze_bad）",
+ "image_thresholds": {
+  "Q1_identity": {
+   "lin_wan": 0.7,
+   "lead": 0.7,
+   "_lead": "MERGE-IMG-O 11-03（CARRYOVER 第 10 项）：本剧主角（cast_table.lead_id；V2 = lead_f）的单人身份线，键名不再写死 lin_wan（gen_contract.cards.identity_line：<cid> > lead > default）",
+   "default": 0.6,
+   "other_floor": 0.4,
+   "other_margin": 0.05,
+   "other_rel_margin": 0.15,
+   "_other_rel_margin": "L-211 ②（项目方 11-07 01:2x 回 2a）：Q1 互像检查（“本人的脸像另一个角色”）只有 对方分数 ≥ 本人分数 − 0.15 才挡（仍不低于 other_floor），取代 两张参考脸互像 + other_margin 的固定线（ep02 黎岸 / 周序两张新脸彼此 0.39 → 线 0.444，S1 v4 黎岸 0.754 / 周序 0.459 被误挡）。删本键 = 旧口径。gen_contract.postflight.evaluate",
+   "recognize_floor": 0.45,
+   "min_face_ratio": 0.04,
+   "side_face": {"enabled": true, "yaw_min": 0.4, "iod_w_max": 0.30, "lo_delta": -0.10, "_doc": "W-DETECT 11-06：ep01 当天 Q1 63 次不过里 36 次是四分之三侧脸 0.40–0.50 被“直接不过”（S2 ×7、S4 尾帧 ×10、S5 ×7、S10 ×3 …），亲看 S2 v17 / S4 尾帧 v11 都是本人。YuNet 对上同一张脸：|yaw_n| ≥ yaw_min 或 眼距/脸宽 ≤ iod_w_max → 复核下限下移 lo_delta（近中景 0.50→0.40、小脸 0.40→0.30），只把“直接不过”改成进复核带交本地看图左右并排复核；通过线不动（身份硬项语义不变）。gen_contract.postflight.side_face_relax"},
+   "bank": {"k": 3, "anchor_min": 0.50, "_doc": "身份库 top-k（VQAGATE 11-02，L-098）：有效分 = 锚（L-086）+ 库帧前 k 个平均；锚 < anchor_min 时只用锚。入库：过契约、未驳回、单脸、对 L-086 ≥0.60，正脸 / 侧脸各最多 8 张滚动（tools/identity/bank.py）"}, "bands": {"default": [[0.10, "近中景及以上", 0.60, 0.50], [0.0, "小脸", 0.50, 0.40]]}, "_bands": "K-REV-V18 修订（总调度 11-02 亲审 data/review_pages/q1_band/：0.55–0.70 带 20 张里 19 张是同一林晚，低分来自四分之三侧脸 / 侧脸，03-S2 v14 0.577 脸圆发糊不合格）：林晚等主角 0.70 单线退役，改三段——≥ 通过线过；复核下限到通过线交本地看图与 L-086 左右并排复核（同一人、画风 / 质感、清晰度三项全过）；< 复核下限直接不过。小脸（脸高 < 0.10）下移 0.10。特写暂不另设（没有标定数据支持更严）", "size_tiers": [[0.27, "特写", 0.55], [0.10, "近中景", 0.50], [0.04, "小脸", 0.40]], "_size_tiers": "VQAGATE 11-02 人物一致性闸门（K-REV-V18）：cast 写不露脸 / 本镜没有在画角色、画面里却出了够大的脸时用的分档线（ArcFace buffalo_l 余弦，对 L-086 身份脸）。标定 data/vqa/idgate_calib/：林晚正例 73 张最低 0.669；ep02-S10 换人 3 张 0.240–0.258（GATE_CALIBRATION §15）", "yaw_relax": {"enabled": false, "_enabled": "K-REV-V18 修订（11-02）后由三段判定 + 复核带取代", 
+    "characters": [
+     "lin_wan",
+     "@lead"
+    ],
+    "tiers": [
+     [
+      0.4,
+      0.7
+     ],
+     [
+      0.8,
+      0.65
+     ],
+     [
+      99,
+      0.6
+     ]
+    ],
+    "require_vlm_identity_ok": true,
+    "src": "总调度 11-01 23:0x 采纳 IMGFIX 方案：林晚 Q1 按 gaze_mp |yaw_n| 分档（<0.4 维持 0.70；0.4–0.8 用 0.65；≥0.8 用 0.60），同时要求本地看图 identity_drift = ok；看图身份不过 / 拿不准 / 没测 → 回到 0.70。只用于单脸镜（Q1 只有一个角色、MediaPipe 只测到一张脸）。实现 ns_agent.vqa.contract.q1_yaw_relax（在 Q9 并进契约时一起算）"
+   },
+   "all_faces_note": "总调度 11-01 P1：每张脸高≥min_face_ratio 的脸都要像本镜 cast（在画/局部）里某个有身份脸的角色（在画者用其阈值，局部者≥recognize_floor）；认不出 → Q1 不过；无身份脸参考的 cast 每人抵一张"
+  },
+  "Q2_outfit": {
+   "clip_item": 0.8,
+   "clip_item_by_zone": {
+    "feet": 0.775,
+    "lower": 0.83
+   },
+   "clip_sheet": 0.74,
+   "hist": -1.0,
+   "note": "K-REV-231（REFLOCK 2026-11-01 标定，data/review_pages/asset_reflock/calibration.json）：CLIP ViT-L/14 区域滑窗最高余弦。鞋（参考 LW-S01）：正例 0.782 / 0.807 / 0.896，反例最高 0.762（黑短靴），其余 ≤0.720 → 线 0.775；短裙（LW-O09）：正例 0.874 / 0.906，反例最高 0.795 → 线 0.83；其它区域未单独标定，暂用 0.80。颜色直方图对透明鞋无效（正例 -0.006 / -0.004），只记录不判（hist=-1）；设定图（整套造型）：现有 11 张首帧对 3 套设定图，本造型最高 9/11，本造型余弦 0.751–0.853 → 线 0.74（A / B 区分度弱，建议级）；第二轮（总调度认可集 imgfix，11-01）：认可图 v10 的指甲 0.73–0.80、外套 0.71、钢珠 0.65、整套设定图 0.81–0.89，与只靠文字的 v3 / v0（0.64–0.89）分不开（v3 的文字本身就写对了衣服）→ 手 / 颈 / 上身 / 腰 / 全身区的单品只记录不判，只判已用已知答案图标定过的：鞋 ≥0.775、下装 ≥0.83、整套设定图 ≥0.74",
+   "record_only_zones": [
+    "hand",
+    "neck",
+    "upper",
+    "waist",
+    "body"
+   ],
+   "feet_band": [
+    0.7,
+    0.78
+   ],
+   "embellished_max": 0.7,
+   "feet_band_note": "总调度 11-01：留出复核（14 张）0.775 落在对 / 错重叠区（对 0.710–0.861、错 0.641–0.780）→ 三段：<0.70 挡；0.70–0.78 只记录并标“鞋待目检”（总调度看印样）；≥0.78 过。另加 CLIP“加装饰（水钻 / 脚踝带）vs 素款”探针，加装饰概率 > embellished_max 挡（线待 q4_face_calibration.json 标定）；加装饰探针标定（q4_face_calibration.json，14 张总调度标签）：加装饰款 S07 0.978；标对的鞋最高 0.660（S14）→ 线 0.7。三段 + 探针在这 14 张上：挡 7 张全是错鞋，过 2 张全是对鞋，5 张对鞋进“鞋待目检”，0 误挡 0 误放（只有 1 个加装饰样本，待更多留出）",
+   "outer_min": 0.3,
+   "outer_record_only": true,
+   "_outer_record_only": "总调度 11-01 23:0x（IMGFIX 发现）：外套敞开、长发盖住时探针误判没穿——穿了外套的 7 张里 4 张 <0.3（S1 0.074 / 0.237、S2 s302 0.257、S3 s303 0.208）→ 先只记录、重新标定（VQAGATE），达标再恢复阻断；外套靠 v2 设定图 + 看图 outfit 记录兜底",
+   "outer_note": "总调度 11-01：外层单品存在性——林晚脸框下躯干（±1.8 脸宽、下 3 脸高）CLIP 零样本句对。校准 8 张（本机 YuNet 框）：没穿 ep01 S1v7/S2v3/S3v3、ep02 S3v2/S1v6 = 0.047/0.036/0.066/0.004/0.059；穿了 ep01 S4v5/S6v2/S7v2 = 0.859/0.757/0.797 → 线 0.3，阻断。通用句（base）分不开 ep02-S1v6（0.16）与 S6（0.27–0.48），已弃用于西装外套；n=8，待留出复核",
+   "outer_probes": {
+    "短款西装外套": [
+     "a woman wearing a dark gray suit jacket with lapels over a cream blouse",
+     "a woman wearing only a cream silk blouse, no jacket"
+    ],
+    "_note": "按单品写的“穿着 / 只穿内搭”句对（描述单品本身，不是颜色直方图）；没登记的单品用通用句（metrics.outer_presence）",
+    "gu_chen:深灰西装": [
+     "a man wearing a dark suit jacket with lapels over a black turtleneck sweater",
+     "a man wearing just a shirt or sweater with no jacket"
+    ],
+    "ch_a_lan:黑色工作围裙": [
+     "a woman wearing a black work apron with straps over her top",
+     "a woman wearing just her top or dress, with no apron"
+    ],
+    "ch_a_lan:军绿工装": [
+     "a woman wearing an army-green utility work jacket with pockets over her top",
+     "a woman wearing just her top or dress, with no jacket"
+    ]
+   },
+   "outer_block_keys": [
+    "lin_wan:短款西装外套"
+   ],
+   "outer_min_by_key": {
+    "ch_a_lan:黑色工作围裙": 0.75
+   },
+   "outer_calibration": {
+    "lin_wan:短款西装外套": "阻断：没穿 ≤0.087 / 穿了 ≥0.426（n=8，gpu33）。23:xx VQAGATE 重标（data/vqa/gate_calib/jacket_probe.json + jacket_probe_old_takes.json；imgfix 68 张目视标注 38 穿 / 30 没穿 + 旧标定 8 张）：现行句对在穿了外套的图上最低 0.059（外套敞开、长发盖住），没穿的最高 0.164，分不开；改写句对“open dark blazer … long hair over it”零误报线 0.13 时召回 38/41，但 ep02-S1v6 没穿也有 0.129，余量只有 0.001，不达标 → 维持只记录（outer_record_only=true）",
+    "gu_chen:深灰西装": "只记录：20 张造型 A（目检全穿着黑西装外套）0.016–0.994，与造型 B 12 张 0.000–0.072 重叠；黑外套叠黑高领 CLIP 分不开，且库里没有“只穿高领”的反例（本机 YuNet 框，11-01）",
+    "ch_a_lan:黑色工作围裙": "只记录：3 张穿着 0.977–0.992；反例只有别的角色 / 造型 5 张 0.008–0.504，不是阿岚不穿围裙，线 0.75 暂定",
+    "lin_wan:黑色漆皮长风衣": "只记录：现行剧本没有可校准的版本",
+    "chen_yu": "三套造型没有外层单品",
+    "ch_a_lan:军绿工装": "只记录：设定图正面栏 阿岚 B（穿军绿工装）0.999；反例 阿岚 A 0.288、阿岚 C 0.000、林晚 A/B/C ≤0.001、陈宇 A/B/C ≤0.052（IMGFIX r7 11-02，data/ab/imgfix/probe_cal_ch_a_lan_B.json）；出图上的留出复核未测"
+   },
+   "hair_probes": {
+    "gu_chen:黑色短发": [
+     "a man with short black hair combed back above his ears",
+     "a man with long hair hanging down past his ears to his shoulders"
+    ],
+    "_note": "发型锁（只记录，待校准）：裁脸框上 0.8 / 下 1.8 脸高、左右 1.6 脸宽，CLIP 句对"
+   }
+  },
+  "Q10_accept": {"enabled": true, "parallel": true, "count_host": "http://10.0.0.36:8893", "_doc": "VQAGATE 11-02（ALIGNMENT 第 8 步，总调度：出图后验收作为闸门，不再只记录）：tools/vqa/accept.py 四项标签 → Q10，全过才算过。identity = Q1（ArcFace 对 face_of）；outfit = Q2 + Q1a（对造型登记，K-REV-V20）；prompt = 本地 Qwen3-VL 按编译稿核人数 / 左右 / 动作 / 场景；count = anomaly judge（人工回归集 19/19）。count_host 空 = 本机（服务器上 rssh 调本机即本机执行）；检测器 / 看图没跑成 = untested，挡并记 score_infra（只重打分不重出）"},
+  "Q1d_anomaly": {"enabled": false, "host": "gpu36", "timeout_s": 120, "_doc": "VQAGATE 11-02 Q1d（总调度：detector 先记日志、不拦，亲审命中样本 + 标定后再阻断）：接 tools/vqa/anomaly.py check()。默认关：anomaly.check 走 rssh 连 gpu36，gpu33 的 producer 没有到 gpu36 的密钥；要先给检测器服务器上能直达的入口。开了也只写 Q1d 项（status 恒 na），判定在 evidence.verdict"},
+  "Q1x_scene": {"enabled": true, "k": 3, "pass": 0.6, "review_min": 0.5, "small_face": 0.1, "_doc": "VQAGATE 11-02 Q1x（总调度批准，阈值暂定、每周随首帧增多重算）：同场其他镜头当前首帧同一角色脸取最像 3 张余弦平均。标定（GATE_CALIBRATION §20）：林晚同场跨镜两两 1656 对最低 0.614 / 1% 分位 0.662，取最像 3 张平均最低 0.790；ep02-S10 换人对同场林晚 0.239–0.318。< review_min 不过；review_min–pass 记复核带只记录；小脸两线各降 0.10"},
+  "Q1a_attr": {"enabled": true, "cards_by_run": {}, "_cards_by_run": "MERGE-IMG-O 11-03（ISS-1103-024206-c8c0）：cards 只给旧剧（V1）；资产包模式的剧人物卡由 gen_contract/cards.py 从本剧 P1 人物表（gender / zh_look 发色发长）+ 清单角色自动生成，阈值沿用 §18 标定；cards_by_run.<剧>.<cid> 逐项覆盖", "cards": {"lin_wan": {"name": "林晚", "blue_min": 0.2, "min_hair_px": 0.15, "gender": "女", "hair_colors": ["蓝", "灰银"], "hair_lengths": ["长", "及肩"]}, "gu_chen": {"name": "顾沉", "hair_short": true, "below_max": 0.15, "blue_max": 0.45, "gender": "男", "hair_colors": ["黑", "棕"], "hair_lengths": ["短"]}, "chen_yu": {"name": "陈宇", "hair_short": true, "below_max": 0.15, "blue_max": 0.45, "gender": "男", "hair_colors": ["黑", "棕"], "hair_lengths": ["短"]}}, "_doc": "VQAGATE 11-02 P0（K-REV-V19）：逐人头发属性。确定性：MediaPipe selfie_multiclass 分割 + 头顶连通域，hair_blue = 头发蓝色占比、below = 下巴以下头发面积 / 脸框面积。标定 106 张（GATE_CALIBRATION §18）：男性 below 正常最高 0.026 / 长发最低 0.266 → 0.15；男性 hair_blue 正常最高 0.266（冷光黑发）/ 蓝发最低 0.577 → 0.45；林晚 hair_blue 正常最低 0.317 / 灰银发 0.052 → 0.20。6 错例全拦、184 张正常零误拦（样本内）。VLM 逐人问答见 hair_colors / hair_lengths / gender / nails_ok（雾霾蓝看图可能答灰银，林晚两种都收；林晚指甲看图误报多（ep06-S8 长透明甲答成短闪片甲），不判；男性长美甲记日志、不拦：ep06-S8 看图把旁边林晚的手算到顾沉身上（误报），ep06-S1 v8 靠发色 / 发长已拦）。分割不可用（gpu33 未装 mediapipe）时由看图逐人问答单独判，q1a_mode=vlm_only 并报警"},
+  "Q3_framing": {
+   "bands": [
+    0.45,
+    0.27,
+    0.17,
+    0.115,
+    0.095,
+    0.05
+   ],
+   "tolerance": 1
+  },
+  "Q4_texture": {
+   "lap_full_min": 175.0,
+   "sat_mean_max": 0.6,
+   "specular_max": 0.012,
+   "note": "K-REV-232 第二轮（总调度 11-01 认可集标定）：整图缩到宽 768 的 Laplacian 方差。认可集 imgfix v9 / v10 / v10L（4 镜共 10 张）182–682，不可接受 v0（塑料、糊）40–165 → 线 175，标定集判对 14/14。旧口径（区域缩放后 Laplacian ≥90）作废：同一张图中心 265、脸框 38，区域大小随景别变，绝对值不可比。饱和度：认可集平均 0.24–0.40、v0 0.33–0.55 → 不作判别，只设上限 0.60 挡过饱和；油光（脸框近白低饱和占比）认可集与 v0 都 ≈0，线 0.012 只挡离群。区域指标（region_lap_var / region_hf_ratio / sat_p95）只记录",
+   "record_only": true,
+   "record_only_note": "总调度 11-01：BAKEOFF 留出复核（data/review_pages/asset_reflock/heldout_bakeoff.json，46 张总调度亲标）整图 Laplacian 判对率 0.59、AUC 0.41（比随机差）——挡掉 11 张可接受的暗场 / 中景，放过 8 张娃娃脸 → 只记录、不阻断、不触发重出；改量脸部区域（metrics.face_texture），留出 AUC ≥0.8 才重开阻断",
+   "face_probe_note": "11-01 脸部度量留一交叉验证（44 张有脸，总调度标签）：face_hf AUC 0.581、face_lap 0.511、face_oil 0.493、CLIP 塑料探针 p_plastic 0.847（LOO 判对 0.841）、旧 lap_full 0.405。p_plastic 过 0.8 但不可靠：概率饱和（可接受与不可接受都在 0.99–1.0，最佳线 0.9999），区分主要来自 ep09-S2 顾沉中景与 B5 一组整体偏低（镜头 / 角色混杂）→ 仍只记录，不开阻断；建议换成“同一张脸 vs 身份参考”的差分探针或专门的皮肤纹理模型再标"
+  },
+  "Q5_hands": {
+   "max_flags": 0,
+   "long_nails": [
+    "林晚"
+   ],
+   "finger_ratio_max_long_nails": 4.6,
+   "note": "林晚 5 厘米超长水晶甲会把 mediapipe 指尖点外推：画布验证图 ep01-S1 v5（人工看手形正常）指长比 3.2–4.4 → 林晚在画时“指长比”可疑放宽到 ≤4.6，其它可疑（多手、指尖重合、肢体比例）照判（建议级）",
+   "record_only_flags": [
+    "肢体比例可疑",
+    "手型可疑"
+   ],
+   "record_only_flags_note": "总调度 11-01：留出复核 7 次“肢体比例可疑”全是误报（坐姿、手臂被遮的近景）→ 停用这一子规则；“手型”规则 0 误判保留。留出集里没有坏手样本，召回率未知；总调度 11-01 标注 13/13“手型可疑”手都正常（5 厘米长甲把指长比推到 4.3–33）→ 手型子规则也只记录；“多手可疑”仍阻断。坏手样本 0，召回未知"
+  },
+  "Q6_text": {
+   "max_boxes": 0,
+   "ignore_pattern": "^[\\d\\s.,:;\\-/+%]+$",
+   "note": "总调度 11-01 标注 4/4：OCR 只读出纯数字 / 标点（0002、0.030、888888888）都不是多余文字 → 这类框只记录不算；有字母 / 汉字的照挡"
+  },
+  "Q7_scene": {
+   "clip_min": 0.4,
+   "note": "K-REV-232（待验）：整图 CLIP 对场景参考区分度不足（办公室首帧 0.439–0.581，其它场景 0.372–0.636，参考是旧项目 sk_office）；线 0.40 只挡完全不相干的场景，待改为“去人物后的背景区域”比对再重标",
+   "record_only": true,
+   "record_only_note": "总调度 11-01 小标注集 contract_labels_r1：Q7 0.314–0.40 没过的 47 张 + 0.40–0.46 对照 12 张，59/59 场景都对 → 整图 CLIP 线 0.40 在挡正确场景；改只记录，印样标“待目检：场景相似度低”。反例（场景错）0 张，召回未知"
+  },
+  "Q8_hair": {
+   "ref": {
+    "s": 96.0,
+    "rel_v": 0.712,
+    "hsv": [
+     106.0,
+     96.0,
+     156.0
+    ],
+    "src": "data/assets/identity_refs/lin_wan/lin_wan_face_ref2va.png（项目方挑定 A-s202）"
+   },
+   "ds_min": -45,
+   "rel_v_ratio_min": 0.48,
+   "note": "K-REV-233（建议，待 BAKEOFF 留出复核）：只挡明显过暗 / 过灰——项目方 10-30 定的“比参考图略深、带一点灰”不算不过（总调度 11-01）。身份参考 face_ref2va：发 HSV (106,96,156)，发 V / 肤 V = 0.712。现有 13 张首帧（data/review_pages/asset_reflock/q8_calibration.json）：ep01-S5 v2（总调度判发色暗灰）相对亮度 0.299（参考的 0.42 倍）；ep01-S1 v7（总调度亲审签字）0.376（0.53 倍）；其它 0.27–0.63。线：相对亮度 < 参考的 0.48 倍、或饱和度比参考低 >45（ep03-S6 低 42 仍算过）判不过；发丝像素 <200 = 未测",
+   "record_only": true,
+   "record_only_note": "总调度 11-01：夜景办公室多数 0.38–0.43 倍，与项目方 10-30“比参考图略深、带一点灰”冲突 → 只记录不阻断、不触发重出；BAKEOFF 留出标签回来且项目方答复 morning_decisions 第 4 项后再开阻断"
+  }
+ },
+ "video_thresholds": {
+  "sface_med": 0.3,
+  "seen": 0.15,
+  "cheek_red_max": 0.25,
+  "J4_max": 1.3,
+  "motion_mean_min": 0.5,
+  "src": "VIDEO10 tools/series10_video/score_clip.py 现行门槛（2026-10-31 VIDEO10 → REFLOCK）",
+  "V6": {
+   "extra_hand_frac": 0.05,
+   "hands_max_per_person": 2,
+   "dup_side_frac": 0.15,
+   "flicker_max": 10,
+   "bad_finger_frac": 0.85,
+   "untested_frac": 0.8,
+   "src": "VQAGATE 11-01 18:2x（总调度：V6 阈值落定前多肢一律判不过；空阈值 = 缺陷 K-REV-Q05）。data/vqa/gate_calib/v6_metrics_local.json（150 条已打分片子，43 条入选 done）：hands_max > 2×人数 命中总调度点名的 ep01-S2 mot（3 手 / 1 人）、ep01-S4 s2（5 手 / 2 人），done 里另命中 4 条（ep05-S1 s3、ep07-S8 v1、ep08-S3 v1、ep10-S4 v1，待看图确认）；bad_finger_frac 分不开（正例 0.208 / 0.399，done 里 26/43 > 0.2），只设高置信线 0.85（done 最大 0.80、10 条印样标定上限 0.80），主判据 = hands_max + 本地看图 extra_limbs（docs/vqa/V6_HANDCOUNT_PLAN.md）"
+  }
+ },
+ "retry": {
+  "max": 3,
+  "one_dimension_per_retry": true
+ }
+}

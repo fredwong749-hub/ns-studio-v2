@@ -1,0 +1,9 @@
+{
+ "_doc": "PROMPT 2026-10-31：sysimpl-v2 时间轴 lint（RL-T1–T7）与 Shot Spec 分拍槽位（SS-M1/M5/M6，v2 起）的级别开关。timing_lint_level=warn（默认）：全部只提示，不拦渲染；=error：写作规则 ≥ sysimpl-v2 的镜头缺项即 block。episodes_error：只对这些集按 error（导入了 sysimpl-v2 产出的集再加进来）。",
+ "timing_lint_level": "warn",
+ "episodes_error": [],
+ "_doc_timeline_o": "TIMELINE-O 11-03：稿件盖了 sysimpl-v2 及以上章的 V2 剧 / 所有新剧，时间轴一律 strict（RL-T* / SS-M* / RL-T8 对齐 / SS-M8 运镜按拍，缺项 block），不看 timing_lint_level；只有 legacy_runs 里的剧（V1 冻结）和认不出剧的稿件仍按 timing_lint_level / episodes_error 走。代码 ns_schema.shot_spec.run_strict。",
+ "legacy_runs": [
+  "series10_v1"
+ ]
+}

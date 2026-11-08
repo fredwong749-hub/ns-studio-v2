@@ -1,0 +1,12 @@
+{
+  "schema": "nsfs.episode_outline/1",
+  "episode": 1, "title": "<照抄 storyline>", "logline": "<照抄 storyline>", "intimate": false,
+  "target_duration_s": 60,
+  "characters": ["<中文名>"], "scenes": ["sk_<id>"],
+  "carry_in": "<照抄上一集 carry_out；首集可空>",
+  "beats": [
+    {"id": "B1", "summary": "<这一拍看得见、听得见的事>", "scene_id": "sk_<id>", "characters": ["<中文名>"],
+     "est_s": 12, "purpose": "hook", "has_dialogue": false}
+  ],
+  "carry_out": "<本集结尾状态>"
+}

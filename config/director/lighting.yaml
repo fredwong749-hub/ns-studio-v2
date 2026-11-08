@@ -1,0 +1,152 @@
+# 灯光词表（单一事实来源；DIRECTOR，总调度 fredw-2b 派 L-111，2026-11-02）
+# 项目方 11-02 04:0x 原话：“再新加一个关于灯光的提示词。剧本里面需要加上灯光，基于背景跟人物，做出适应的灯光场景。这样的话会更加柔和，
+# 更加真实，人物跟场景加上打光，可以让这个事情变得更有真实感。这个你要学一下，要把它写到规则里面去。”
+# 用在镜头语言模板 v2（config/director/shot_spec_v2.yaml）的第 ④ 段“灯光设计”，首帧出图和 Pika 视频共用同一句；
+# 和 IMGFIX 的融合契约句配合（同一主光方向 → 接触阴影方向一致）。写作方【灯光】字段只写这里的方案名，或写“动机光源 + 布光比 + 色温”三要素（K-WRT-806）。
+schema: nsfs.lighting/1
+version: lt-v1.2-2026-11-02   # +studio_day_cold / elevator_night / apartment_night_wall_lamp + wall_lamp / mirror_bounce（SCRIPTWRITER S2 需要）
+principles:
+  - 动机光源：光必须来自画面里存在的光源（窗 / 台灯 / 顶灯 / 霓虹 / 屏幕 / 烛光），写明在画面哪一侧（frame-left / frame-right / above / behind）
+  - 布光：主光 key / 辅光 fill / 轮廓光 rim 三者的方向与强弱比；柔光 soft（大面积、阴影边缘柔和）或硬光 hard
+  - 色温：K 值或暖 / 冷；环境光对皮肤和衣服的染色写一句
+  - 人物和背景同一套光：主光方向 = 背景里光源的方向 = 接触阴影方向（与 IMGFIX 融合契约一致）
+ratios:
+  soft: {ratio: "2:1", en: "a gentle 2:1 key-to-fill ratio"}
+  natural: {ratio: "3:1", en: "a soft 3:1 key-to-fill ratio"}
+  moody: {ratio: "5:1", en: "a moody 5:1 key-to-fill ratio"}
+  dramatic: {ratio: "8:1", en: "a dramatic 8:1 key-to-fill ratio with deep shadows"}
+sources_note: 动机光源的本意是“光从画面里看得见的东西来”。本表是常用光源词表，不是白名单——【灯光】“动机光源=”里的光源项出现在本镜或本场的场景描述、道具里，或在本表里，都算合规；方向和布光比要求不变（总调度 fredw-2b 11-02 定，rubric_code.source_seen；CONSENT 记总调度名下，DIRECTOR 未在跑）
+sources:   # 动机光源 → 英文名 + 默认色温
+  desk_lamp: {zh: [台灯], en: "the desk lamp", kelvin: 3000, tone: warm}
+  ceiling_lamp: {zh: [顶灯, 吊灯, 灯泡, 顶光, 轿厢顶灯], en: "the ceiling lamp", kelvin: 3200, tone: warm}
+  cold_lamp: {zh: [冷光灯, 灯架, 侧灯, 器械台灯], en: "the cold work lamp", kelvin: 5000, tone: cool}
+  door_gap: {zh: [门缝, 楼道灯], en: "the corridor light through the door gap", kelvin: 2700, tone: warm}
+  wall_lamp: {zh: [壁灯, 暖黄壁灯], en: "the wall lamp", kelvin: 3000, tone: warm}
+  mirror_bounce: {zh: [镜面反射, 全身镜反射, 镜子反光], en: "light bounced off the full-length mirror", kelvin: null, tone: neutral}
+  window_day: {zh: [窗光, 日光, 阳光], en: "the daylight window", kelvin: 5600, tone: neutral}
+  window_city_night: {zh: [霓虹, 城市, 窗外夜色, 窗外], en: "the city glow through the window", kelvin: 6500, tone: cool}
+  monitor: {zh: [屏幕, 显示器, 电脑屏], en: "the monitor screen", kelvin: 7000, tone: cool}
+  neon: {zh: [霓虹灯牌], en: "the neon sign", kelvin: null, tone: colored}
+  candle: {zh: [烛光, 蜡烛], en: "the candle", kelvin: 1900, tone: warm}
+  exit_sign: {zh: [安全出口, 绿光], en: "the green exit sign", kelvin: null, tone: green}
+  streetlight: {zh: [路灯], en: "the street lamp", kelvin: 2700, tone: warm}
+schemes:
+  - id: office_night_lamp
+    zh_text: 台灯在画面右侧作暖色柔和主光（约3000K，主辅光比3:1），屏幕冷白光从正面轻微补光，窗外城市冷光从身后勾出轮廓，暖光落在皮肤和衬衫上，阴影偏冷
+    zh: 深夜办公室·台灯
+    when: {scene: [office, 办公, 写字楼], time: night}
+    moods: [克制, 暧昧, 紧张]
+    key: {source: desk_lamp, side: frame-right, quality: soft}
+    fill: {source: monitor, side: front, level: faint}
+    rim: {source: window_city_night, side: behind}
+    ratio: natural
+    en: >-
+      Lit by the warm desk lamp at {key_side} as a soft key light (about 3000K) with {ratio_en},
+      the cool monitor glow as a faint front fill, and cool city light through the window as a rim from behind,
+      the lamp warming the skin and blouse while the shadows stay cool.
+  - id: office_night_tense
+    zh_text: 台灯在画面右侧作较硬的暖色主光（约3000K，主辅光比8:1），几乎没有补光，窗外城市冷光在身后勾出一道细轮廓
+    zh: 深夜办公室·压迫
+    when: {scene: [office, 办公, 写字楼], time: night}
+    moods: [对峙, 压迫, 高点]
+    key: {source: desk_lamp, side: frame-right, quality: hard}
+    fill: {source: monitor, side: front, level: low}
+    rim: {source: window_city_night, side: behind}
+    ratio: dramatic
+    en: >-
+      Lit by the warm desk lamp at {key_side} as a harder key light (about 3000K) with {ratio_en},
+      almost no fill, and a thin cool rim of city light from the window behind.
+  - id: home_dinner_warm
+    zh_text: 头顶暖色顶灯作大面积柔和主光（约3200K，主辅光比2:1），桌面反射暖光补光，低反差，暖调落在皮肤和衣料上
+    zh: 家里餐桌·顶灯暖柔
+    when: {scene: [home, 家, 餐桌, 客厅, 厨房], time: night}
+    moods: [温情, 日常, 平静]
+    key: {source: ceiling_lamp, side: above, quality: soft}
+    fill: {source: ceiling_lamp, side: bounce, level: medium}
+    rim: null
+    ratio: soft
+    en: >-
+      Lit by the warm ceiling lamp above as a large soft key light (about 3200K) with {ratio_en},
+      warm light bouncing off the table as fill, low contrast, the warm tone resting on skin and fabric.
+  - id: day_window_soft
+    zh_text: 画面一侧窗户的日光作柔和主光（约5600K，主辅光比3:1），房间回弹柔和补光，肤色自然中性
+    zh: 白天窗光·柔和
+    when: {scene: [], time: day}
+    moods: [日常, 平静, 清新]
+    key: {source: window_day, side: frame-left, quality: soft}
+    fill: {source: window_day, side: bounce, level: medium}
+    rim: null
+    ratio: natural
+    en: >-
+      Lit by soft daylight from the window at {key_side} as the key light (about 5600K) with {ratio_en},
+      the room bouncing gentle fill back, natural neutral skin tones.
+  - id: night_street_neon
+    zh_text: 路灯在画面一侧作暖色主光（约2700K，主辅光比5:1），身后霓虹作彩色轮廓光，霓虹染在发梢和肩线边缘
+    zh: 夜街·霓虹
+    when: {scene: [street, 街, 路边, 门口], time: night}
+    moods: [孤独, 暧昧, 紧张]
+    key: {source: streetlight, side: frame-left, quality: soft}
+    fill: null
+    rim: {source: neon, side: behind}
+    ratio: moody
+    en: >-
+      Lit by a warm street lamp at {key_side} as the key light (about 2700K) with {ratio_en},
+      colored neon from behind as a rim, the neon tinting the edges of the hair and shoulders.
+  - id: studio_day_cold
+    zh: 穿孔工作室·冷白顶光
+    zh_text: 冷白顶灯从上方作主光（约5000K，主辅光比3:1），器械台侧灯从画面一侧补冷光，冷光灯架在身后勾出硬朗轮廓，肤色偏中性冷，金属器械有锐利高光
+    when: {scene: [studio, 工作室, 穿孔], time: day}
+    moods: [紧张, 冷静, 仪式感]
+    key: {source: ceiling_lamp, side: above, quality: hard}
+    fill: {source: ceiling_lamp, side: frame-left, level: medium}
+    rim: {source: ceiling_lamp, side: behind}
+    ratio: natural
+    en: >-
+      Lit by cool white ceiling lights from {key_side} as the key light (about 5000K) with {ratio_en},
+      a cool side lamp on the instrument tray as fill, and a cold light stand behind drawing a crisp rim,
+      the skin reading neutral-cool while the metal tools carry sharp highlights.
+  - id: elevator_night
+    zh: 电梯轿厢·冷顶光暖门缝
+    zh_text: 轿厢顶灯从上方偏前作冷白主光（约4500K，主辅光比5:1），不锈钢壁面反射冷光作弱补光，门缝透进楼道暖光在身侧勾出一道细暖边，狭小空间阴影偏硬
+    when: {scene: [elevator, 电梯, 轿厢], time: night}
+    moods: [压迫, 暧昧, 紧张]
+    key: {source: ceiling_lamp, side: above, quality: hard}
+    fill: {source: ceiling_lamp, side: bounce, level: low}
+    rim: {source: streetlight, side: frame-left}
+    ratio: moody
+    en: >-
+      Lit by the cool elevator ceiling light from {key_side} as the key light (about 4500K) with {ratio_en},
+      cool light bouncing off the steel walls as weak fill, and warm corridor light leaking through the door gap
+      as a thin warm edge on one side, the shadows hard in the small space.
+  - id: apartment_night_wall_lamp
+    zh: 顾沉公寓·壁灯暗场
+    zh_text: 暖黄壁灯从身后侧后方作柔和主光（约3000K，主辅光比5:1），全身镜反射从正面弱补光，背景落入柔和阴影，深色木地板映出倒影
+    when: {scene: [apartment, 公寓, 顾沉家], time: night}
+    moods: [暧昧, 克制, 紧张]
+    key: {source: wall_lamp, side: behind, quality: soft}
+    fill: {source: mirror_bounce, side: front, level: low}
+    rim: null
+    ratio: moody
+    en: >-
+      Lit by the warm wall lamp from {key_side} as a soft key light (about 3000K) with {ratio_en},
+      light bounced off the full-length mirror as a weak front fill, the background falling into soft shadow
+      and the dark wood floor holding faint reflections.
+  - id: night_interior_dim
+    zh_text: 室内暖色灯作柔和主光（约3000K，主辅光比5:1），身后窗外冷光勾出轮廓，背景落入柔和阴影
+    zh: 夜间室内·暗场（兜底）
+    when: {scene: [], time: night}
+    moods: []
+    key: {source: ceiling_lamp, side: above, quality: soft}
+    fill: null
+    rim: {source: window_city_night, side: behind}
+    ratio: moody
+    en: >-
+      Lit by a warm practical lamp at {key_side} as a soft key light (about 3000K) with {ratio_en},
+      a cool rim of light from the window behind, the background falling into soft shadow.
+character_adapt_zh:
+  lin_wan: 光在雾霾天蓝色发丝上留下柔和高光，保留真实皮肤质感和细小毛孔，水晶甲上闪出细小的反光点
+  gu_chen: 光掠过他的下颌线和银戒，深色毛衣保留柔和的织物纹理
+character_adapt:   # 可选“人物适配”子句（在画角色才加）
+  lin_wan: "The light catches soft highlights in her misty sky-blue hair, keeps natural skin texture with fine pores, and sparks small specular points on the crystal nails."
+  gu_chen: "The light rakes across his jaw and the silver ring, leaving the dark sweater with soft texture."
+contact_clause: null   # IMGFIX 11-02 确认：接触阴影由其融合契约句负责（“接触阴影方向与主光方向一致”），本表只给主光方向

@@ -1,0 +1,100 @@
+# 审片发现 / bug → 连接归因表（tools/pipeline/attribute_bug.py 读）。CHAINSPEC 2026-10-31。
+# 每条：症状关键词 → 可能出错的连接（按先后排查顺序）→ 该连接上已有的相关规则（chain.yaml / knowledge / 现行写作规则号）。
+# 规则号可以是 chain.yaml rules、knowledge K-*、或现行校验规则号（SS-* / RL-* / H3-* / QW-*，在规则文件或代码里能搜到）。
+# 新症状 = 加一条；attribute_bug 找不到匹配时按 fallback 走（交总调度人工归因），并把草案写进 knowledge/inbox/。
+schema: nsfs.attribution/1
+symptoms:
+  - id: cut_harsh
+    name: 镜头切换生硬 / 跳 / 不连贯
+    keywords: [切换生硬, 切换, 生硬的切, 跳切, 跳的离谱, 不连贯, 衔接, 接不上, 硬切, 转场, cut, 镜头之间]
+    links:
+      - {link: P3-P4, rules: [SS-M7, RL-T5, RL-T6, SS-X1, SS-X4, SS-L1, SS-L2], why: 衔接 / 下镜 / 开头衔接句（上一镜结尾仍在进行的动作 → 下一镜第 0 秒接上）是写作分镜字段}
+      - {link: P5-P6, rules: [K-AST-003], why: 下一镜首帧是否由上一镜尾帧编辑、同场景底图 / 光线是否继承}
+      - {link: P9-P10, why: 切点：剪定住段、切点音频跳变、拆刀}
+    rules: [SS-M7, RL-T5, RL-T6, SS-X1, SS-X4, SS-L1, SS-L2, K-EDT-003, K-EDT-005, K-AST-003, K-WRT-R06]
+    owner_quote: "镜头和镜头之前串联也思考如何避免跳的离谱…这是最大bug（10-30 01:37）"
+    draft:   # 规则草案（只讲格式 / 系统做法）
+      domain: writer
+      title: 接力 / 同场换机位镜头的“下镜”与开头衔接句升为必填（block）
+      when: 镜头 **衔接** = 接力 或 同场换机位
+      then: SS-M7（缺 **下镜**）从 warn 升为 block；RL-T5 开头衔接句须引用上一镜 **下镜** 的同一动作；导入时比对两者，接不上标 HARD CUT 或打回写作方
+      writer_text: 接力 / 同场换机位镜头必写 **下镜**；下一镜 H3 第一句用 already / still / mid- 写同一个动作接上
+      director_text: 审片对相邻镜做接缝检查：上一镜末 0.5 s 与下一镜首 0.5 s 的人物位置 / 视线 / 手持物一致，不一致记到 P3-P4
+  - id: gaze_expression_stiff
+    name: 眼神 / 表情 / 互动生硬
+    keywords: [眼神, 表情, 生硬, 互动, 反应, 呆, 木, 没有交流, 视线, 面无表情]
+    links:
+      - {link: P3-P4, rules: [SS-M1, SS-M5, SS-M6], why: 分拍每拍 视线= / 表情= / 反应= 槽位；台词拍听者反应}
+      - {link: P4-P7, rules: [RL-T3, RL-T4], why: H3 正文每拍是否带视线落点、具体部位表情、另一人反应（RL-T3/T4）}
+      - {link: P7-P8, why: 配方（静止情绪镜在 FL2VA/I2VA 上救不了，K-REN-R01）}
+    rules: [SS-M1, SS-M5, SS-M6, RL-T3, RL-T4, K-REN-R01, K-REN-011]
+    draft:
+      domain: writer
+      title: 分拍视线 / 表情 / 反应槽位对已导入的旧稿也做 block 检查
+      when: Shot Spec 的写作规则版本按“写稿时”的版本记（现在导入时按当前配置盖章，旧稿被标成 sysimpl-v2）
+      then: spec_import 记录稿件真实规则版本（稿件头或会话 rules 字段），旧稿缺 SS-M5/M6 槽位时列为“需按 v2 重写”，不当作 v2 已满足
+      writer_text: 每拍写 视线=、表情=；双人镜每拍写 反应=（另一人的眼睛 / 嘴 / 手 / 肩）
+      director_text: 双人镜里听者全程无可见反应（眼、嘴、肩不动）记为 P3-P4 缺反应槽
+  - id: timeline_coarse
+    name: 提示词时间轴差 / 动作没按时间走
+    keywords: [时间轴, 时间线, 按秒, 分拍, 时间码, 节点, 时序, timeline]
+    links:
+      - {link: P3-P4, rules: [SS-M1, SS-M2, SS-M4, LK34-08], why: 分拍覆盖 0→N、每拍 ≤2.5 秒（SS-M2/M4、LK34-08）}
+      - {link: P4-P7, why: H3 正文 At 00:SS.mmm 递增、间隔 1.5–2.5 秒（RL-T1/T2）}
+    rules: [SS-M1, SS-M2, SS-M4, LK34-08, RL-T1, RL-T2]
+    draft:
+      domain: prompt
+      title: H3 正文按秒分拍（At 00:SS.mmm）作为出片前硬闸门
+      when: 编译 H3 提示词时（P4-P7）
+      then: RL-T1/T2（时间码递增、间隔 1.5–2.5 s、覆盖到镜尾）不过的镜不派单，交写作方；现有 v1 稿 11/11 镜没有时间码
+      writer_text: H3 正文第二拍起每拍以 At 00:SS.mmm, 开头，时间 = 该拍起点，严格递增
+      director_text: 动作发生时间与分拍偏差 >1 s 记到 P4-P7
+  - id: pace_slow
+    name: 节奏慢 / 拖
+    keywords: [节奏慢, 节奏, 拖, 慢, 太长, 冗长, 平均每刀, 定住, 不动]
+    links:
+      - {link: P9-P10, why: 剪辑：平均每刀 ≤4.5 s、单镜 >6 s 拆刀、剪定住段}
+      - {link: P3-P4, rules: [RL-T7, SS-M1], why: 写作：动作量与速度（RL-T7 正常偏快、每拍至少一个完整动作）、单镜时长}
+      - {link: P7-P8, rules: [K-LOOP-005, K-REN-R01], why: 静止 / 结尾定住的配方阶梯}
+    rules: [K-EDT-003, K-EDT-004, RL-T7, SS-M1, K-LOOP-005, K-REN-R01]
+    draft:
+      domain: edit
+      title: 节奏两段分账：写作动作量（P3-P4）与剪辑每刀时长（P9-P10）分别度量
+      when: 审片判“节奏慢”
+      then: 先量成片平均每刀与定住段（K-EDT-003/004）；再量每镜运动量与 RL-T7（每拍至少一个完整动作、每秒 18–25 词）；两边各自记账，不混成一条
+      writer_text: 每拍至少一个完整的可见动作；正文每秒约 18–25 个英文词
+      director_text: 平均每刀 >4.5 s 记 P9-P10；镜内整拍不动记 P3-P4 / P7-P8
+  - id: narrator_voice_old
+    name: 旁白 / 独白声音老 / 不对味
+    keywords: [旁白, 独白, 画外音, 声音老, 老女人, 声线, 音色, 配音, 声音难听, TTS]
+    links:
+      - {link: P4-P9, why: 独白由 TTS 合成：音色选择、语速（config/voices.json vo_speed）没有规则约束年龄 / 风格}
+      - {link: P0-P1, why: 人物表 VOICE 声线短语决定 H3 原声与音色参考的方向（年龄、语速词）}
+      - {link: P8-P9, why: 对白原声 vs TTS 的分工}
+    rules: [K-EDT-001, K-AST-R09, SL-05]
+    owner_quote: "旁白的声音很难听，是一个老女人的声音……这是一部 fashion 的都市片，所以旁白的声音一定要更加年轻（docs/ep02_iter/writer_requests.md W6）"
+    draft:
+      domain: edit
+      title: 独白 / 旁白 TTS 音色须与人物表年龄和 VOICE 短语一致，切换属项目方闸门
+      when: 合成独白（🎙）或旁白音轨（P4-P9）
+      then: config/voices.json 每个说话角色加 vo_voice（独白专用音色）与 age_match 校验：音色候选的感知年龄段须覆盖人物表 age ±5；候选由系统出试听页，项目方选定后写入（不自动切换）
+      writer_text: VOICE 声线短语写明年龄段（例 a young woman in her early twenties）与语速；不写 slow pace 这类会把声音拖老的词
+      director_text: 旁白 / 独白听感年龄与人物表 age 差 >10 岁记到 P4-P9
+  - id: face_red
+    name: 脸红 / 泛红
+    keywords: [泛红, 脸红, 腮红, 红脸]
+    links: [{link: P11-RETRY, why: loop 阶梯}, {link: P3-P4, why: 脸红类描述会被放大（K-WRT-R01）}]
+    rules: [K-LOOP-003, K-WRT-R01, K-REV-R04]
+  - id: identity_drift
+    name: 脸不像 / 换人 / 身份漂移
+    keywords: [不像, 换人, 变脸, 身份, 脸跳, 白人, 族裔]
+    links: [{link: P4-P5, why: 身份参考缺失}, {link: P0-P1, why: EN 外貌短语缺族裔}, {link: P11-RETRY, why: 重出阶梯}]
+    rules: [K-AST-001, SL-04, K-LOOP-006, K-PRM-010]
+  - id: dialogue_changed
+    name: 台词不对 / 被改 / 多了少了
+    keywords: [台词不对, 台词被改, 少了台词, 多了台词, 念错, 对白错]
+    links: [{link: P3-P4, why: 台词逐字（LK34-01）}, {link: P2-P3, why: 剧本台词}, {link: P8-P9, why: H3 念错 → ASR 回听}]
+    rules: [LK34-01, LK34-03, SP-04]
+fallback:
+  link: null
+  note: 关键词都没命中 → 标“待人工归因”，草案仍进 knowledge/inbox/，由总调度指定连接

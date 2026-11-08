@@ -1,0 +1,124 @@
+# 资源策略（DISTILL 11-02，L-102 / ITERATION_PROTOCOL §G1）：GPU 分工、积压闸、暂停时限、滚动重启。
+# 读取：tools/autopilot/policy.py（load / get / drift_check / guard）。每项：
+#   value       现行值（单一来源）
+#   source      出处（L 编号 / 规则号 / 早报时刻）
+#   enforced_by 现在由哪段代码执行（文件:符号）
+#   status      code_reads = 代码直接读本文件；drift_checked = 代码里另有常量，policy_check 比对一致；
+#               pending = 还没有代码执行（plan 写方案，owner 负责落地）
+#   drift       比对规则（policy.py drift_check 用）：py_const / json / grep
+schema: nsfs.policy/1
+policy: resources
+items:
+  image_lanes:
+    value: ["gpu33:0", "gpu33:1", "gpu33:3", "gpu36:0", "gpu36:1", "gpu36:2"]
+    source: L-194（项目方 11-05 19:5x：gpu36 三卡全归 NS，修订 L-100）；gpu33 GPU2 坏卡永不使用（K-OPS-W07）
+    enforced_by: tools/autopilot/producer.py:IMAGE_LANES
+    status: drift_checked
+    owner: PRODUCER（不在岗，经总调度派；DEBUG-RSI 只有 K-OPS-E05 授权）
+    drift: {kind: py_const, file: tools/autopilot/producer.py, name: IMAGE_LANES, view: keys}
+  vlm_dedicated_lanes:
+    value: ["gpu36:2", "laptop:0"]
+    source: L-100：笔记本 4080 与 gpu36 GPU2 专做看图（vLLM 批处理），不出图
+    enforced_by: config/netfix/override.json:laptop_hold
+    status: drift_checked
+    owner: NETFIX / VQAGATE
+    drift: {kind: json, file: config/netfix/override.json, path: [laptop_hold], view: sorted}
+  vlm_instances:
+    value: 2
+    source: K-OPS-E05（config/vqa.json model.instances；VQAGATE 11-02 vLLM 专卡上线后 1→4；11-02 08:0x 改为 3；11-02 11:0x 总调度定显存预算 0.9×显存 → 3×7400 MiB 超 82 MiB，0.5 MP A/B 达标前临时 2 个实例，达标恢复 3 时与 config/vqa.json 两处一起改）
+    enforced_by: tools/autopilot/producer.py:vlm_instances()
+    status: drift_checked
+    owner: VQAGATE
+    drift: {kind: json, file: config/vqa.json, path: [model, instances]}
+  score_backlog:
+    value: {formula: "2 * lanes * vlm_instances", lanes_scope: local, env_override: NS_PRODUCER_SCORE_BACKLOG}
+    source: K-OPS-E05（DEBUG-RSI 01:0x）；01:31 总调度发现服务器按 6 条道算、应按本机道数算（lanes_scope=local）
+    enforced_by: tools/autopilot/producer.py:Producer.score_backlog_max
+    status: drift_checked
+    owner: PRODUCER（不在岗，经总调度派；DEBUG-RSI 只有 K-OPS-E05 授权）
+    drift: {kind: grep, file: tools/autopilot/producer.py, pattern: "2 \\* \\(len\\(self\\.lanes\\) or 1\\) \\* vlm_instances\\(\\)"}
+    note: lanes_scope=local 的含义——服务器 producer 的 self.lanes 只能是本机道（FACTORY 方案 C 本机道表）；笔记本代派时按笔记本实际派的道数
+  prefetch_depth:
+    value: 2
+    source: 总调度 11-02 04:2x（单与单之间空 5–40 s 靠预取解决）；K-OPS-E17
+    enforced_by: tools/autopilot/producer.py:prefetch_depth
+    status: code_reads
+    owner: DEBUG_RSI
+  pause_max_s:
+    value: 180
+    source: 总调度 11-02 01:04（NETFIX 切线路全局 pause 12 分钟未恢复导致 GPU 空转）；总调度批复 DISTILL r1（D5 口径）
+    enforced_by: tools/autopilot/policy.py:pause_decision（唯一实现）→ tools/autopilot/producer.py 每拍执行（K-OPS-E08，DEBUG-RSI）+ run.py guard
+    status: code_reads
+    owner: DISTILL（判定函数）/ DEBUG-RSI（producer 每拍执行，已接手 producer 所有权）
+    require_fields: [reason_kind, expires_at]
+    ops_kinds: [line_switch, restart, deploy]
+    explicit_kinds: [master, owner, canary]   # canary = VQAGATE 换版首批复核暂停（DEBUG-RSI 已对齐：显式，不自动恢复，>180 s 报警）
+    exempt_paused_by: [owner, OWNER, fred]
+    note: 每次 pause 必须带 reason_kind 和 expires_at。运维暂停（ops_kinds）最多 paused_at+180 s，到 expires_at 自动恢复；总调度 / 项目方显式暂停（explicit_kinds）不自动恢复，超过 180 s 只告警；缺字段 = 超过 180 s 只告警并记违规
+  rolling_restart:
+    value: {drain_per_lane: true, max_idle_s: 60, min_gap_s: 1800, urgent_can_jump: true}
+    source: L-099b（按道排空后重启，空转 ≤1 分钟）；01:0x“批准与切线路合并一次受控重启”；总调度批准 DJ-20 → WORKFLOW 重启队列（K-OPS-W16）
+    enforced_by: tools/autopilot/restart_queue.py（request → data/autopilot/restart_requests.jsonl；resident_sync 每拍 process(host) 合并执行、先排空、记 restart_done.jsonl）；tools/autopilot/resident_sync.py:RESTART_MIN_GAP_S
+    status: drift_checked
+    owner: WORKFLOW
+    drift: {kind: py_const, file: tools/autopilot/resident_sync.py, name: RESTART_MIN_GAP_S, field: min_gap_s}
+  gpu_idle_alert_s:
+    value: 600
+    source: K-OPS-W06（服务器上 GPU 空闲但有活超过 10 分钟报警）
+    enforced_by: tools/autopilot/infra_watchdog.py / resident_sync health
+    status: code_reads
+    owner: WORKFLOW
+    note: run.py status --all 把“有 ready 对象但 0 running 且超过本值”列为卡点
+  experiments_yield_to_production:
+    value: true
+    source: 22:21 巡检（gpu36 满载实验、gpu33 空）→ 实验只用空闲道、生产优先（VIDEO-RCA srv_run 生产退让；K-OPS-V13 线程上限）
+    enforced_by: tools/video_rca/srv_run.py（VRCA_IDLE_S 连续空闲 ≥5 分钟才用）
+    status: code_reads
+    owner: VIDEO-RCA
+  remote_probe_limits:
+    value: {timeout: true, nice: 19, threads: 4}
+    source: K-OPS-E06 / K-OPS-V13（v7 复测吃满 96 核，负载 250）
+    enforced_by: 各工具自设 NS_SCORE_THREADS=4；探测脚本模板人工
+    status: pending
+    owner: DEBUG-RSI
+    plan: tools/netfix/rsh.py 统一入口默认包 timeout + nice + OMP_NUM_THREADS=4（rsh 是唯一远端入口，K-OPS-N08）
+  multi_run:
+    value:
+      enabled: true
+      registry: config/pipeline/runs.json      # {primary, runs: {<run_id>: {priority, status, created_at, source}}}；config/pipeline/run.json 保留为 primary 指针（兼容）
+      import_adds_run: true                    # 导入新剧本只新增一个 run，不替换正式剧
+      object_id: "<run_id>/<kind>:<shot>"      # 跨 run 镜号会重名（ep01-S1），对象 / 租约 / 账本一律带 run 前缀；primary 兼容旧的无前缀写法
+      renders_root: "data/renders/<run_id>/"   # primary 仍用 data/renders/（兼容），新 run 必须分目录
+      script_path: "data/import/runs/<run_id>/script_v2.json"   # primary 仍用 data/import/script_v2.json
+      transition: "primary 不加前缀，非 primary 才加前缀，直到 producer 和 netfix dispatch 都能认前缀"
+    source: 总调度 11-02 02:4x（项目方要在 #/script-create 新建剧本，同时 series10 继续生产）
+    enforced_by: （待落）DEBUG-RSI producer 多 run；WORKFLOW episode_pipeline 按 run；FACTORY 服务器按 run_id 分开；接口见 docs/AUTOPILOT.md §0.1
+    status: pending
+    owner: DEBUG-RSI / WORKFLOW / FACTORY / NETFIX
+    plan: 四方按 docs/AUTOPILOT.md §0.1 接口落地；flow.py 已按 config/pipeline/runs.json 读多 run（文件不存在时只看 primary）
+  run_priority:
+    value: {order: "priority 升序（primary = 0，新剧默认 10）", new_runs: idle_backfill, primary_preempt: true}
+    source: 总调度 11-02 02:4x（默认正式剧优先，新剧用空档）
+    enforced_by: （待落）producer 派单按 run 优先级排序：只有高优先级 run 没有 ready 对象时，空闲道才派给低优先级 run；服务器工厂同口径
+    status: pending
+    owner: DEBUG-RSI / FACTORY
+    plan: producer 选对象时按 (run.priority, 原排序) 排；低优先级 run 不抢占在跑的作业，只在下一次派单时让位（primary_preempt = 新单优先、不打断在途）
+  lent_lanes_expiry:
+    value: {field: "config/netfix/partition.json:_lent_lanes[*].expires_at", action: auto_remove_on_expiry, per_host: [laptop, gpu36]}
+    source: 总调度 11-02 03:5x（借道 / 临时 hold 到期自动收回；_lent_lanes 与 retired_lanes 并列，DEBUG-RSI 写的审计字段）
+    enforced_by: NETFIX:tools/netfix/dispatch.py（每拍检查、过期自动移除——解冻后实现）；过渡期 DEBUG-RSI 临时兜底进程收回
+    status: pending
+    owner: NETFIX（正式）/ DEBUG-RSI（过渡兜底）
+    plan: dispatch 每拍读 _lent_lanes，now ≥ expires_at 的条目移出借道、恢复原分区，写审计；落地后改 code_reads 并加 drift（grep dispatch.py 的 _lent_lanes）
+  master_review_autosign:
+    value:
+      switch_min_agreement: 0.95      # 回归集上机签与总调度历史亲审结论一致率
+      switch_max_false_pass: 0        # 漏放（亲审驳回、机签放行）必须为 0
+      testphase_spot_check_ratio: 0.10   # 切换后测试期总调度每轮抽检比例
+      on_spot_mismatch: revert_to_manual_and_ticket   # 抽检不一致 → 自动退回人工复核 + 开工单
+      sign_conditions: [contract_all_pass, vqa_all_pass, regression_all_pass]
+    source: 总调度 11-02 04:0x（同意 master_review 改机签，附条件）；gates.only_show_passing；判断清单 DJ-11
+    enforced_by: tools/vqa/autosign.py check / sign / spot（VQAGATE，判定调 policy.autosign_switch_ok / autosign_spot_check）；iter_gate C2 认 master_review_auto.md
+    status: implemented_gate_closed
+    owner: VQAGATE / ITERAUDIT（实现）/ DISTILL（判定函数）
+    plan: 代码已就位、门槛未过（11-02 08:0x：一致率 0.796、漏放 8，mode=manual，仍人工签）；VQAGATE 用现行契约重打这 8 张，看新闸门能否拦住（塑料感 Q4 目前记日志、不拦，可能仍漏放）；一致率 ≥0.95 且漏放 0 才切换

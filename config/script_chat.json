@@ -1,0 +1,36 @@
+{
+  "_doc": "剧本创作对话框（T58）写作设置：规则、附录、全局头。2026-10-30 夜 fredw-92/W1：模型 / 服务商 / 参数 / 密钥已迁到统一配置 config/llm_providers.json（+ .local.json 放密钥；用途 script_write），默认 abliteration large-flash；千问写作模型撤下，原 qwen / abliteration providers 段删除（abliteration.local.json 的 key 仍读兼容）。",
+  "max_tokens": 32000,
+  "system_parts": [
+    "config/script_chat_rules.md",
+    "config/qwen_writer_system_prompt.txt",
+    "config/recipes/writer_knowledge.md"
+  ],
+  "default_rules": "rules_v2",
+  "rules_versions": {
+    "rules_v2": [
+      "config/script_chat_rules.md",
+      "config/qwen_writer_system_prompt.txt",
+      "config/recipes/writer_knowledge.md"
+    ]
+  },
+  "_writer_knowledge_doc": "ARCH 2026-10-31（Autopilot）：config/recipes/writer_knowledge.md 由 knowledge/ 自动生成（tools/knowledge/compile.py），带 writer_knowledge_version；删掉这一项 = 写作模型不带系统知识包",
+  "appendix": "config/script_chat_rules_appendix.md",
+  "header_sources": [
+    "data/staging_v3/merged/漆皮之下·十日_series10_v1_rsiD07_ep01_ep02_ep03_ep04_ep05_ep06_ep07_ep08_ep09_ep10_v3.md"
+  ],
+  "header_mode": "compact",
+  "_header_doc": "compact：全局头只带角色锁、触发词表、姿势表（名字+短描述）；材质/声音/规格长段已在 rules_v2 核心与附录（总调度 2026-10-30 要求留 3k 余量）",
+  "_header_sources_doc": "K-OPS-Q31（CLEANUP 11-01，总调度按 G0 定）：全局头来源默认从 data/import/script_v2.json 的现行导入来源自动推导（ns_api.import_sources.header_source：sha 一致、带全局头的最新一份），每次导入后自动跟上；header_sources 只是推导不出来时的回退值。header_sources_mode 改 \"config\" = 只用这里写的路径。⤴ 原指 60 集旧稿 v3.1 / script play lib v2，已取代。",
+  "header_sources_mode": "import",
+  "run_parts": {
+    "_doc": "HEADER-O 11-03（L-126，总调度批准 ISS-1103-013358-10ac）：通用规则（system_parts / appendix）只写通用写法；某部剧专属的条款（V1 林晚发色妆容、lnwan01、系统角色锁、乳环阴环等）放这里按剧注入：system 接在通用规则后，appendix 与通用附录同名节合并（触发词并集）。没有 runs.json 的临时根 = legacy_default 那部剧。",
+    "legacy_default": "series10_v1",
+    "series10_v1": {
+      "system": [
+        "config/script_chat_runs/series10_v1.md"
+      ],
+      "appendix": "config/script_chat_runs/series10_v1_appendix.md"
+    }
+  }
+}

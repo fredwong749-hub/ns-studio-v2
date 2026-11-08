@@ -1,0 +1,50 @@
+{
+ "_doc": "V1 / 旧剧内容词表（HEADER-O 11-03，总调度：统一管理，只用来检查，不做任何改写）。检查入口 = ns_api.script_chat.assert_no_v1（写手包 / 作业包出口）和 tools/script_rsi/v1_leak.py scan。完整词表 = V1 导入稿人物名 / id / 场景 id + 旧剧（runs.json 里除当前剧以外的所有剧，含第二季）P1 的人物名 / id / 场景 id / 场景名 / 剧名 + 本剧被退回的 P1 + config/compile/run_style.json v1_style_phrases + 下面 extra_ids / props。白名单：当前剧自己的 P1_storyline / P1_looks / P0_brief 里出现的词、资产包清单里女主造型名、docs/v2/DIRECTION_V2.md 项目方原话、下面 allow_phrases。英文词按整词匹配。",
+ "extra_ids": [
+  "lnwan01",
+  "lin_wan",
+  "gu_chen",
+  "chen_yu",
+  "ch_a_lan",
+  "sk_office_night"
+ ],
+ "props": [
+  "门卡",
+  "束腰",
+  "九环",
+  "阴环",
+  "乳环",
+  "铁珠",
+  "钢珠",
+  "穿孔",
+  "纹身",
+  "舌钉",
+  "水晶甲",
+  "银戒",
+  "红绳",
+  "投名状",
+  "预约单",
+  "续约单",
+  "两碗汤",
+  "九串",
+  "漆皮之下",
+  "衣帽间推拉门"
+ ],
+ "weak_props": {
+  "_doc": "K211-F 11-03（REVIEW-A P1③）：常用词，单独出现不算旧剧内容（ep02 作业包被“名单 / 验收 / 图纸 / 老公”误伤）；只在同一段文字里还有 V1 专名（人物名 / id / 场景 id / 剧名）时才算命中",
+  "items": [
+   "图纸",
+   "名单",
+   "验收",
+   "老公"
+  ]
+ },
+ "allow_phrases": {
+  "_doc": "通用规则里的禁写清单 / 项目方通用画质原话：提到了词但不是旧剧内容",
+  "items": [
+   "Leica、Summilux",
+   "Leica、bokeh",
+   "leica镜头锐利度"
+  ]
+ }
+}

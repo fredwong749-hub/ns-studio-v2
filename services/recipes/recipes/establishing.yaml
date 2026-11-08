@@ -1,0 +1,19 @@
+# 空镜 / 环境：没有在画角色
+id: establishing
+extends: _base
+label: 空镜 / 环境
+status: 确认
+priority: 10
+match:
+  any_visible: false
+acceptance:
+  sface_ref_min: null
+  sface_self_min: null
+  cheek_a_drift_max: null
+  cheek_red_max: null
+fallback: []
+provenance:
+  acceptance.sface_ref_min: {src: "无人物，不测身份", date: 2026-10-31, status: 确认}
+  acceptance.sface_self_min: {src: "同上", date: 2026-10-31, status: 确认}
+  acceptance.cheek_a_drift_max: {src: "无人脸", date: 2026-10-31, status: 确认}
+  acceptance.cheek_red_max: {src: "无人脸", date: 2026-10-31, status: 确认}

@@ -1,0 +1,10 @@
+{
+ "enabled": true,
+ "note": "EPCHAIN-O 11-03（总调度：派单做进系统）。L-138 项目方 03:1x 批准开启；冒烟 11-03 02:3x 通过。resident 每拍调 tools/factory/agent_dispatcher.py tick 一次",
+ "claude_cmd": ["C:/Users/fredw/.local/bin/claude.exe"],
+ "max_concurrent": 2,
+ "timeout_s": 1800,
+ "max_attempts": 3,
+ "kinds": ["writer", "reviewer"],
+ "models": {"fable": "fable", "sonnet": "sonnet", "haiku": "haiku", "opus": "opus"}
+}

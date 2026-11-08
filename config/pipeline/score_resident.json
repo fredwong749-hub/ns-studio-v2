@@ -1,0 +1,1 @@
+{"_doc": "AUDIT-PERF 提案 A：full_score 用 gpu33/gpu36 常驻打分服务（ops/factory/score_resident.sh 起；idm 8873 / hand 8874）。失败自动退回旧子进程。gpu33 smoke 通过（11-05，结果与旧路径逐字段一致）后默认开。", "enabled": true}

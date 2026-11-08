@@ -1,0 +1,241 @@
+{
+ "_doc": "多剧并行 run 登记表（WORKFLOW 11-02，总调度批准，docs/AUTOPILOT.md §0.1；读取 tools/autopilot/runs.py）。导入新剧本 = 追加一条（priority 默认 10，数字小 = 优先），不改 primary、不替换 series10。config/pipeline/run.json 保留为 primary 指针。",
+ "primary": "series10_v2",
+ "runs": {
+  "series10_v1": {
+   "priority": 0,
+   "status": "archived",
+   "source": "import",
+   "created_at": "2026-10-31T00:00:00",
+   "paused_note": "项目方 11-02 18:2x：停止当前所有渲染，打包成 Version 1 视频库；准备 Version 2 从头按新流程重做（L-125）",
+   "frozen_note": "L-125（项目方 11-02 18:2x / 18:4x）：Version 1 视频库，只读冻结；不删文件，网页只在剧本库“历史剧本”里显示（K-OPS-F24：仍用不带前缀的旧路径）",
+   "frozen_at": "2026-11-02T18:32:35",
+   "archived_at": "2026-11-02T18:39:11+09:00",
+   "archived_note": "AUDIT-M（总调度 18:4x / 19:0x）：FACTORY 18:37 确认两台停稳后重跑 V1 清单（三台 data/library/v1/MANIFEST.json，tools/qa/v1_manifest.py），由 frozen 改 archived；puller FROZEN_STATUS 与 script_library._DONE_STATES 都认 archived；producer 只跑 producing",
+   "v1_manifest": "data/library/v1/MANIFEST.json"
+  },
+  "series10_s2": {
+   "priority": 0,
+   "status": "paused",
+   "created_at": "2026-11-02T02:36:43",
+   "source": "flow-start",
+   "note": "项目方点选“导入第二季，和第一季同等优先”（总调度 11:4x）；sv-08 部署后放单",
+   "episode": 6,
+   "started_at": "2026-11-02T11:48:26",
+   "paused_note": "项目方 11-02 16:0x 点选“第二季出图暂停”：GPU 和打分让给第一季，第一季十集成片后恢复（docs/master/FOCUS_PLAN_20261102.md）；剧本写作照常"
+  },
+  "series10_v2": {
+   "priority": 0,
+   "status": "producing",
+   "source": "v2-plan",
+   "created_at": "2026-11-02T18:28:50",
+   "note": "L-125（项目方 11-02 18:2x）：第一季 Version 2 从零重做；不设 inherits（不继承 V1 任何资产 / 覆盖），参考只认 assets_v2/manifest.json（docs/master/V2_PLAN.md）",
+   "assets_manifest": "assets_v2/manifest.json",
+   "episode": 4,
+   "status_history": [
+    {
+     "at": "2026-11-03T14:06:04",
+     "from": "preparing",
+     "to": "producing",
+     "by": "MASTER-WSL L-165",
+     "why": "sop_gate.promote：第 [1] 集已可进“出图”"
+    }
+   ]
+  },
+  "smoke_v2": {
+   "kind": "smoke",
+   "priority": -1,
+   "status": "paused",
+   "source": "eval-smoke",
+   "created_at": "2026-11-03T16:30:00",
+   "assets_manifest": "assets_v2/manifest.json",
+   "note": "W26 SMOKE-GATE（RSI 实施包 §4）：冒烟门专用迷你剧（eval/run_smoke.ps1 每次从 eval/smoke 模板重建 data/**/smoke_v2）；平时 paused（常驻进程不碰），只在 G4 窗口由冒烟脚本经 runs.set_status 临时翻 producing、结束翻回 paused；不是生产剧",
+   "status_history": [
+    {
+     "at": "2026-11-03T16:56:02",
+     "from": "paused",
+     "to": "producing",
+     "by": "eval/smoke.py（W26）",
+     "why": "冒烟 G4 窗口：临时放行 producer"
+    },
+    {
+     "at": "2026-11-03T17:21:02",
+     "from": "producing",
+     "to": "paused",
+     "by": "eval/smoke.py（W26）",
+     "why": "冒烟 G4 窗口结束：翻回 paused（常驻进程不碰）"
+    },
+    {
+     "at": "2026-11-04T02:04:56",
+     "from": "paused",
+     "to": "producing",
+     "by": "eval/smoke.py（W26）",
+     "why": "冒烟 G4 窗口：临时放行 producer"
+    },
+    {
+     "at": "2026-11-04T02:29:57",
+     "from": "producing",
+     "to": "paused",
+     "by": "eval/smoke.py（W26）",
+     "why": "冒烟 G4 窗口结束：翻回 paused（常驻进程不碰）"
+    },
+    {
+     "at": "2026-11-06T21:09:20",
+     "from": "paused",
+     "to": "producing",
+     "by": "eval/smoke.py（W26）",
+     "why": "冒烟 G4 窗口：临时放行 producer"
+    },
+    {
+     "at": "2026-11-06T21:34:20",
+     "from": "producing",
+     "to": "paused",
+     "by": "eval/smoke.py（W26）",
+     "why": "冒烟 G4 窗口结束：翻回 paused（常驻进程不碰）"
+    },
+    {
+     "at": "2026-11-06T21:38:18",
+     "from": "paused",
+     "to": "producing",
+     "by": "eval/smoke.py（W26）",
+     "why": "冒烟 G4 窗口：临时放行 producer"
+    },
+    {
+     "at": "2026-11-06T22:03:07",
+     "from": "producing",
+     "to": "paused",
+     "by": "PS-MASTER",
+     "why": "冒烟 A6 被内存回收中途杀掉，补做脚本收尾：翻回 paused"
+    },
+    {
+     "at": "2026-11-07T04:33:14",
+     "from": "paused",
+     "to": "producing",
+     "by": "eval/smoke.py（W26）",
+     "why": "冒烟 G4 窗口：临时放行 producer"
+    },
+    {
+     "at": "2026-11-07T04:58:14",
+     "from": "producing",
+     "to": "paused",
+     "by": "eval/smoke.py（W26）",
+     "why": "冒烟 G4 窗口结束：翻回 paused（常驻进程不碰）"
+    },
+    {
+     "at": "2026-11-07T05:03:30",
+     "from": "paused",
+     "to": "producing",
+     "by": "eval/smoke.py（W26）",
+     "why": "冒烟 G4 窗口：临时放行 producer"
+    },
+    {
+     "at": "2026-11-07T05:28:30",
+     "from": "producing",
+     "to": "paused",
+     "by": "eval/smoke.py（W26）",
+     "why": "冒烟 G4 窗口结束：翻回 paused（常驻进程不碰）"
+    },
+    {
+     "at": "2026-11-07T06:25:33",
+     "from": "paused",
+     "to": "producing",
+     "by": "eval/smoke.py（W26）",
+     "why": "冒烟 G4 窗口：临时放行 producer"
+    },
+    {
+     "at": "2026-11-07T06:50:33",
+     "from": "producing",
+     "to": "paused",
+     "by": "eval/smoke.py（W26）",
+     "why": "冒烟 G4 窗口结束：翻回 paused（常驻进程不碰）"
+    },
+    {
+     "at": "2026-11-07T08:39:04",
+     "from": "paused",
+     "to": "producing",
+     "by": "eval/smoke.py（W26）",
+     "why": "冒烟 G4 窗口：临时放行 producer"
+    },
+    {
+     "at": "2026-11-07T09:04:04",
+     "from": "producing",
+     "to": "paused",
+     "by": "eval/smoke.py（W26）",
+     "why": "冒烟 G4 窗口结束：翻回 paused（常驻进程不碰）"
+    },
+    {
+     "at": "2026-11-07T13:22:18",
+     "from": "paused",
+     "to": "producing",
+     "by": "eval/smoke.py（W26）",
+     "why": "冒烟 G4 窗口：临时放行 producer"
+    },
+    {
+     "at": "2026-11-07T13:22:34",
+     "from": "producing",
+     "to": "paused",
+     "by": "eval/smoke.py（W26）",
+     "why": "冒烟 G4 窗口结束：翻回 paused（常驻进程不碰）"
+    },
+    {
+     "at": "2026-11-07T13:48:10",
+     "from": "paused",
+     "to": "producing",
+     "by": "eval/smoke.py（W26）",
+     "why": "冒烟 G4 窗口：临时放行 producer"
+    },
+    {
+     "at": "2026-11-07T14:13:11",
+     "from": "producing",
+     "to": "paused",
+     "by": "eval/smoke.py（W26）",
+     "why": "冒烟 G4 窗口结束：翻回 paused（常驻进程不碰）"
+    },
+    {
+     "at": "2026-11-07T19:10:52",
+     "from": "paused",
+     "to": "producing",
+     "by": "eval/smoke.py（W26）",
+     "why": "冒烟 G4 窗口：临时放行 producer"
+    },
+    {
+     "at": "2026-11-07T19:35:53",
+     "from": "producing",
+     "to": "paused",
+     "by": "eval/smoke.py（W26）",
+     "why": "冒烟 G4 窗口结束：翻回 paused（常驻进程不碰）"
+    },
+    {
+     "at": "2026-11-07T20:13:28",
+     "from": "paused",
+     "to": "producing",
+     "by": "eval/smoke.py（W26）",
+     "why": "冒烟 G4 窗口：临时放行 producer"
+    },
+    {
+     "at": "2026-11-07T20:38:28",
+     "from": "producing",
+     "to": "paused",
+     "by": "eval/smoke.py（W26）",
+     "why": "冒烟 G4 窗口结束：翻回 paused（常驻进程不碰）"
+    },
+    {
+     "at": "2026-11-08T03:34:31",
+     "from": "paused",
+     "to": "producing",
+     "by": "eval/smoke.py（W26）",
+     "why": "冒烟 G4 窗口：临时放行 producer"
+    },
+    {
+     "at": "2026-11-08T03:59:32",
+     "from": "producing",
+     "to": "paused",
+     "by": "eval/smoke.py（W26）",
+     "why": "冒烟 G4 窗口结束：翻回 paused（常驻进程不碰）"
+    }
+   ]
+  }
+ },
+ "legacy_unprefixed_run": "series10_v1",
+ "primary_note": "L-125（项目方 18:4x：网页图片资产全部下架、只显示 V2）：primary 切到 series10_v2（FACTORY 11-02 18:5x）；V1 = legacy_unprefixed_run，只读冻结"
+}

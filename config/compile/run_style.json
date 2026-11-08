@@ -1,0 +1,119 @@
+{
+ "_doc": "按剧取出图风格后缀（PROMPTFIX 11-02 20:4x，总调度定：V1 的 S★ 后缀进了 V2 提示词 = V1 内容泄漏，违反 L-126）。gen_contract.style.preset_suffix 先查这里（剧 = NS_RUN / runs.json primary）；资产包模式的剧在这里没有条目 → 抛错（失败关闭），绝不退回 V1 的 render_quality 默认预设。没有条目的旧剧（V1 / 第二季）照旧读 render_quality 默认预设。v1_style_phrases：V1 风格短语，V2 编译出的提示词里出现即阻断（preflight I7 + tools/script_rsi/v1_leak.py style）",
+ "runs": {
+  "series10_v2": {
+   "bible": "config/compile/bible_series10_v2.toml",
+   "segments": {
+    "fantasy": {
+     "preset": "v2_editorial_fantasy_c",
+     "label": "幻想段 · 黄金时刻",
+     "post_lut": "config/post/luts/v2_fantasy_c.cube",
+     "camera": "bolt_push_settle"
+    },
+    "reality": {
+     "preset": "v2_editorial_reality_c2",
+     "label": "现实段 · 直闪纪实第 2 版",
+     "post_lut": "config/post/luts/v2_reality_c2.cube",
+     "camera": "handheld_follow（只限走动镜）"
+    }
+   },
+   "default_segment": "reality",
+   "video_mode": {"mode": "fl2va", "_doc": "L-203（项目方 11-06 08:3x“你所有的首尾帧都是一模一样的图片……现在全部都错了”，选 A）：撤回 L-197 A 与 L-201 ②——每镜都出首帧 + 尾帧，视频在两张不同画面之间生成（FL2VA）；ep01 / ep02 的尾帧对象恢复创建、sop_gate 尾帧阶段照旧要求、build_jobs 送 @last_frame。I2VA 代码路径（ns_agent.video_mode.no_last）原样保留：mode 改回 i2va（from_episode / shots）才生效；env NS_VIDEO_MODE=fl2va 仍可一键强关", "_history": "L-197 A（11-05）mode i2va from_episode 2；L-201（11-06 07:5x）shots [ep01-S1, ep01-S2] 逐镜 I2VA——均由 L-203 撤回"},
+   "last_frame_mode": "compose",
+   "_last_frame_mode": "L-203：尾帧按分镜 **motion** “——”之后的落幅单独构图出图（compose）：提示词像首帧一样从落幅文字编（景别 / 机位 / 构图 / 人物 / 道具 / 光线 + 同一套风格 / 镜头 / 纠正器 / 材质词），参考 = 身份脸 / 造型 / 场景底图照首帧槽位逻辑（留一槽）+ 通过契约的首帧作最后一张参考、只保持人物服装 / 发型 / 场景陈设 / 光线一致；出图后首尾两张比对（gen_contract.first_last，FL 硬项）太像 = 换种子重出尾帧。\"edit\" = 旧法（首帧作图1 + bible last_frame_keep 固定开头小改）。读取方 ns_agent.video_mode.last_frame_mode；env NS_LAST_FRAME_MODE 临时覆盖",
+   "shot_language": {
+    "lens": "auto",
+    "composition": "script",
+    "lighting": "script",
+    "fusion": true,
+    "_l149": "⤴ L-149（项目方 11-03 05:0x）：镜头句（焦段光圈，不写品牌）与 L-110 融合句 V2 现在开；L-148：灯光以每镜剧本为准",
+    "_doc": "MERGE-IMG-O 11-03（ISS-1103-023528-2869）：首帧镜头语言模板 v2 段（ns_agent/shot_language.py，顺序 = shot_spec_v2.yaml image_compile.order）。构图 / 灯光取剧本本镜【构图】【灯光】原文（L-111，写作方已写）；镜头句（lenses.yaml 是 V1 的品牌镜头组，V2 去品牌后只剩焦段光圈）与 L-110 融合句会改变 V2 画面观感，暂关，等总调度定"
+   },
+   "post_lut": true,
+   "decision": "L-130（项目方 11-02 21:1x 选定）：幻想段 v2_editorial_fantasy_c、现实段 v2_editorial_reality_c2，替换临时风格句；风格句单一来源 = render_quality.json 对应预设的 style_suffix；段落标记取自剧本节拍（【幻想段】/【现实段】），没标记按 default_segment 并告警；LUT 走后期（post_lut）",
+   "prompt_template": {
+    "image": "v2",
+    "video": "v2",
+    "_doc": "阶段 2.1 提示词模板（CODER-PT 11-05，PLAN_EP01_FINISH §4 2.1 / §8 / §9）：image = v1（现编译）| v2（Qwen-Image 机位首句置前、去【角色】块、人物一行、场景+一句布光、否定进负面词、按露脸人数写同框）；video = v1 | v2（H3 官方写法：运镜独立成句紧跟构图句，官方动词+幅度+速度，分拍沿用写作方时间轴）。默认 v1 = 其它剧与现行提示词逐字不变；改 v2 后作业签名随提示词变（producer.job_sig 带 template= 段，redo_inputs_changed 报“提示词模板变了”）。选项见顶层 prompt_template_v2"
+   }
+  },
+  "smoke_v2": {
+   "last_frame_mode": "compose",
+   "_last_frame_mode_doc": "#6（11-08，A12 窗口日志 + 本地复现）：冒烟剧没配 → 走旧法 edit（_build_last_edit 换了 refs / 提示词却沿用首帧槽位记录）→ 尾帧 preflight I6/I9 必挂、I2VA 兜底；生产 series10_v2 = compose（L-203）所以 0 次。冒烟要验生产路径 → 与生产一致",
+   "bible": "config/compile/bible_series10_v2.toml",
+   "segments": {
+    "fantasy": {
+     "preset": "v2_editorial_fantasy_c",
+     "label": "幻想段 · 黄金时刻",
+     "post_lut": "config/post/luts/v2_fantasy_c.cube",
+     "camera": "bolt_push_settle"
+    },
+    "reality": {
+     "preset": "v2_editorial_reality_c2",
+     "label": "现实段 · 直闪纪实第 2 版",
+     "post_lut": "config/post/luts/v2_reality_c2.cube",
+     "camera": "handheld_follow（只限走动镜）"
+    }
+   },
+   "default_segment": "reality",
+   "shot_language": {
+    "lens": "auto",
+    "composition": "script",
+    "lighting": "script",
+    "fusion": true
+   },
+   "post_lut": true,
+   "decision": "W26b SMOKE R2（11-03）：冒烟门专用迷你剧，与 series10_v2 同 bible（同一文件引用，不复制）/ 同段落预设 / 同后缀；series10_v2 条目改了这里要跟着改（eval/test_smoke_harness.py 有对齐测试）",
+   "prompt_template": {
+    "image": "v2",
+    "video": "v2",
+    "_doc": "阶段 2.1 提示词模板（CODER-PT 11-05，PLAN_EP01_FINISH §4 2.1 / §8 / §9）：image = v1（现编译）| v2（Qwen-Image 机位首句置前、去【角色】块、人物一行、场景+一句布光、否定进负面词、按露脸人数写同框）；video = v1 | v2（H3 官方写法：运镜独立成句紧跟构图句，官方动词+幅度+速度，分拍沿用写作方时间轴）。默认 v1 = 其它剧与现行提示词逐字不变；改 v2 后作业签名随提示词变（producer.job_sig 带 template= 段，redo_inputs_changed 报“提示词模板变了”）。选项见顶层 prompt_template_v2"
+   }
+  }
+ },
+ "v1_style_phrases": [
+  "徕卡",
+  "S★",
+  "R0",
+  "暖调通透",
+  "微反差强",
+  "50mm f/2",
+  "干净真实"
+ ],
+ "_v1_style_phrases_l145": "⤴ MERGE-IMG-O 11-03：L-145（项目方 04:3x“徕卡级锐利风格是我要的”“徕卡镜头风格, arris相机, kodak胶卷感”）起 V2 后缀用英文 Leica / ARRI / Kodak 质感句（render_quality v2_editorial_fantasy_c / reality_c2），英文 Leica 移出 V1 泄漏名单；中文“徕卡”、S★、R0、50mm f/2、暖调通透 仍是 V1 S★ 原句标记，照挡",
+ "_bible_doc": "runs.<剧>.bible：资产包模式剧的编译规则文件（只有技术纠正规则；ns_agent.bible.bible_path），V2 编译完全不读 V1 的 config/visual_bible.toml",
+ "prompt_template_v2": {
+  "_doc": "模板 v2 的共用选项（出图 / 视频都读这里；按剧只在 runs.<剧>.prompt_template 开关）",
+  "negation_rewrites": {},
+  "_negation_rewrites": "中文否定句 → 正向状态的改写表（在 ns_schema.prompt_v2.DEFAULT_NEG_REWRITES 之上覆盖）；表外以 不/没有/无 开头的小句整句去掉、对象进负面词",
+  "negative_extra": [
+   "看镜头",
+   "正对镜头",
+   "直视镜头",
+   "多余的人物",
+   "平光",
+   "正面补光",
+   "白边",
+   "抠图边",
+   "塑料皮肤",
+   "过度磨皮"
+  ],
+  "_negative_extra": "v2 出图负面词追加（只对 cfg>1 生效 = render_quality first_frame_tier base35；preview 8 步 cfg 1 不送负面）",
+  "extra_person_negative": true,
+  "_extra_person_negative": "按在画人数再加一条“第 N+1 个人”（S1 三人镜 35 步 2/5 张画出第 4 人）",
+  "ref_note": "{names}的脸、发型、服装以参考图为准",
+  "lighting_en": {
+   "generic": {
+    "fantasy": "lit by a motivated warm key from the side at 45 degrees, high-key golden with a soft falloff, the background a stop darker",
+    "reality": "lit by a motivated cool key from the upper side at 45 degrees with negative fill on the other side, the background a stop or two darker"
+   },
+   "_doc": "AUDIT-RULES 11-05：锚点句末的 L1 布光句按分镜 **灯光** 字段（动机光源 + 方向 + 负补光 / 亮度差）由 ns_schema.prompt_v2.lighting_en_from 生成，幻想段高调暖金（L-130）；灯光字段取不到才用这里的通用句。模板默认句里不许写死“ring light + front”（l1_prompt_audit --h3 查）"
+  },
+  "_lighting_en": "H3 正文锚点句末的 L1 布光句（按幻想 / 现实段；写作方 H3 里的旧平光句不再进正文）。L1 英文审计：tools/qa/l1_prompt_audit.py --h3",
+  "constraint_en": "The face stays stable and sharp throughout, the frame clean of text and watermark",
+  "_constraint_en": "官方写法基准臂的约束句改成正向（H3-A5 不许否定词）；空字符串 = 不加",
+  "video_direction_default": "right",
+  "_video_direction_default": "横移 / 环绕的方向（left|right），现仅候选写法用；导演层给方向时覆盖",
+  "_lens_fallback": "L-192 焦段表兜底 = config/director/lenses.yaml by_kind（单一来源；分镜 **镜头** 没写时 prompt_template_v2.lens_kind → by_kind；写了照写）"
+ }
+}

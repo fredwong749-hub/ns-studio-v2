@@ -1,0 +1,9 @@
+# P1 故事线三评委门槛（总调度 11-02 19:3x / 20:xx；V2-WALK W-19：门槛放配置，不写死在代码里）
+# 读方：tools/script_rsi/autoflow_agent._p1_review（P1 收下后先过三评委，过了才开项目方闸门）
+enabled: true
+judges: 3                    # 每轮评委数（由总调度派，不同模型，不复用上一轮评委）
+min_mean: 34                 # 三家总分均值 ≥ 34 / 40
+min_item_mean: 2.01          # 每一条的三家均分都要 > 2（“没有任何一条 ≤ 2 分”，按三家均分判）
+require_distinct_judges: true
+require_stable: false        # σ ≤ 1 先只记录不拦（三个不同模型的绝对分本来就有差，总调度 20:xx 口径不含 σ）
+max_rounds: 4                # 总调度 20:0x 定，只此一次（M-V2-P1-R4）：series10_v2 第 3 轮 [34,32,30] 均分 32 → 加第 4 稿定点修补（只修因果和一致性）；第 4 轮还不到 34 → 剧本和评分直接交项目方定方向。原值 3

@@ -1,0 +1,21 @@
+# 单人露脸镜头的 Ref2VA（方案 A）：同 two_person_ref2va（首帧 <Picture 1> + 脸部裁切身份图），只是 1 个在画露脸角色
+id: solo_ref2va
+extends: two_person_ref2va
+label: 单人·参考图锁身份（Ref2VA）
+status: 建议
+experiment: E5
+priority: 26
+selectable: false
+match:
+  min_faces: 1
+prompt:
+  anchor_positions: false
+fallback: [static_emotion]
+provenance:
+  selectable: {src: "V2：不自动选（单人镜默认仍是基模 static_emotion / dialogue_closeup），只由 loop state.recipe_override 指定（方案 A）或回退进入", date: 2026-10-31, status: 确认}
+  status: {src: "lab_recipes.md 批 2：X2 S1 Ref2VA 动作 2.59、SFace 0.53、无多腿（基模 SFace 0.24）；总调度 10-31 20:00 方案 A = 官方 Ref2VA + 脸部裁切（长镜头除外）", date: 2026-10-31, status: 建议}
+  experiment: {src: "h3_comfy_expert §8 E5", date: 2026-10-31, status: 待验}
+  priority: {src: "V2：排在 two_person_ref2va（25）之后、long_take（20）之后；长镜头仍走基模 24 + I2VA", date: 2026-10-31, status: 建议}
+  match: {src: "≥1 个在画露脸角色（无人空镜仍走 establishing）", date: 2026-10-31, status: 建议}
+  prompt.anchor_positions: {src: "单人无左右站位", date: 2026-10-31, status: 确认}
+  fallback: {src: "Ref2VA 不行时回到基模 24 + 只给首帧（static_emotion）", date: 2026-10-31, status: 建议}

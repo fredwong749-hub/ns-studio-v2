@@ -1,0 +1,7 @@
+# IMGMASTER 开关与路径（docs/imgmaster/DESIGN.md）。人写配置，默认关：关 = 出图路径和今天完全一致。
+imgmaster:
+  enabled: false          # true = build_first / build_last 走分段编译（frame_job.compile_frame_v2）；P1 只做只读试编，不改任何出图
+  fail_closed: true       # 开启后：缺 continuity / 插件未登记 / 规则无 check → 抛 CompileError，不静默回退
+  segments: [framing, continuity, characters, action, constraints]
+  plugins_file: config/compile/plugins.yaml
+  continuity_file: "{run_dir}/continuity/scene_locks_ep{ep:02d}.json"

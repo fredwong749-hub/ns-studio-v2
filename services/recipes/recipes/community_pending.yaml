@@ -1,0 +1,13 @@
+# 社区微调权重：许可未登记，只登记不使用（总调度 2026-10-31）。登记后改 status、补 provenance 才能被 A/B 引用
+id: community_pending
+extends: _base
+abstract: true
+label: 社区权重（待许可登记）
+status: 待许可登记
+registry:
+  singularity_v2: {files: [data/ab/owner_workflows/singularity_v2/], note: "ganloss Singularity V2 微调权重（慢动作 / 质感）", status: 待许可登记}
+  hybrid: {files: [], note: "社区 hybrid 底模", status: 待许可登记}
+  pdd_acc: {files: [], note: "alibaba-pai PDD Acc 8NFE（euler、12/3、不能叠 turbo），需专用节点", status: 待许可登记, experiment: E7}
+  lbh_upscaler: {files: [minimax_h3_latent_upscaler_3d_conv_v1_bf16.safetensors], note: "LBH 3D latent 上采样器（两段式 E1 依赖）", status: 待许可登记, experiment: E1}
+provenance:
+  registry: {src: "总调度消息 2026-10-31；h3_comfy_expert §11", date: 2026-10-31, status: 待许可登记}

@@ -1,0 +1,78 @@
+# 重试 / 驳回策略（DISTILL 11-02）
+schema: nsfs.policy/1
+policy: retry
+items:
+  max_content_tries:
+    value: 3
+    source: GEN_CONTRACT（每镜每阶段内容尝试 ≤3）；ITERATION_PROTOCOL §3
+    enforced_by: tools/autopilot/producer.py:MAX_TRIES
+    status: drift_checked
+    owner: PRODUCER（不在岗，经总调度派；DEBUG-RSI 只有 K-OPS-E05 授权）
+    drift: {kind: py_const, file: tools/autopilot/producer.py, name: MAX_TRIES}
+  infra_backoff_s:
+    value: [30, 60, 120, 300, 600]
+    source: AUTOPILOT §7（基础设施错误退避 + 换道，不计次数）；K-OPS-E01 / E02
+    enforced_by: tools/autopilot/producer.py:INFRA_BACKOFF
+    status: drift_checked
+    owner: PRODUCER（不在岗，经总调度派；DEBUG-RSI 只有 K-OPS-E05 授权）
+    drift: {kind: py_const, file: tools/autopilot/producer.py, name: INFRA_BACKOFF}
+  preflight_retry_s:
+    value: 1800
+    source: AUTOPILOT §7（preflight 不过 30 分钟后自动重查）
+    enforced_by: tools/autopilot/producer.py:PREFLIGHT_RETRY_S
+    status: drift_checked
+    owner: PRODUCER（不在岗，经总调度派；DEBUG-RSI 只有 K-OPS-E05 授权）
+    drift: {kind: py_const, file: tools/autopilot/producer.py, name: PREFLIGHT_RETRY_S}
+  lease_s:
+    value: 2700
+    source: producer（一次出图 + 取回上限 45 分钟）
+    enforced_by: tools/autopilot/producer.py:LEASE_S
+    status: drift_checked
+    owner: PRODUCER（不在岗，经总调度派；DEBUG-RSI 只有 K-OPS-E05 授权）
+    drift: {kind: py_const, file: tools/autopilot/producer.py, name: LEASE_S}
+  asset_fix_reject_counts:
+    value: false
+    source: 11-02 L-101 / lookA_adopt（资产修复后旧图驳回“不计次”）；01:0x ep01-S7 误计 1 次退回
+    enforced_by: tools/imgfix/lookA_adopt.py → producer.master_reject（不计次）
+    status: code_reads
+    owner: PRODUCER（不在岗，经总调度派；DEBUG-RSI 只有 K-OPS-E05 授权）
+  redo_ladder:
+    value: {heavy_plan: [frame_v9_heavy, frame_v9_heavy], on_input_change: reset_not_counted, on_exhausted: best_effort_plus_sentinel_ticket, hold_waits: true, skip_heavy_on: [Q1]}
+    source: 总调度 11-02 02:4x（G1：取消“等总调度定”，c + b 写成代码）；K-OPS-E09。skip_heavy_on（AUDIT-PERF 11-05，默认 [] = 原口径）：最后一次不过项含其中任一（如 [Q1]）→ 不排重档、直接标尽力版——重档只换写实预设不改脸约束，11-04/05 日志 26 单重档只过 1 单，上次含 Q1 的 11 单全败（每单 ~600 s 出图 + 140 s 打分）
+    enforced_by: tools/autopilot/producer.py:Producer.escalate_exhausted / redo_ladder_policy
+    status: code_reads
+    decider: code
+    owner: DEBUG_RSI（producer 所有者）
+  hard_cap:
+    value: {per_stage_24h: 30}
+    source: 总调度 11-02 FOCUS 第 2 条（ep05-S3 首帧出到第 92 版：E09 bug 重置 30 次 + runaway_hold 过期后 E11 尽力版重置又给 3 次，没有跨重置路径的绝对上限）；K-OPS-E28。L-204 D2（11-06）：10 → 30，只是安全阀——到顶不再静默跳过，producer 标用尽 → 尽力版 → 自动采用最好一版继续（ev=hard_cap_exhausted）
+    enforced_by: tools/autopilot/producer.py:Producer.hard_capped（takes.json 该阶段 24 小时自动版本数，派单前查；uncap 人工多放）+ Producer.cap_exhaust（到顶 → best_effort → adopt_best_effort_sweep）
+    status: code_reads
+    decider: code
+    owner: DEBUG_RSI（producer 所有者）
+  reject_clears_active:
+    value: true
+    source: L-089（驳回即撤下，set_active 唯一入口 + 审计；K-OPS-Q23 / V12）
+    enforced_by: tools/autopilot/producer.py:master_reject（P.clear_active）
+    status: code_reads
+    owner: PRODUCER（不在岗，经总调度派；DEBUG-RSI 只有 K-OPS-E05 授权）
+  best_effort_to_assembly:
+    value: false
+    source: ITERATION_PROTOCOL §3（重出 3 次仍不过 → 不合格，不进合成、不给项目方）
+    enforced_by: tools/autopilot/producer.py（K-OPS-E12：含尽力镜的集不整集写 force_eps，过契约的镜逐镜出视频）
+    status: code_reads
+    owner: DEBUG-RSI / WORKFLOW
+    plan: 已落地（K-OPS-E12）
+  best_effort_auto_reset:
+    value: {when: "规则或资产版本在尽力版之后变了", blocks_downstream_min: 1}
+    source: 早报 16:46（59 项尽力版挡住下游 42 项 → 总调度手动 reset-best-effort 43 项）
+    enforced_by: tools/autopilot/producer.py（K-OPS-E11：规则或资产版本变化时尽力版自动重置，不计次；资产暂缓清单里的不动）
+    status: code_reads
+    owner: PRODUCER（不在岗，经总调度派；DEBUG-RSI 只有 K-OPS-E05 授权）
+    plan: 已落地（K-OPS-E11）
+  per_shot_redo_on_asset_change:
+    value: true
+    source: L-101 / L-094（资产或造型改了 → 受影响作业重编 + 旧图驳回不计次）
+    enforced_by: tools/imgfix/lookA_adopt.py、tools/autopilot/full_redo.py reject_old_jobs
+    status: code_reads
+    owner: IMGFIX / WORKFLOW

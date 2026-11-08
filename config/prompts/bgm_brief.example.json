@@ -1,0 +1,29 @@
+{
+  "schema": "nsfs.bgm_brief/1",
+  "episode": 0,
+  "duration_s": 48,
+  "mood_arc": [
+    {"t0": 0, "t1": 20, "mood": "quiet and watchful"},
+    {"t0": 20, "t1": 48, "mood": "warmer, slowly opening"}
+  ],
+  "bpm": {"min": 64, "target": 70, "max": 76},
+  "key": "E minor",
+  "time_signature": 4,
+  "instrumentation": ["felt piano", "soft string pad", "upright bass"],
+  "style_words": ["minimal cinematic underscore", "intimate", "warm analog"],
+  "caption_en": "A minimal cinematic underscore with felt piano over a soft string pad and a light upright bass pulse, slow and restrained, gentle dynamics that open up in the second half.",
+  "energy_curve": [[0, 0.15], [12, 0.25], [24, 0.45], [36, 0.6], [48, 0.3]],
+  "duck": [
+    {"t0": 4, "t1": 12, "depth_db": 12, "reason": "dialogue"},
+    {"t0": 30, "t1": 38, "depth_db": 12, "reason": "voiceover"}
+  ],
+  "sections": [
+    {"name": "intro", "t0": 0, "t1": 20, "note_en": "sparse piano notes over the pad"},
+    {"name": "turn", "t0": 20, "t1": 40, "note_en": "bass enters, harmony shifts upward"},
+    {"name": "outro", "t0": 40, "t1": 48, "note_en": "thins out to the pad and fades"}
+  ],
+  "cue_change": {"has": true, "at_s": 20, "why": "scene turn"},
+  "negative": ["vocals", "choir", "drum kit", "distorted guitar", "lyrics"],
+  "loopable": false,
+  "clap_text": "slow minimal cinematic piano and strings underscore, instrumental"
+}

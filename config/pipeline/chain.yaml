@@ -1,0 +1,549 @@
+# 生产流水线链条契约（CHAINSPEC 2026-10-31）—— 系统骨架，单一事实来源
+#
+# 项目方原话（总目标）："把这条完整的生产 pipeline 从第一个 point 到 last point 梳理清楚：明确每一 point 之间要做什么、
+# 不做什么，以及 format 是什么、规则是什么……每个 chain 跟 next chain 之间都有 connect，所以每个 chain 之间都有自己的
+# 一些规则和 format。"
+#
+# 结构：
+#   nodes   P0–P12：每个节点的产物（输出 schema + 例子）、谁做、UI 位置、状态（已定 / 部分 / 缺）
+#   links   "Pa-Pb"：每段连接 = 输入 → 输出 的转换；必须做 / 禁止做 / 规则 / 校验器 / 失败处理 / 写作提示词
+#   rules   上游（P0–P4）链条规则：id、所属 link、级别、给写作 LLM 的一句话、校验函数、证据、置信度
+#           下游规则在 knowledge/rules/*.yaml（ARCH 负责，每条带 link 字段），这里按 link 引用，不复制
+#   validators 校验器注册表（python 函数 / CLI），tools/pipeline/check_chain.py 逐个检查存在
+#   gates   项目方闸门；fallback 回退策略
+#
+# 硬规则：Claude 只写系统，不写也不评价剧情内容；所有规则只讲格式与可实现性。
+# 校验：.venv/Scripts/python.exe tools/pipeline/check_chain.py           （引用完整性）
+#       .venv/Scripts/python.exe tools/pipeline/check_chain.py --artifact <文件>   （产物归属哪个节点、违反哪条规则）
+schema: nsfs.chain/1
+version: chain-v1
+date: 2026-10-31
+doc: docs/PIPELINE_CHAIN.md
+
+actors:
+  owner: 项目方（闸门：确认 / 花钱 / 推翻旧决定 / 删除）
+  writer_llm: 写作 LLM（config/llm_providers.json 用途 script_write，现为 abliteration large-flash；只按格式填字段）
+  system: 系统确定性代码（解析、编译、校验、调度；不生成内容）
+  render: 渲染模型（Qwen-Image 2.1 / Qwen-Image-Edit / MiniMax H3 / TTS / 音乐模型）
+  director_llm: 审片 / 导演模型（knowledge 生成的 config/recipes/director_system_prompt.md）
+
+settings:
+  writer_max_repair_rounds: 2          # knowledge/settings.yaml writer_selfcheck.max_rounds
+  render_max_attempts_per_shot: 3      # knowledge/settings.yaml loop_settings.max_renders_per_shot
+  budget_ledger: data/pipeline/ledger.jsonl
+  runs_dir: data/pipeline/runs
+
+# ------------------------------------------------------------------------------------------------ 节点
+nodes:
+  P0:
+    name: 项目方故事提纲
+    owner: owner
+    output: {schema: nsfs.brief/1, model: ns_schema.storyline:Brief, example: config/pipeline/examples/P0_brief.json}
+    ui: {page: "#/script-create", fields: [提纲文本框 outline, 集数 epFrom/epTo, 每集镜数 shots, 每镜秒数 secs, 规则版本 rules, 模型 LlmFields]}
+    validators: [check_brief]
+    status: 部分      # 页面字段已有；Brief JSON 由 run_chain 从界面字段拼，界面尚未直接产出 Brief
+  P1:
+    name: 全剧 storyline（人物表、世界观、场景表、分集一段话）
+    owner: writer_llm
+    output: {schema: nsfs.storyline/1, model: ns_schema.storyline:Storyline, example: config/pipeline/examples/P1_storyline.json}
+    ui: {page: "#/script-create", fields: ["（待建）storyline 卡：人物表 / 场景表 / 分集列表"], related: ["#/assets 角色（PeoplePage）", "#/assets 场景（ScenesTab）"]}
+    validators: [check_storyline]
+    status: 缺→已定（本轮新建 schema + 校验 + 提示词；UI 待建）
+  P2:
+    name: 单集大纲（节拍、钩子标签、场次）
+    owner: writer_llm
+    output: {schema: nsfs.episode_outline/1, model: ns_schema.episode_outline:EpisodeOutline, example: config/pipeline/examples/P2_outline.json}
+    ui: {page: "#/script-create", fields: ["（待建）分集大纲：节拍表 B1…Bn"]}
+    validators: [check_outline]
+    status: 缺→已定（本轮新建；UI 待建）
+  P3:
+    name: 单集剧本（场次、动作、台词、独白）
+    owner: writer_llm
+    output: {schema: nsfs.screenplay/1, model: ns_schema.screenplay:Screenplay, example: config/pipeline/examples/P3_screenplay.json}
+    ui: {page: "#/script-create", fields: ["（待建）剧本视图：场次 / 台词"], related: ["画布 StoryboardDetails 对白 / 独白字段（P4 之后）"]}
+    validators: [check_screenplay]
+    status: 缺→已定（本轮新建；以前 P3 与 P4 混在一份写作稿里）
+  P4:
+    name: 分镜表 / Shot Spec（剧本分镜 Markdown → Shot Spec v2）
+    owner: writer_llm
+    output:
+      schema: "剧本分镜 Markdown（config/script_chat_rules.md §2 + sysimpl 附录）→ nsfs.shot_spec/2"
+      model: ns_schema.shot_spec:ShotSpec
+      parser: services/recipes/ns_recipes/spec_import.py
+      importer: services/agent/ns_agent/importer/script_md.py
+      example: config/pipeline/examples/P4_episode.md
+    ui:
+      page: "#/script-create（① 创作草稿 + 格式校验）→ #/script-create?tab=import（② 导入，项目方确认）→ 画布"
+      fields: [StoryboardDetails 场景 scene, 人物 cast, 衔接 link, 画面 img, 动作/运镜 motion, 结束状态 end, 表情 expr,
+               对白 dialogue, 独白 vo, 环境声 sound_h3, 亲密声 intimate, 本镜配乐 music_cue, 时长 duration, 视频提示词 h3,
+               StoryboardTable 分镜表（一镜一行）]
+    validators: [validate_qwen_script, shot_spec_missing, shot_spec_sequence, h3_lint, llm_output_check, timeline_lint]
+    status: 已定（格式最完整的一段；分拍 / 时间轴 sysimpl-v2 部分落地）
+  P5:
+    name: 资产（角色设定图 / 身份参考 / 造型版、场景底图、音色、LoRA）
+    owner: render
+    output: {schema: "assets/characters/<id>/*.provenance.json；场景底图；config/voices.json；LoRA 登记", model: ns_schema.assets}
+    ui: {page: "#/assets", fields: [角色详情 PeoplePage, 造型 LooksSection, 场景 ScenesTab, 音色]}
+    validators: [knowledge:P4-P5, s1_gate]
+    knowledge: [K-AST-*]
+    status: 部分（男角身份参考 / 场景底图 / 音色参考缺口，见 K-AST-001、K-AST-R09）
+  P6:
+    name: 出图提示词与首帧（尾帧）
+    owner: system+render
+    output: {schema: "data/renders/<ep>/<S>/compiled.json image_prompt / last_prompt；takes.json image#N / last#N", model: ns_schema.frame_spec}
+    ui: {page: "画布精修（v3/edit EditCenter：Stage 首尾帧大图、ImageParams、RefBar、VersionChain）", fields: [首帧, 尾帧, 定稿]}
+    validators: [knowledge:P5-P6, image_check]
+    status: 部分（参考图出图 R 方式待落地 K-AST-R01；首尾帧定稿闸门已有）
+  P7:
+    name: 视频提示词（H3 官方格式）与配方
+    owner: system
+    output: {schema: "RenderPlan（services/recipes 配方 + H3 四块 / Ref2VA 六段）", model: services/recipes/ns_recipes/compiler.py}
+    ui: {page: "画布精修 VideoBase / LaneSelect；分镜表“视频提示词”列", fields: [h3, 配方]}
+    validators: [h3_lint, recipe_lint, knowledge:P4-P7]
+    status: 部分（I2VA / FL2VA / Ref2VA 模板与 lint 已有；按秒分拍 RL-T* 新上）
+  P8:
+    name: 视频片段
+    owner: render
+    output: {schema: "takes.json video#N（seed、plan_hash、workflow）", model: services/render_router/ns_render/h3_video.py}
+    ui: {page: "画布 EpisodeProduce / JobStrip / MotionQc", fields: [视频版本, 运动 QC]}
+    validators: [motion_qc, knowledge:P7-P8]
+    status: 部分
+  P9:
+    name: 声音（对白原声 / TTS / 旁白 / BGM / 环境声）
+    owner: system+render
+    output: {schema: "services/post 音轨；data/music/series10/<ep>.wav + .json（BGM 子链接，P4-P9.bgm）；config/voices.json", model: services/post/ns_post/h3_dialogue.py}
+    ui: {page: "#/cut 成片页（CutPage）音频设置；post_settings", fields: [对白来源, BGM, 独白音色]}
+    validators: [knowledge:P8-P9, knowledge:P4-P9]
+    status: 部分（旁白音色老 = 项目方 v1 bug，见 knowledge/inbox）
+  P10:
+    name: 剪辑合成
+    owner: system
+    output: {schema: "data/episodes/<ep>.timeline.json + mp4", model: services/post/ns_post/assemble.py}
+    ui: {page: "#/cut", fields: [时间线, 切点, 响度]}
+    validators: [knowledge:P9-P10, knowledge:P8-P10]
+    status: 部分（剪辑规格 K-EDT-003…009 建议 / 确认中）
+  P11:
+    name: 审片与重出
+    owner: director_llm+system
+    output: {schema: "nsfs.director_verdict/1 + tools/iterate_loop 记录", model: tools/iterate_loop/reviewer.py}
+    ui: {page: "画布审片（ReviewRow / ReviewMode / OwnerDecision）", fields: [审片结论, 重出, 项目方选择卡]}
+    validators: [director_review, knowledge:P10-P11, attribute_bug]
+    status: 部分（审片度量已有；bug → 连接归因本轮新建 attribute_bug）
+  P12:
+    name: 成片交付
+    owner: owner
+    output: {schema: "成片 mp4 + qa.json + timeline（只含定稿且 QC 通过的 take）"}
+    ui: {page: "#/cut 导出", fields: [成片, 交付记录]}
+    validators: [knowledge:P11-P12]
+    status: 部分
+
+# ------------------------------------------------------------------------------------------------ 连接
+# writer：写作 LLM 段的分段提示词（tools/pipeline/writer_prompt.py 从本文件 + knowledge 组装）
+links:
+  P0-P1:
+    from: P0
+    to: P1
+    owner: writer_llm
+    does: 把提纲展开成全剧 storyline：人物表（五格，进 H3）、场景表（六格）、世界观、逐集一段话
+    must: [提纲范围内每集一条, 项目方逐集一句话逐字放进 owner_line, 已登记人物 / 场景逐字照抄, 全部角色成年]
+    forbid: [改提纲剧情, 新增提纲外的集, 写镜头语言, 在场景卡写人物, 输出 JSON 以外的文字]
+    input: [P0]
+    rules: [BR-01, BR-02, BR-03, BR-04, SL-01, SL-02, SL-03, SL-04, SL-05, SL-06, SL-07, SL-08, SL-09, SL-10, SL-11, SL-12, LK01-01, LK01-02, LK01-03, LK01-04]
+    validators: [check_brief, check_storyline, check_link_p0_p1]
+    writer: {template: config/pipeline/prompts/P0-P1.md, output: json, max_tokens: 12000}
+    on_fail: writer_repair
+    gate: owner_optional          # 竞品都在“剧本概要 / 分集大纲”处让人确认；默认自动通过，项目方可开
+    status: 已定（本轮）
+  P1-P2:
+    from: P1
+    to: P2
+    owner: writer_llm
+    does: 一集一段话 → 节拍表（B1…Bn：场景、人物、预计秒数、标签）
+    must: [title / logline / intimate 逐字照抄 storyline, 节拍秒数合计 = 目标时长 ±5, carry_in 接上一集 carry_out]
+    forbid: [新增人物 / 场景, 改 logline, 写台词全文, 写镜头语言]
+    input: [P1]
+    rules: [EO-01, EO-02, EO-03, EO-04, EO-05, EO-06, EO-07, EO-08, EO-09, EO-10, LK12-01, LK12-02, LK12-03, LK12-04]
+    validators: [check_outline, check_link_p1_p2]
+    writer: {template: config/pipeline/prompts/P1-P2.md, output: json, max_tokens: 6000}
+    on_fail: writer_repair
+    gate: owner_optional
+    status: 已定（本轮）
+  P2-P3:
+    from: P2
+    to: P3
+    owner: writer_llm
+    does: 节拍 → 场次剧本（动作行、台词、独白、声音），每场标覆盖的节拍
+    must: [每个节拍至少被一场覆盖, 场景 = 节拍的场景, 台词 text 只放原文（语气写 tone）, 全集台词 ≤ 3.5 字/秒 × 时长]
+    forbid: [新增人物, 删节拍, 写景别 / 运镜（归 P4）, 写 H3 英文]
+    input: [P1, P2]
+    rules: [SP-01, SP-02, SP-03, SP-04, SP-05, SP-06, SP-08, SP-09, LK23-01, LK23-02, LK23-03, LK23-04, LK23-05]
+    validators: [check_screenplay, check_link_p2_p3]
+    writer: {template: config/pipeline/prompts/P2-P3.md, output: json, max_tokens: 8000}
+    on_fail: writer_repair
+    gate: null
+    status: 已定（本轮）
+  P3-P4:
+    from: P3
+    to: P4
+    owner: writer_llm
+    does: 场次剧本 → 剧本分镜（每镜 img / 场景 / 人物 / 衔接 / 分拍 / motion / 时长 / sound / 对白 / 🎙 / H3提示词）
+    must: [台词 / 独白逐字带下去, 现行写作规则全部（script_chat_rules.md rules_v2 + sysimpl 附录 + 按触发词附录）, 人物表 / 场景表逐字]
+    forbid: [改台词, 新增台词 / 人物 / 场景, 否定词, 人名进 H3, 镜内切镜]
+    input: [P1, P2, P3]
+    rules: [LK34-01, LK34-02, LK34-03, LK34-04, LK34-05, LK34-06, LK34-07, LK34-08, LK34-09, LK34-10, LK34-11, P4-GATE, P4-SPEC]
+    external_rules:              # 现行写作规则（只引用，不复制；规则号见文件内）
+      - config/script_chat_rules.md               # rules_v2 §1–§7 + sysimpl-v1 / v2 附录（QW-* / H3-* / S1-* / R-C1 / IMG-* / SS-* / RL-*）
+      - config/script_chat_rules_appendix.md      # 按触发词注入
+      - config/qwen_writer_system_prompt.txt
+      - docs/ep02_iter/writer_rules_addendum.md
+      - knowledge:P3-P4                            # K-WRT-* / K-PRM-010 等（writer_text 进提示词）
+    validators: [p4_gate, check_link_p3_p4, shot_spec_missing, shot_spec_sequence]
+    writer: {template: config/pipeline/prompts/P3-P4.md, output: markdown_episode, max_tokens: 32000, system_from: ns_api.script_chat.build_system_prompt}
+    on_fail: writer_repair
+    gate: owner_import           # 导入前项目方确认（现行 #/script-create?tab=import）
+    status: 已定（格式）；部分（时间轴 sysimpl-v2 刚上，RL-T*）
+  P4-P5:
+    from: P4
+    to: P5
+    owner: system+render
+    does: 由 Shot Spec 的在画角色 / 场景 / 造型 / 说话人 列出资产需求，缺的出候选给项目方定妆
+    must: [露脸角色有已定稿身份参考, 场景有底图, 说话角色有音色]
+    forbid: [缺资产时悄悄出片, 用别集造型]
+    rules: [knowledge:P4-P5]
+    validators: [s1_gate, shot_spec_missing]
+    on_fail: needs_owner
+    gate: owner_asset            # 定妆 / 资产定稿（项目方）
+    status: 部分
+  P5-P6:
+    from: P5
+    to: P6
+    owner: system+render
+    does: 资产 + Shot Spec → 首帧（参考图出图）、尾帧（编辑）
+    rules: [knowledge:P5-P6]
+    validators: [image_check]
+    on_fail: render_retry
+    gate: owner_keyframe         # 首尾帧定稿（C3，项目方要求保留）
+    status: 部分
+  P4-P6:
+    from: P4
+    to: P6
+    owner: system
+    does: Shot Spec img / 结束状态 → 出图提示词（frame_spec 编译，后缀按字段条件生成）
+    rules: [knowledge:P4-P6]
+    validators: [frame_spec_compile]
+    on_fail: writer_repair
+    status: 部分（chain_audit A2/A3/A11 条件后缀已修一部分）
+  P6-P7:
+    from: P6
+    to: P7
+    owner: system
+    does: 定稿首帧（尾帧）+ 配方选择（首帧 / 首尾帧 / Ref2VA）
+    rules: [knowledge:P6-P7]
+    validators: [recipe_lint]
+    on_fail: render_retry
+    status: 部分
+  P4-P7:
+    from: P4
+    to: P7
+    owner: system
+    does: Shot Spec H3 正文 → 按模式编译 H3 提示词（I2VA / FL2VA / Ref2VA），按秒分拍时间轴校验
+    rules: [knowledge:P4-P7]
+    validators: [h3_lint, timeline_lint, recipe_lint, llm_output_check]
+    on_fail: writer_repair
+    status: 部分
+  P7-P8:
+    from: P7
+    to: P8
+    owner: render
+    does: RenderPlan → GPU 作业 → 视频 take（带 provenance）
+    rules: [knowledge:P7-P8]
+    validators: [motion_qc]
+    on_fail: render_retry
+    status: 部分
+  P4-P9:
+    from: P4
+    to: P9
+    owner: system
+    does: Shot Spec audio（对白 / 独白 / 时段 / 嘴型 / 配乐 cue）→ 音轨计划（独白 TTS、BGM 提示点）；整集配乐见下方 bgm 子链接
+    rules: [knowledge:P4-P9]
+    validators: [shot_spec_missing, bgm_brief_check, bgm_candidate_gate]
+    on_fail: writer_repair
+    status: 缺（独白音色 / 旁白风格没有规则，v1 bug“旁白声音老”落在这里）；整集配乐（bgm）已定（BGM10 11-01）
+    # BGM 子链接（BGM10 2026-11-01，docs/BGM.md）：P3 + P4 → 写作模型 brief → 本地 ACE-Step 候选 → 自动度量 + 闸门 → 审听模型挑选
+    # → data/music/series10/epNN.wav + epNN.json（P9 产物）→ P9-P10 合成（--music-dir）。项目方 10-31：整集统一 BGM（一集一条，段落换气）
+    bgm:
+      runner: tools/bgm/agent.py                    # --run <runs_dir/id> --eps 1-10；断点续跑，已交付的集跳过
+      input: [P3（target_duration_s、场次）, P4（每镜时长 / 有无人声 / 【配乐】cue / 本集 **配乐** 行与【BGM】）]
+      timeline: tools/bgm/bgm_timeline.py           # 确定性解析，不判断内容
+      output:
+        brief: {schema: nsfs.bgm_brief/1, path: "data/music/series10/epNN/brief.json", example: config/prompts/bgm_brief.example.json}
+        track: "data/music/series10/epNN.wav（48 kHz 24-bit 立体声，−16 LUFS，真峰 ≤ −1 dBTP）"
+        assembly_meta: "data/music/series10/epNN.json（ns_post.music.find_music 格式：cues / shot_starts / duck / model / seed）"
+        record: "data/music/series10/epNN/meta.json（brief、模型、种子、全部候选度量、每轮决定与理由）+ cands/*.flac"
+      writer: {template: config/prompts/bgm_brief.writer.md, output: json, purpose: music_brief, max_tokens: 6000}
+      reviewer: {template: config/prompts/bgm_brief.review.md, output: json, purpose: music_brief, max_tokens: 3000}
+      model: "ACE-Step 1.5（MIT）：acestep-v15-xl-sft 50 步（GPU 空闲显存 ≥12.5 GB，int8 + offload）> turbo 8 步 > CPU turbo；config/bgm.json tiers"
+      must: [纯器乐, 一集一条（sections 换段不换曲）, 时间按 P4 时间轴, 人声镜头必须在 duck 里, 候选全部记录度量与决定]
+      forbid: [具名歌曲 / 艺人 / 作品, 人声 / 合唱 / 歌词, 外部生成 API, 用旧剧 data/music/epNN.wav, Claude 判断内容]
+      rules: [BGM-B01, BGM-B02, BGM-B03, BGM-B04, BGM-B05, BGM-B06, BGM-B07, BGM-B08, BGM-B09, BGM-B10, BGM-B11, BGM-B12, BGM-B13, BGM-B14]
+      gates_system: "config/bgm.json gates：vocals（Demucs vocal_rel_db / CLAP p_vocal）、削波、最长静音、时长、CLAP 下限、能量反向"
+      validators: [bgm_brief_check, bgm_candidate_gate]
+      on_fail: "brief 校验不过 → writer_repair（≤2 轮）；候选全不过 / 审听不选 → 按审听模型 retry + 闸门失败项调整重出（≤3 轮）→ 仍无 → needs_owner（合成 --no-bgm）"
+      gate: bgm_review
+      knowledge: [K-EDT-B01, K-EDT-B02, K-EDT-B03, K-EDT-B04, K-EDT-B05, K-EDT-B06]
+      status: 已定（BGM10 11-01）
+  P8-P9:
+    from: P8
+    to: P9
+    owner: system
+    does: 取 H3 原声做对白，TTS 只做独白和兜底；整集一条 BGM
+    rules: [knowledge:P8-P9]
+    validators: []
+    on_fail: render_retry
+    status: 部分
+  P8-P10:
+    from: P8
+    to: P10
+    owner: system
+    does: 只取定稿 + QC 通过的 take 进时间线；去抖、校色
+    rules: [knowledge:P8-P10]
+    validators: []
+    on_fail: needs_owner
+    status: 部分
+  P9-P10:
+    from: P9
+    to: P10
+    owner: system
+    does: 音画合成：切点、剪定住段、拆刀、响度、色彩空间；整集配乐 = tools/assemble_episode.py --music-dir data/music/series10（没有该集配乐 → --no-bgm），人声处按 epNN.json duck 压低
+    rules: [knowledge:P9-P10]
+    validators: []
+    on_fail: rerun_post
+    status: 部分
+  P10-P11:
+    from: P10
+    to: P11
+    owner: director_llm+system
+    does: 成片 / 片段审片：身份、泛红、静止、顿挫、近黑、嘴型、构图对剧本
+    rules: [knowledge:P10-P11]
+    validators: [director_review]
+    on_fail: retry_via_attribution
+    status: 部分
+  P11-RETRY:
+    from: P11
+    to: "<归因到的连接>"
+    owner: system
+    does: 审片发现 → attribute_bug 归因到某段连接 → 按该段 on_fail 回退（写作重写 / 换种子 / 换配方 / 交项目方）
+    rules: [knowledge:P11-RETRY]
+    validators: [attribute_bug, iterate_loop]
+    on_fail: needs_owner
+    status: 部分（本轮建归因；loop 阶梯 ARCH）
+  P11-P12:
+    from: P11
+    to: P12
+    owner: owner
+    does: 全集定稿检查（响度、许可、全部 take 定稿）→ 交付
+    rules: [knowledge:P11-P12]
+    validators: []
+    on_fail: needs_owner
+    gate: owner_final
+    status: 部分
+
+# ------------------------------------------------------------------------------------------------ 回退策略
+fallback:
+  writer_repair:
+    does: 校验失败 → 把错误清单（规则号 + 原文要求）带回写作 LLM 重写同一段，最多 writer_max_repair_rounds 轮
+    then: 仍失败 → 状态 needs_writer，停在该节点；整条链停（下游不消费失败产物），通知总调度
+    evidence: knowledge/settings.yaml writer_selfcheck.max_rounds；refactor_proposal §3.2
+  render_retry:
+    does: 按 knowledge 的 loop 阶梯（tools/iterate_loop/rules.yaml）换种子 / 后处理 / 换配方，每镜最多 render_max_attempts_per_shot 次
+    then: needs_owner：画布选择卡（换模型 / 放宽 / 跳过占位 / 人工参考），其他镜不阻塞
+    evidence: 官方 fallback-policy.md；refactor_proposal §7.4
+  rerun_post: {does: 重跑合成（无 GPU 成本）, then: needs_owner}
+  needs_owner: {does: 停在闸门，画布出选择卡, then: 项目方选择}
+  retry_via_attribution: {does: tools/pipeline/attribute_bug.py 归因后按目标连接的 on_fail 处理, then: 规则草案进 knowledge/inbox/}
+
+gates:
+  owner_optional: {who: owner, default: auto_pass, note: 默认自动通过；项目方可在会话里开启人工确认（不新增强制闸门）}
+  owner_import: {who: owner, where: "#/script-create?tab=import", note: 现行：剧本候选由项目方确认后导入}
+  owner_asset: {who: owner, where: "#/assets", note: 定妆 / 资产定稿}
+  owner_keyframe: {who: owner, where: 画布精修首尾帧定稿, note: C3 项目方要求保留}
+  owner_final: {who: owner, where: "#/cut", note: 成片交付}
+  bgm_review: {who: review_llm, default: auto_pass, where: "#/sound?tab=bgm", note: 审听模型在闸门通过的候选里挑；项目方可在声音页「配乐」一键换用 / 撤销（BGM10）}
+
+# ------------------------------------------------------------------------------------------------ 校验器注册表
+validators:
+  check_brief: {kind: python, ref: "ns_schema.storyline:check_brief", node: P0}
+  check_storyline: {kind: python, ref: "ns_schema.storyline:check_storyline", node: P1}
+  check_link_p0_p1: {kind: python, ref: "ns_schema.storyline:check_link_p0_p1", link: P0-P1}
+  check_outline: {kind: python, ref: "ns_schema.episode_outline:check_outline", node: P2}
+  check_link_p1_p2: {kind: python, ref: "ns_schema.episode_outline:check_link_p1_p2", link: P1-P2}
+  check_screenplay: {kind: python, ref: "ns_schema.screenplay:check_screenplay", node: P3}
+  check_link_p2_p3: {kind: python, ref: "ns_schema.screenplay:check_link_p2_p3", link: P2-P3}
+  check_link_p3_p4: {kind: python, ref: "ns_schema.screenplay:check_link_p3_p4", link: P3-P4}
+  p4_gate: {kind: python, ref: "p4_adapter:check_p4", path: tools/pipeline/p4_adapter.py, node: P4, note: 导入关口 validate_qwen_script + Shot Spec block}
+  validate_qwen_script: {kind: cli, path: tools/validate_qwen_script.py, node: P4, rule_prefixes: [QW-, H3-, S1-, R-C, IMG-, RL-]}
+  validate_script_strict: {kind: cli, path: tools/validate_script_strict.py, node: P4, note: 附加提示}
+  shot_spec_missing: {kind: python, ref: "ns_schema.shot_spec:missing_fields", node: P4, rule_prefixes: [SS-]}
+  shot_spec_sequence: {kind: python, ref: "ns_schema.shot_spec:check_sequence", node: P4, rule_prefixes: [SS-X]}
+  h3_lint: {kind: python, ref: "ns_schema.h3_lint:lint_h3", node: P4, rule_prefixes: [H3-]}
+  llm_output_check: {kind: python, ref: "ns_schema.llm_output_check:check_writer_output", rule_prefixes: [D1, D2, N1, P1, A1]}
+  timeline_lint: {kind: python, ref: "ns_recipes.lint:lint_timeline", rule_prefixes: [RL-T]}
+  recipe_lint: {kind: python, ref: "ns_recipes.lint:lint_prompt", rule_prefixes: [RL-]}
+  frame_spec_compile: {kind: file, path: services/agent/ns_agent/frame_spec.py}
+  s1_gate: {kind: cli, path: tools/s1_gate.py}
+  image_check: {kind: file, path: services/render_router/ns_render/image_check.py}
+  motion_qc: {kind: file, path: services/render_router/ns_render/motion_qc.py}
+  director_review: {kind: file, path: tools/ep02_director/review.py}
+  iterate_loop: {kind: file, path: tools/iterate_loop/loop.py}
+  attribute_bug: {kind: cli, path: tools/pipeline/attribute_bug.py}
+  bgm_brief_check: {kind: cli, path: tools/bgm/brief_schema.py, link: P4-P9, rule_prefixes: [BGM-B], note: nsfs.bgm_brief/1 格式（BGM10）}
+  bgm_candidate_gate: {kind: file, path: tools/bgm/agent.py, link: P4-P9, note: "agent.gate()：人声 / 削波 / 静音 / 时长 / CLAP / 能量反向（阈值 config/bgm.json）"}
+
+# 下游（ARCH）挂载点：knowledge 规则按 link 字段归到上面的连接；这些文件归 ARCH，CHAINSPEC 只引用
+downstream:
+  knowledge_rules: knowledge/rules/*.yaml
+  knowledge_settings: knowledge/settings.yaml
+  knowledge_inbox: knowledge/inbox/
+  compile: tools/knowledge/compile.py
+  loop: [tools/iterate_loop/loop.py, tools/iterate_loop/rules.yaml, tools/iterate_loop/reviewer.py, tools/iterate_loop/writeback.py]
+  recipes: [services/recipes/recipes/, services/recipes/ns_recipes/selector.py, services/recipes/ns_recipes/compiler.py]
+  post: [services/post/ns_post/assemble.py, services/post/ns_post/h3_dialogue.py, services/post/ns_post/tts.py, services/post/ns_post/music.py, tools/assemble_episode.py, tools/dejudder.py]
+  review: [tools/ep02_director/review.py, tools/ep02_director/rubric.md, packages/qc/ns_qc/thresholds.py]
+  autopilot: tools/autopilot/run.py      # ARCH 新建中；起点 P0，上游调用 tools/pipeline/run_chain.py
+
+# ------------------------------------------------------------------------------------------------ 上游规则
+# writer_text = 进写作提示词的一句话（只讲格式 / 可实现性）；check = 实现它的校验器；evidence = 来源
+rules:
+  # P0 提纲（系统从界面字段拼 Brief；项目方原文不改）
+  - {id: BR-01, link: P0-P1, node: P0, level: block, check: check_brief, confidence: high, evidence: "本契约（系统字段）",
+     writer_text: "（系统用）Brief 须是 nsfs.brief/1 JSON"}
+  - {id: BR-02, link: P0-P1, node: P0, level: block, check: check_brief, confidence: high, evidence: "项目方原话：我给出一个故事提纲",
+     writer_text: "（系统用）提纲不能为空"}
+  - {id: BR-03, link: P0-P1, node: P0, level: block, check: check_brief, confidence: high, evidence: "services/api/ns_api/script_chat.py POST /sessions episodes",
+     writer_text: "（系统用）集数范围 from ≤ to，一次 ≤100 集"}
+  - {id: BR-04, link: P0-P1, node: P0, level: block, check: check_brief, confidence: high, evidence: "本契约",
+     writer_text: "（系统用）逐集一句话的集号在范围内"}
+  # P1 storyline
+  - {id: SL-01, link: P0-P1, node: P1, level: block, check: check_storyline, confidence: high, evidence: "本契约 nsfs.storyline/1",
+     writer_text: "只输出一个 JSON 对象（可包在 ```json 代码块里），字段严格按 schema，不加字段、不写解释"}
+  - {id: SL-02, link: P0-P1, node: P1, level: block, check: check_storyline, confidence: high, evidence: "config/script_chat_rules.md ★ 最高优先级：全部角色为虚构成年人",
+     writer_text: "每个角色 age 写整数，全部 ≥18"}
+  - {id: SL-03, link: P0-P1, node: P1, level: block, check: check_storyline, confidence: high, evidence: "script_chat_rules.md §2P 角色id 格式（QW-P*）",
+     writer_text: "char_id 写 ch_<小写英文数字下划线>（项目方给女主指定固定 id 时用 lead_<小写字母>；已登记角色照抄全局头的 id）；名字和 id 全剧唯一"}
+  - {id: SL-04, link: P0-P1, node: P1, level: block, check: check_storyline, confidence: high, evidence: "script_chat_rules.md §2P；chain_audit A1/B1 族裔丢失",
+     writer_text: "en_phrase 是英文身份短语：年龄、性别、族裔、发型发色、脸 / 肤色 / 体型；不写服装、人名、触发词、否定词、双引号"}
+  - {id: SL-05, link: P0-P1, node: P1, level: block, check: check_storyline, confidence: high, evidence: "script_chat_rules.md §2P VOICE；K-PRM-010",
+     writer_text: "voice_phrase 是英文声线短语，含 voice 一词，写音色、音区、语速；不写人名、否定词、双引号"}
+  - {id: SL-06, link: P0-P1, node: P1, level: block, check: check_storyline, confidence: high, evidence: "script_chat_rules.md §2S（QW-SC2/SC4/SC5）",
+     writer_text: "场景 scene_id 写 sk_<小写英文数字下划线>，六格全填、格内不用 |"}
+  - {id: SL-07, link: P0-P1, node: P1, level: block, check: check_storyline, confidence: high, evidence: "script_chat_rules.md §2S QW-SC8；官方 STEP 4 scene cards 不含人物",
+     writer_text: "场景的 space / fixtures 只写环境，不出现角色名或 她 / 他；fixtures 写 1–3 件固定陈设（P4 地标从这里来）"}
+  - {id: SL-08, link: P0-P1, node: P1, level: block, check: check_storyline, confidence: high, evidence: "本契约（下游逐字引用）",
+     writer_text: "每集 characters 只用人物表里的名字，scenes 只用场景表里的 id，都不能为空"}
+  - {id: SL-09, link: P0-P1, node: P1, level: block, check: check_storyline, confidence: high, evidence: "本契约",
+     writer_text: "episodes 按集号顺序、不重复"}
+  - {id: SL-10, link: P0-P1, node: P1, level: block, check: check_storyline, confidence: high, evidence: "script_chat_rules.md §2P QW-P7、§2S QW-SC9",
+     writer_text: "已登记的人物 / 场景（输入里给出）各格逐字照抄，不改写"}
+  - {id: SL-11, link: P0-P1, node: P1, level: warn, check: check_storyline, confidence: medium, evidence: "script_chat_rules.md §2P 中文外貌句六项",
+     writer_text: "zh_look 写 <年龄段>｜<体型>｜<发型发色>｜<服装主色>｜<标志物>｜<不可变特征>（全角｜）；有系统锁的写 系统锁"}
+  - {id: SL-12, link: P0-P1, node: P1, level: block, check: check_storyline, confidence: high, evidence: "总调度 11-02：r4-fable 在第 3 集正文发现占位词“（未提供）”（bug 转写作规则）",
+     writer_text: "正文和造型表里不能留占位词：（未提供）、TODO、待定、XXX、<…> 这类一律写成真内容"}
+  - {id: LK01-01, link: P0-P1, node: P1, level: block, check: check_link_p0_p1, confidence: high, evidence: "script_chat_rules.md §1“不改大纲剧情”",
+     writer_text: "episodes 正好覆盖提纲给的集数范围，不多不少"}
+  - {id: LK01-02, link: P0-P1, node: P1, level: block, check: check_link_p0_p1, confidence: high, evidence: "script_chat_rules.md §1“不改大纲剧情”",
+     writer_text: "提纲给了逐集一句话时，owner_line 逐字照抄那句；logline 在它基础上展开，不改变它说的事"}
+  - {id: LK01-03, link: P0-P1, node: P1, level: warn, check: check_link_p0_p1, confidence: medium, evidence: "本契约",
+     writer_text: "title 照抄提纲剧名"}
+  - {id: LK01-04, link: P0-P1, node: P1, level: warn, check: check_link_p0_p1, confidence: medium, evidence: "script_chat_rules.md §2 每集 60–120 秒（D-SCR-08）",
+     writer_text: "（系统用）提纲的每集秒数与写作规则不同时提示"}
+  # P2 单集大纲
+  - {id: EO-01, link: P1-P2, node: P2, level: block, check: check_outline, confidence: high, evidence: "本契约 nsfs.episode_outline/1",
+     writer_text: "只输出一个 JSON 对象，字段严格按 schema"}
+  - {id: EO-02, link: P1-P2, node: P2, level: block, check: check_outline, confidence: high, evidence: "本契约（P3 用节拍 id 回指）",
+     writer_text: "节拍 id 写 B1、B2…连续编号"}
+  - {id: EO-03, link: P1-P2, node: P2, level: warn, check: check_outline, confidence: medium, evidence: "script_chat_rules.md §2 镜数 6–8+；官方 8-beat spine",
+     writer_text: "一集 3–12 个节拍，每拍以后落成 1–3 个镜头"}
+  - {id: EO-04, link: P1-P2, node: P2, level: block, check: check_outline, confidence: high, evidence: "script_chat_rules.md §2 各镜 N 之和 60–120 秒（D-SCR-08）",
+     writer_text: "target_duration_s 在 50–75；各节拍 est_s 合计与它相差 ≤5 秒"}
+  - {id: EO-05, link: P1-P2, node: P2, level: block, check: check_outline, confidence: high, evidence: "本契约",
+     writer_text: "每拍 scene_id 在本集 scenes 里，characters 在本集 characters 里"}
+  - {id: EO-06, link: P1-P2, node: P2, level: warn, check: check_outline, confidence: medium, evidence: "官方 shot-table-spec Hook Type 受控词表（只作标签，不判好坏）",
+     writer_text: "purpose 只用 hook / setup / turn / reveal / tender / intimate / payoff / bridge / cliffhanger 之一"}
+  - {id: EO-07, link: P1-P2, node: P2, level: block, check: check_outline, confidence: high, evidence: "本契约",
+     writer_text: "summary 写这一拍看得见、听得见的事，不留空"}
+  - {id: EO-08, link: P1-P2, node: P2, level: warn, check: check_outline, confidence: high, evidence: "官方 5.5 自检第 3 项（每镜重要角色 ≤3）",
+     writer_text: "同一拍在场人物 ≤3"}
+  - {id: EO-09, link: P1-P2, node: P2, level: warn, check: check_outline, confidence: medium, evidence: "单镜 ≤15 秒（H3-A11）",
+     writer_text: "单拍 est_s 不超过 45 秒"}
+  - {id: EO-10, link: P1-P2, node: P2, level: warn, check: check_outline, confidence: medium, evidence: "官方 Continuity Handoff；ep02 衔接问题（chain_audit S6→S7）",
+     writer_text: "carry_out 写本集结尾留给下一集的状态（位置、手持物、视线）"}
+  - {id: LK12-01, link: P1-P2, node: P2, level: block, check: check_link_p1_p2, confidence: high, evidence: "不改大纲剧情",
+     writer_text: "title、logline、intimate 逐字照抄 storyline 本集"}
+  - {id: LK12-02, link: P1-P2, node: P2, level: block, check: check_link_p1_p2, confidence: high, evidence: "script_chat_rules.md §1 不新增人物",
+     writer_text: "characters / scenes 只能是 storyline 本集列出的（不新增人物和场景）"}
+  - {id: LK12-03, link: P1-P2, node: P2, level: warn, check: check_link_p1_p2, confidence: medium, evidence: "本契约",
+     writer_text: "storyline 本集出场的人至少在一个节拍里出现"}
+  - {id: LK12-04, link: P1-P2, node: P2, level: warn, check: check_link_p1_p2, confidence: medium, evidence: "官方 Continuity Handoff（跨集）",
+     writer_text: "carry_in 逐字照抄上一集大纲的 carry_out"}
+  # P3 剧本
+  - {id: SP-01, link: P2-P3, node: P3, level: block, check: check_screenplay, confidence: high, evidence: "本契约 nsfs.screenplay/1",
+     writer_text: "只输出一个 JSON 对象，字段严格按 schema"}
+  - {id: SP-02, link: P2-P3, node: P3, level: block, check: check_screenplay, confidence: high, evidence: "本契约",
+     writer_text: "场次 no 从 1 连续"}
+  - {id: SP-03, link: P2-P3, node: P3, level: block, check: check_screenplay, confidence: high, evidence: "script_chat_rules.md §2C QW-D1/D2；chain_audit A12 说话人是舞台提示",
+     writer_text: "dialogue / voiceover 行必写 speaker（人物表里的中文名）；对白说话人在本场 characters 里"}
+  - {id: SP-04, link: P2-P3, node: P3, level: block, check: check_screenplay, confidence: high, evidence: "chain_audit A12、B4；llm_output_check D1",
+     writer_text: "台词 text 只放台词原文：不带引号、括号、说话人、语气；语气写 tone，画外写 off_screen"}
+  - {id: SP-05, link: P2-P3, node: P3, level: warn, check: check_screenplay, confidence: medium, evidence: "本契约（景别 / 运镜归 P4）",
+     writer_text: "动作行写人做什么、在哪、手里有什么；不写景别、运镜、镜头"}
+  - {id: SP-06, link: P2-P3, node: P3, level: block, check: check_screenplay, confidence: high, evidence: "script_chat_rules.md §2 对白 ≤3.5×N；LEARNED_SPECS C 独白溢出",
+     writer_text: "全集台词 + 独白字数（不计标点）≤ 3.5 × 时长秒数"}
+  - {id: SP-08, link: P2-P3, node: P3, level: warn, check: check_screenplay, confidence: medium, evidence: "本契约（P4 首帧 / 尾帧从动作来）",
+     writer_text: "每场至少一行 action"}
+  - {id: SP-09, link: P2-P3, node: P3, level: block, check: check_screenplay, confidence: high, evidence: "单镜 ≤15 秒 × 3.5 字/秒（script_chat_rules.md §2）",
+     writer_text: "单句台词 / 独白 ≤52 字（一镜放得下）；更长的拆成几句"}
+  - {id: LK23-01, link: P2-P3, node: P3, level: block, check: check_link_p2_p3, confidence: high, evidence: "不删大纲节拍",
+     writer_text: "每个节拍 id 至少被一场的 beat_ids 覆盖，不引用不存在的节拍"}
+  - {id: LK23-02, link: P2-P3, node: P3, level: block, check: check_link_p2_p3, confidence: high, evidence: "本契约",
+     writer_text: "场次的 scene_id 与它覆盖的节拍的 scene_id 相同"}
+  - {id: LK23-03, link: P2-P3, node: P3, level: block, check: check_link_p2_p3, confidence: high, evidence: "不新增人物",
+     writer_text: "场次 characters 只用大纲本集 characters"}
+  - {id: LK23-04, link: P2-P3, node: P3, level: block, check: check_link_p2_p3, confidence: high, evidence: "本契约",
+     writer_text: "episode、title、target_duration_s 照抄大纲"}
+  - {id: LK23-05, link: P2-P3, node: P3, level: warn, check: check_link_p2_p3, confidence: medium, evidence: "本契约",
+     writer_text: "场次顺序跟节拍顺序走"}
+  # P3 → P4 剧本分镜
+  - {id: LK34-01, link: P3-P4, node: P4, level: block, check: check_link_p3_p4, confidence: high, evidence: "chain_audit B4 台词改写；llm_output_check D2",
+     writer_text: "剧本里每句台词都要原样出现在某一镜的 **对白** 里（逐字逐标点），不增不减不改"}
+  - {id: LK34-02, link: P3-P4, node: P4, level: warn, check: check_link_p3_p4, confidence: medium, evidence: "script_chat_rules.md §5 亲密镜男方台词可移到相邻镜",
+     writer_text: "台词按剧本顺序排；只有亲密镜男方台词可移到相邻镜"}
+  - {id: LK34-03, link: P3-P4, node: P4, level: block, check: check_link_p3_p4, confidence: high, evidence: "chain_audit D2 独白溢出；SS-A4",
+     writer_text: "独白逐字进 **🎙** 行；太长可拆到相邻几镜，拼起来与剧本逐字相同；剧本没有的独白 / 台词一句都不加"}
+  - {id: LK34-04, link: P3-P4, node: P4, level: block, check: check_link_p3_p4, confidence: high, evidence: "不新增人物 / 场景",
+     writer_text: "每镜 **场景** 的 id 和 **人物** 行的人都来自剧本"}
+  - {id: LK34-05, link: P3-P4, node: P4, level: warn, check: check_link_p3_p4, confidence: medium, evidence: "本契约",
+     writer_text: "剧本每一场至少有一镜"}
+  - {id: LK34-06, link: P3-P4, node: P4, level: warn, check: check_link_p3_p4, confidence: medium, evidence: "script_chat_rules.md §2",
+     writer_text: "各镜时长之和接近剧本 target_duration_s（±10 秒）"}
+  # 以下 3 条来自本轮 P0→P4 实跑（data/pipeline/runs/ep02_r1，3 轮返修都没过的同一批错）：写作模型按自然英文 / 自然理解改了格式。
+  # 校验早已存在（H3-X1 / SS-M2 / QW-E2），缺的是“给写作模型的那句话”——规则落到 P3-P4 连接。
+  - {id: LK34-07, link: P3-P4, node: P4, level: block, check: p4_gate, enforced_by: [H3-X1], confidence: high,
+     evidence: "data/pipeline/runs/ep02_r1/P4_ep02.md.report.json：9 镜全部 H3-X1，锚点句把造型 EN 末项前的逗号改成了 and",
+     writer_text: "锚点句里的人物表 EN外貌短语、造型 EN 服装短语整段逐字复制（包括每个逗号，末项前不要改成 and），复制完再接 and / with 写别的"}
+  - {id: LK34-08, link: P3-P4, node: P4, level: block, check: p4_gate, enforced_by: [SS-M2, SS-M4], confidence: high,
+     evidence: "ep02_r1：9 镜全部 SS-M2（分拍只写到 4–6 秒，镜长 6–7 秒）；§5“留出最后约 1 秒仍在进行的动作”被理解成最后 1 秒不写分拍",
+     writer_text: "**分拍** 最后一拍的止 = **时长** N（6 秒镜写 0–2秒、2–4秒、4–6秒）；每拍 ≤2.5 秒；“最后约 1 秒仍在进行的动作”写在最后一拍里，不是留空"}
+  - {id: LK34-09, link: P3-P4, node: P4, level: block, check: p4_gate, enforced_by: [QW-E2], confidence: high,
+     evidence: "ep02_r1：QW-E2 镜数 9（上限 8）三轮未改；上限公式 max(8, 说话轮次 + 独白段数) 写作模型没算",
+     writer_text: "镜数上限由系统按剧本算好写在输入【本集】里，照它拆镜"}
+  # ep02_r2 实跑（LK34-07/08/09 上线后 H3-X1、SS-M2、QW-E2 全部消失）剩下的两类，同样是“机检有、给写作模型的话不够具体”
+  - {id: LK34-10, link: P3-P4, node: P4, level: block, check: p4_gate, enforced_by: [H3-A4, RL-T6], confidence: high,
+     evidence: "data/pipeline/runs/ep02_r2/raw/P3-P4.r0.txt：8 镜 H3-A4，写成 “… as the shot ends, settling into … established by Picture 2 at the end of the shot.”（并进同一句、用 settling）；返修两轮反而把正文截断",
+     writer_text: "正文最后两句固定为：“<最后一拍的进行中动作> as the shot ends.” 然后另起一句 “<主语> settles into the <尾帧变化项> established by Picture 2 at the end of the shot.”——settles 用原形三单，不并进上一句、不写 settling"}
+  - {id: LK34-11, link: P3-P4, node: P4, level: block, check: p4_gate, enforced_by: [QW-E3], confidence: high,
+     evidence: "ep02_r2：QW-E3 总时长 48 秒（8 镜 × 6 秒），剧本目标 65 秒，三轮未改",
+     writer_text: "各镜 **时长** 之和 = 输入【本集】给的目标秒数（±5），并且在 50–75；镜数定了再分配秒数"}
+  - {id: P4-GATE, link: P3-P4, node: P4, level: block, check: p4_gate, confidence: high, evidence: "tools/validate_qwen_script.py（导入关口）",
+     writer_text: "按 config/script_chat_rules.md 全部格式规则写（导入关口逐条机检，block 不过不导入）"}
+  - {id: P4-SPEC, link: P3-P4, node: P4, level: block, check: p4_gate, confidence: high, evidence: "packages/schema/ns_schema/shot_spec.py missing_fields（SS-*）",
+     writer_text: "sysimpl 附录要求的标签行（站位 / 分拍 / 台词时段 / 下镜 …）写齐，Shot Spec 不能有 block 级缺字段"}
