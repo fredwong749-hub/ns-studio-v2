@@ -1,0 +1,42 @@
+Sun Nov  8 06:51:39 PM JST 2026
+P5 项目方批准：停 gpu33 旧派单
+-rw-r--r-- 1 root root 47 Nov  8 18:51 /root/work/fredw/offline_20261101/STOP
+2013138 /root/work/fredw/offline_20261101/venv/bin/python -u tools/autopilot/producer.py serve 
+
+  KILLED 2013138
+2013140 /root/work/fredw/offline_20261101/venv/bin/python -u tools/series10_video/night.py 
+
+  KILLED 2013140
+2013340 /root/work/fredw/venv_idm/bin/python -u tools/series10_video/vidgen.py run gpu33 --run series10_v2 
+
+  KILLED 2013340
+3925202 /root/work/fredw/offline_20261101/venv/bin/python -u tools/autopilot/producer.py serve --run smoke_v2 
+
+  KILLED 3925202
+GONE 2013138
+GONE 2013140
+GONE 2013340
+GONE 3925202
+无旧派单进程
+
+11-08 18:43:55 gpu33:0 END 7 done 
+11-08 18:43:55 gpu33:1 START 2 ep01-S1-gpu33 last
+11-08 18:43:55 gpu33:0 START 8 ep01-S2-gpu33 last
+11-08 18:43:55 gpu33:1 END 2 done 
+11-08 18:43:55 gpu33:0 END 8 done 
+11-08 18:43:55 gpu33:1 START 3 ep01-S1-gpu33 video
+11-08 18:43:55 gpu33:0 START 9 ep01-S2-gpu33 video
+11-08 18:43:55 gpu33:1 END 3 done 
+11-08 18:43:55 gpu33:0 END 9 done 
+11-08 18:56:33 gpu33:1 START 15 ep01-S1 video
+11-08 19:02:54 gpu33:1 END 15 retry 视频门没过：tools/motion_judder.py", line 34, in frames_gray
+11-08 19:02:54 gpu33:1 START 15 ep01-S1 video
+11-08 19:09:14 gpu33:1 END 15 retry 视频门没过：tools/motion_judder.py", line 34, in frames_gray
+11-08 19:09:14 gpu33:1 START 15 ep01-S1 video
+11-08 19:15:25 gpu33:1 END 15 retry 视频门没过：tools/motion_judder.py", line 34, in frames_gray
+11-08 19:15:25 gpu33:1 START 15 ep01-S1 video
+11-08 19:20:15 gpu33:1 START 15 ep01-S1 video
+11-08 19:25:40 gpu33:1 END 15 done 
+11-08 19:29:19 gpu33:1 START 17 d-1794133759 first
+11-08 19:29:19 gpu33:1 END 17 done 
+

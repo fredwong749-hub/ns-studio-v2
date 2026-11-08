@@ -1,0 +1,5 @@
+{"id": 13, "run_id": "series10_v2", "step": "first", "state": "done", "tries": 0, "lane": null, "started_at": null, "finished_at": "2026-11-08T18:56:32+09:00", "error": null, "result": {"take_n": 27, "migrated": true}}
+{"id": 14, "run_id": "series10_v2", "step": "last", "state": "done", "tries": 0, "lane": null, "started_at": null, "finished_at": "2026-11-08T18:56:32+09:00", "error": null, "result": {"take_n": 12, "migrated": true}}
+{"id": 15, "run_id": "series10_v2", "step": "video", "state": "done", "tries": 0, "lane": "gpu33:1", "started_at": "2026-11-08T19:20:15+09:00", "finished_at": "2026-11-08T19:25:40+09:00", "error": null, "result": {"rescored": [{"n": 2, "variant": "v1", "passed": true, "error": null, "penalty": 0.512, "fails": []}, {"n": 3, "variant": "s2", "passed": true, "error": null, "penalty": 0.365, "fails": []}, {"n": 4, "variant": "s3", "passed": true, "error": null, "penalty": 0.39, "fails": []}], "take_n": 2, "variant": "v1", "has_output": true, "secs": 324.8}}
+{"id": 16, "run_id": "test-idem", "step": "video", "state": "queued", "tries": 0, "lane": null, "started_at": null, "finished_at": null, "error": null, "result": {}}
+

@@ -1,0 +1,23 @@
+=== 回滚演练 2026-11-08 19:27:37 JST
+takes ep01-S1 前: 167 45 {'image': 27, 'last': 12}
+--- A. 切回旧系统
+ns2 worker 停 4063751
+fwd pid 35384 alive
+producer pid 4046353 alive
+night pid 4046355 alive
+旧 producer 4046353 alive
+旧 night 4046355 alive
+旧 producer 日志（启动后）错误行：
+2026-11-08T19:14:41 review_scale {"phase": "videos", "want": 1, "rc": 0, "ok": true, "tail": " true, \"gpu\": 3, \"queue\": 0, \"served\": 364, \"last_error\": \"OutOfMemoryError: CUDA out of memory. Tried to allocate 174.00 MiB. GPU 3 has a total capac\ninstance :8877 DOWN\ninstance :8878 DOWN\ninstances up 1/1 (max 3)\nGPU3 mem,t
+（以上为空 = 无错）
+takes ep01-S1 旧系统跑 90s 后: 167 45 {'image': 27, 'last': 12}
+--- B. 切回新系统
+停旧 night 4046355
+停旧 producer 4046353
+停旧 vidgen 4046597
+旧派单进程：无
+ns2 worker 起 4077905
+新系统 echo 活： [(17, 'done', 'gpu33:1')]
+takes ep01-S1 后: 167 45 {'image': 27, 'last': 12}
+=== 演练结束 19:29:34
+

@@ -1,6 +1,6 @@
 # STATE（ns-studio-v2，活文件）
 
-当前：**M1b 视频步 真机验收中**（M0 ✅ 9271eca · M1a ✅ 1c1279d · M1b 代码 4cb5867 + 门口径修正）
+当前：**M1c 首 / 尾帧步**（M0 ✅ · M1a ✅ · **M1b 视频步 ✅ 真机验收**：ep01-S1 试跑 3 条全过门、同输入 0 新行、回滚演练通过）
 
 ## 线上（gpu33 / gpu36，/root/work/fredw/ns2/）
 - API：gpu33 10.0.0.33:8900，pid 4015035，db /root/work/fredw/ns2/data/queue.db，日志 logs/api.log
@@ -21,3 +21,9 @@
 - M0 报告更正：首帧 54 done + 1 待复核（ep03-S4 Q9 没过，尽力版）；原报告只看 postflight.ok 偏宽，已统一到 ns2/gates
 - PLAN 修正 ⑦（M1 新）：生产视频真实路径是 build_jobs 变体 + vidgen 提交，不是 h3_video.render
 - ep03-S4：旧视频子系统记 waiting_frame，但首尾帧在 takes.json 已过（旧系统多口径的又一例）
+
+## M1b 验收证据（reports/m1/）
+- job 15 ep01-S1 视频试跑（gpu33:1）：v1 / s2 / s3 三条出片，打分 mean 3.26 / 2.63 / ?，penalty 0.512 / 0.365 / 0.39，全过视频门；trial 不动当前版（takes seq 167 前后一致）
+- 首跑 bug：score_clip PATH 无 ffmpeg → 崩被当没过门连渲 3 条（~18 GPU 分钟），188f793 修（打分崩 = infra 不重渲、重派先补打分）
+- 同输入两次入队：job 16 created True → False，行数 1，takes 不变
+- 回滚演练 19:27–19:29：旧系统起 90 s 无冲突、takes 不变 → 切回新系统，echo job 17 done（rollback_drill.log）
