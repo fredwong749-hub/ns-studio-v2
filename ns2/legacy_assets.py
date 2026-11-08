@@ -1,17 +1,15 @@
-"""P6 R1a assets 步的一次调用：在旧部署目录（cwd = $OFF/repo）里，把一集新剧本出首帧前缺的前期资产全部在服务器本机补齐。
+"""P6 R1a 资产执行器（在旧部署目录 cwd = $OFF/repo 里跑）。两种模式：
 
-    cd /root/work/fredw/offline_20261101/repo && python <本文件> '<json 参数>'
-参数：{"run": "series10_v2", "ep": 5, "lane": "gpu33:0", "host": "gpu33", "max_passes": 3}
+    plan：{"mode": "plan", "run", "ep", "host"} —— 查本集缺口 → 排旧资产作业 → 不用 GPU 的登记（造型骨架 / 本集排期 / 名字）当场写；
+          要出图的资产（身份脸 / 场景底图 / 设定图 / 单品图）原样报回，由 ns2 每个资产排一行 asset（各道并行领，镜只等自己缺的）
+    one： {"mode": "one", "run", "ep", "host", "lane", "asset"} —— 出一个资产：出到 1 张过检就按分数自动选用登记；
+          2 张都不过 → 停（blocked，写清根因，不盲试：项目方止损律）；看图服务没出结论 → infra（回队不计次）
 输出最后一行：@@NS2@@{...}
 
 复用旧“阶段 A 资产作业”（tools/pipeline/asset_jobs.py + asset_worker.py + tools/master/episode_ready.py），只换掉笔记本那部分：
-- ComfyUI：本机端口（旧代码写死 lane_url(from_host="laptop") 走笔记本隧道）
-- 人数检查：本机（旧代码写死 host="gpu36"；服务器之间不互连）
-- 选图：一律按分数自动选用（项目方 11-09：默认通过、其他人物全合成全自动），不投待办等人
-- 推送：不推（服务器就是唯一来源；P6 R1 一份数据）
-- 派生参考图（refboards / refcrops）：服务器上直接生成并记账（旧规矩 K-OPS-F23 只许笔记本生成，前提是笔记本为源，P6 已不成立）
-每轮：episode_ready 查缺口 → asset_jobs.generate 排作业 → 按 meta → face → scene → sheet → item 顺序跑 → 每镜编译一次生成派生参考图；
-缺口清零或没有进展就停。写手 / 总调度的缺口（不是资产线能补的）原样报回，由 board 预检写清。
+ComfyUI 走本机端口；人数检查本机；一律按分数自动选用（项目方 11-09：默认通过、其他人物全合成全自动）；不推送（服务器即唯一来源）。
+11-09 实测为什么换成这样（reports/p6/r1a_assets_speed.md）：旧做法一条道串行出全集资产、每个资产凑 2 张过检、同一原因盲试 5 次，
+ep05 资产跑了 65 分钟、4 条道空转、13 镜全在等。
 """
 from __future__ import annotations
 
@@ -25,9 +23,10 @@ for p in ("", "tools/autopilot", "tools/pipeline", "tools/master", "tools/factor
           "packages/schema", "services/recipes", "services/post", "services/api"):
     if str(ROOT / p) not in sys.path:
         sys.path.insert(0, str(ROOT / p))
+sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 BY = "NS2-ASSETS（P6 服务器全自动）"
-ORDER = {"meta": 0, "face": 1, "scene": 2, "sheet": 3, "item": 4}
+RENDER_ORDER = {"face": 1, "scene": 2, "sheet": 3, "item": 4}
 
 
 def patch(host: str):
@@ -43,119 +42,98 @@ def patch(host: str):
     AJ.delegate_active = lambda root: (True, "P6 服务器全自动（项目方 11-09：默认通过）")
     AJ.push_enabled = lambda root: False
     AJ.push_files = lambda root, rels, hosts=None, pusher=None: {"skipped": "P6：服务器即唯一来源，不推"}
-    from ns_agent import asset_refs as AR
-    AR._on_server = lambda: False          # 派生参考图在服务器上直接生成（make_board / sheet_crop + record_derived）
-    return AJ, AW, AR
-
-
-def run_jobs(AJ, AW, run: str, ep: int, lane: str, log: list) -> int:
-    """跑本集所有待办资产作业，返回本轮完成数"""
-    root = ROOT
-    jobs = [j for j in AJ.list_jobs(root, run)
-            if ep in (j.get("episodes") or [j.get("episode")]) and j.get("kind") in ORDER
-            and (j.get("state") in ("pending", "awaiting_pick") or (j.get("state") == "failed" and not j.get("final")))]
-    jobs.sort(key=lambda j: (ORDER[j["kind"]], j["id"]))
-    done = 0
-    for j in jobs:
-        jp = AJ.job_path(root, run, j["id"])
-        try:
-            if j["state"] == "awaiting_pick":
-                got = AW.auto_pick_waiting(root, j)
-                ok = bool(got)
-            elif j["kind"] == "meta":
-                # P6 R1a 修：旧 meta 作业跨集复用时 job["episode"] 还是建作业那集（ep05 的祁念排期被写成 ep02，缺口永远在）→ 按当前集写
-                res = AW.apply_meta(root, {**j, "episode": ep}, push=False)
-                j = AJ.load_job(jp)
-                j.update(state="done", result=res, done_at=AJ._now(), error=None)
-                AJ.log(j, f"{BY} 写入：{json.dumps(res, ensure_ascii=False)[:300]}")
-                AJ.save_job(root, j)
-                ok = True
-            elif AW.is_crop_job(j) and not (j.get("spec") or {}).get("crop_failed"):
-                j = AW.run_crop(jp, root)
-                ok = j.get("state") == "done"
-            else:
-                j = AW.run_job(jp, lane, root, renderer=lambda job, _l, seed, r: AW.render_one(job, lane, seed, r))
-                if j.get("state") == "awaiting_pick":            # 代选登记被拒等 → 再按分数选一次
-                    j2 = AJ.load_job(jp)
-                    ok = bool(AW.auto_pick_waiting(root, j2)) or AJ.load_job(jp).get("state") == "done"
-                else:
-                    ok = AJ.load_job(jp).get("state") == "done"
-            st = AJ.load_job(jp).get("state")
-            log.append({"job": j["id"], "kind": j.get("kind"), "state": st, "error": (AJ.load_job(jp).get("error") or "")[:300]})
-            done += bool(ok or st == "done")
-        except Exception as e:  # noqa: BLE001  一个作业出错不挡别的作业
-            log.append({"job": j.get("id"), "kind": j.get("kind"), "state": "error", "error": f"{type(e).__name__}: {e}"[:300]})
-    return done
-
-
-def derive_refs(run: str, ep: int, lane: str, port: int, log: list) -> dict:
-    """每镜编译一次首帧作业：asset_refs 在服务器上生成派生参考图（拼脸板 / 设定图裁片）并记账"""
-    import producer as PR
-    from ns_render import pipeline as P
-    from ns_render import unified_frame as UF
-    from ns_render.comfy_client import ComfyClient
-    from legacy_frame import _Stub
-    sys.path.insert(0, str(Path(__file__).resolve().parent))
-    script = P.load_script()
-    e = next(x for x in script.episodes if int(x.number) == ep)
-    loras = P.available_loras(ComfyClient(f"http://127.0.0.1:{port}"))
-    paths = PR.Paths(ROOT, run_id=run)
-    st = _Stub(PR, paths, script, [])
-    project = UF.project_for(script) or run
-    out = {"ok": 0, "err": {}}
-    for s in e.shots:
-        sid = f"ep{ep:02d}-S{s.index}"
-        try:
-            P.compile_with_edits(script, sid, loras)
-            o = {"id": f"first:{sid}", "shot": sid, "kind": "first"}
-            rung = st.rung_ab(o, 1) or st.rung(o, 1)
-            _, shot = P.find_shot(script, sid)
-            PR.first_job_for_rung(project, e, shot, script.globals, rung, "first", run)
-            out["ok"] += 1
-        except Exception as ex:  # noqa: BLE001
-            out["err"][sid] = f"{type(ex).__name__}: {ex}"[:200]
-    log.append({"derive_refs": out})
-    return out
-
-
-def main(a: dict) -> dict:
-    import os
-    os.environ.setdefault("NS_RUN", a["run"])
-    sys.path.insert(0, str(Path(__file__).resolve().parent))
-    run, ep, lane = a["run"], int(a["ep"]), a["lane"]
-    AJ, AW, AR = patch(a["host"])
+    _cfg = AW.config
+    AW.config = lambda root=ROOT: {**_cfg(root), "candidates": {k: 1 for k in RENDER_ORDER}}   # 自动选用只用 1 张：过 1 张就收
     import legacy_rules
-    legacy_rules.apply()                                        # P6：旧规则统一修正（与 board 预检同口径）
+    legacy_rules.apply()
+    return AJ, AW
+
+
+def _gaps(res: dict) -> list[str]:
+    return [f"[{g.get('kind')}] {g.get('who')}：{g.get('what')}"[:240] for g in res.get("gaps") or []]
+
+
+def plan(a: dict) -> dict:
+    run, ep = a["run"], int(a["ep"])
+    AJ, AW = patch(a["host"])
     check = AJ._checker()
-    log: list = []
-    passes = []
-    last_gaps = None
-    for n in range(int(a.get("max_passes") or 3)):
+    meta_log = []
+    for _ in range(2):                                   # 登记类写完再查一次（排期写进去后造型缺口才消）
         res = check(run, ep)
-        gen = AJ.generate(run, ep, ROOT, res=res)
-        gaps = [f"[{g.get('kind')}] {g.get('who')}：{g.get('what')}"[:200] for g in res.get("gaps") or []]
-        passes.append({"pass": n + 1, "gaps": len(gaps), "created": gen.get("created"), "skipped": gen.get("skipped")})
-        if not gaps or gaps == last_gaps and n > 0:
+        AJ.generate(run, ep, ROOT, res=res)
+        metas = [j for j in AJ.list_jobs(ROOT, run) if j.get("kind") == "meta" and j.get("state") in ("pending", "failed")
+                 and ep in (j.get("episodes") or [j.get("episode")])]
+        if not metas:
             break
-        last_gaps = gaps
-        done = run_jobs(AJ, AW, run, ep, lane, log)
-        derive_refs(run, ep, lane, int(a["port"]), log)
-        if not done and n > 0:
-            break
+        for j in metas:
+            # 旧 meta 作业跨集复用时 job["episode"] 还是建作业那集（ep05 的祁念排期曾被写成 ep02）→ 按当前集写
+            r = AW.apply_meta(ROOT, {**j, "episode": ep}, push=False)
+            jj = AJ.load_job(AJ.job_path(ROOT, run, j["id"]))
+            jj.update(state="done", result=r, done_at=AJ._now(), error=None)
+            AJ.log(jj, f"{BY} 写入（第 {ep} 集）：{json.dumps(r, ensure_ascii=False)[:300]}")
+            AJ.save_job(ROOT, jj)
+            meta_log.append({"job": j["id"], "result": r})
     res = check(run, ep)
-    gaps = res.get("gaps") or []
-    asset_kinds = {"face", "scene", "look", "item", "name", "schedule"}
-    left_assets = [g for g in gaps if g.get("kind") in asset_kinds and "写手" not in str(g.get("owner") or "")]
-    out = {"passes": passes, "jobs": log[-60:], "gaps_left": [f"[{g.get('kind')}] {g.get('who')}：{g.get('what')}"[:240] for g in gaps][:40],
-           "has_output": True}
-    if left_assets:
-        return {**out, "outcome": "blocked", "error": "资产没补齐：" + "；".join(out["gaps_left"][:8])[:900]}
-    return {**out, "outcome": "ok"}
+    AJ.generate(run, ep, ROOT, res=res)
+    jobs = [j for j in AJ.list_jobs(ROOT, run) if j.get("kind") in RENDER_ORDER and ep in (j.get("episodes") or [j.get("episode")])
+            and j.get("state") in ("pending", "awaiting_pick", "failed", "running")]
+    faces = {j["target"]: j["id"] for j in jobs if j["kind"] == "face"}
+    out = []
+    for j in sorted(jobs, key=lambda j: (RENDER_ORDER[j["kind"]], j["id"])):
+        cid = str(j.get("target") or "").split(":")[0]
+        after = [faces[cid]] if j["kind"] in ("sheet", "item") and cid in faces else []
+        out.append({"asset": j["id"], "kind": j["kind"], "shots": [f"ep{ep:02d}-S{n}" for n in j.get("shots") or []] or ["*"], "after": after})
+    writer = [g for g in res.get("gaps") or [] if not any(str(g.get("kind")) == k for k in ("face", "scene", "look", "item", "name", "schedule"))]
+    return {"outcome": "ok", "assets": out, "meta": meta_log, "gaps": _gaps(res)[:40], "other_gaps": _gaps({"gaps": writer})[:20]}
+
+
+def one(a: dict) -> dict:
+    run, lane, aid = a["run"], a["lane"], a["asset"]
+    AJ, AW = patch(a["host"])
+    jp = AJ.job_path(ROOT, run, aid)
+    j = AJ.load_job(jp)
+    if j.get("state") == "done":
+        return {"outcome": "ok", "asset": aid, "note": "已登记过"}
+    if j.get("state") == "awaiting_pick":
+        got = AW.auto_pick_waiting(ROOT, j)
+        j = AJ.load_job(jp)
+        if j.get("state") == "done" or got:
+            return {"outcome": "ok", "asset": aid, "picked": got}
+    if j.get("state") == "failed":                        # 上次 ns2 之外的失败：重新给一次机会（种子会换新的）
+        j.update(state="pending", final=False)
+        AJ.save_job(ROOT, j)
+    if AW.is_crop_job(j) and not (j.get("spec") or {}).get("crop_failed"):
+        j = AW.run_crop(jp, ROOT)
+    else:
+        j = AW.run_job(jp, lane, ROOT, renderer=lambda job, _l, seed, r: AW.render_one(job, lane, seed, r))
+    j = AJ.load_job(jp)
+    if j.get("state") == "awaiting_pick":                 # 代选登记被拒 → 再按分数选一次
+        AW.auto_pick_waiting(ROOT, j)
+        j = AJ.load_job(jp)
+    # 单品图从设定图裁：设定图登记后旧代码会排裁图作业，顺手在本行跑掉（纯裁剪 + 看图，不占 ComfyUI）
+    crops = []
+    if j.get("state") == "done" and j.get("kind") == "sheet":
+        for c in AJ.list_jobs(ROOT, run):
+            if c.get("state") == "pending" and AW.is_crop_job(c) and str(c.get("target") or "").startswith(str(j.get("target") or "~")):
+                cc = AW.run_crop(AJ.job_path(ROOT, run, c["id"]), ROOT)
+                crops.append({"job": c["id"], "state": cc.get("state")})
+    cands = j.get("candidates") or []
+    info = {"asset": aid, "kind": j.get("kind"), "state": j.get("state"), "candidates": len(cands),
+            "passed": sum(1 for c in cands if c.get("passed")), "crops": crops, "log": (j.get("log") or [])[-3:], "has_output": True}
+    if j.get("state") == "done":
+        return {**info, "outcome": "ok"}
+    err = str(j.get("error") or "")
+    if j.get("state") == "pending" and ("不算失败" in err or "没测出" in err or "超时" in err):
+        return {**info, "outcome": "infra", "error": err[:600]}
+    return {**info, "outcome": "blocked", "error": f"资产 {aid} 两张候选都没过检，停下不盲试（根因见候选拒因）：{err[:700]}"}
 
 
 if __name__ == "__main__":
     try:
-        r = main(json.loads(sys.argv[1]))
+        args = json.loads(sys.argv[1])
+        import os
+        os.environ.setdefault("NS_RUN", args["run"])
+        r = plan(args) if args.get("mode") == "plan" else one(args)
     except Exception as e:  # noqa: BLE001
         r = {"outcome": "infra", "error": f"{type(e).__name__}: {e}"[:600], "tb": traceback.format_exc()[-2000:]}
     print("@@NS2@@" + json.dumps(r, ensure_ascii=False, default=str), flush=True)

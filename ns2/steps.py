@@ -24,5 +24,5 @@ if True:  # M1a：测试 run 用 echo 顶所有步；真步函数注册后按 pa
     from ns2 import step_film as _SFL
     from ns2 import step_script as _SS
     from ns2 import step_video as _SV
-    REAL: dict = {"script": _SS.run, "assets": _SA.run, "board": _SB.run, "video": _SV.run, "first": _SF.run, "last": _SF.run, "film": _SFL.run}
-    STEP_FNS = {s: _dispatch(s) for s in ("script", "assets", "board", "first", "last", "video", "film")}
+    REAL: dict = {"script": _SS.run, "assets": _SA.run, "asset": _SA.run_one, "board": _SB.run, "video": _SV.run, "first": _SF.run, "last": _SF.run, "film": _SFL.run}
+    STEP_FNS = {s: _dispatch(s) for s in ("script", "assets", "asset", "board", "first", "last", "video", "film")}

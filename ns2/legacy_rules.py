@@ -3,6 +3,8 @@
 1. K-REN-708 口径对齐（P6 R0 ep05-S8 发现）：编译用 prompt_template_v2.hidden_people 判“在画但不露脸”（只以…入画 / 只露手 / 被遮），
    给提示词加“不露脸”；预检用 asset_refs.resolve_shot，只认背影 / 过肩前景为不露脸 → 同一个人一边写“不露脸”一边按露脸挂身份脸，I2 判矛盾卡死。
    修：asset_refs.back_view 也认 hidden_people 里写明了露出部位的人（=不送正脸），两边同一判定。
+2. K-OPS-F23 派生参考图（拼脸板 / 设定图裁片）在服务器上直接生成并记账：旧规矩只许笔记本生成再按 sha 推送，前提“笔记本为源”P6 已不成立
+   （资产在服务器本机生成，P6 R1 一份数据）。不然新剧本每镜都卡 DerivedRefMissing。
 """
 from __future__ import annotations
 
@@ -33,4 +35,5 @@ def apply() -> None:
         return bool(part) and part != "肩与背"     # 只认写明了露出部位的（只露手 / 只以右肩入画…），不扩大到“没写脸”的一般情况
 
     AR.back_view = back_view
+    AR._on_server = lambda: False
     _APPLIED = True

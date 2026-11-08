@@ -208,3 +208,25 @@ def test_p6_shot_rows_have_assets_row():
     rows = shot_rows("r", 5, [1, 2], "sha")
     assert [r["step"] for r in rows if r["shot"] == "ep05"] == ["assets"]
     assert sum(r["step"] == "board" for r in rows) == 2
+
+
+def test_p6_board_waits_only_for_its_own_assets(tmp_path):
+    """P6 R1a：资产一个一行、各道并行；镜只等覆盖它的资产；设定图等身份脸"""
+    c = D.connect(tmp_path / "q.db")
+    c.execute("INSERT INTO runs(run_id) VALUES ('r')")
+    D.enqueue(c, run_id="r", ep=5, shot="ep05", step="assets", want_host="g", state="done")
+    face, _ = D.enqueue(c, run_id="r", ep=5, shot="ep05", step="asset", want_host="g", sig={"a": "face-x"},
+                        payload={"asset": "face-x", "shots": ["ep05-S1"], "after": []})
+    sheet, _ = D.enqueue(c, run_id="r", ep=5, shot="ep05", step="asset", want_host="g", sig={"a": "sheet-x-B"},
+                         payload={"asset": "sheet-x-B", "shots": ["ep05-S1", "ep05-S2"], "after": ["face-x"]})
+    b1, _ = D.enqueue(c, run_id="r", ep=5, shot="ep05-S1", step="board", want_host="g")
+    b3, _ = D.enqueue(c, run_id="r", ep=5, shot="ep05-S3", step="board", want_host="g")
+    assert D.claim(c, "g", "g:0", ["board"])["id"] == b3["id"]          # S3 不缺资产：马上开工
+    got = D.claim(c, "g", "g:1", ["asset"])
+    assert got["id"] == face["id"]                                       # 设定图在等身份脸
+    assert D.claim(c, "g", "g:2", ["asset"]) is None
+    D.finish(c, face["id"], "g", "done")
+    assert D.claim(c, "g", "g:2", ["asset"])["id"] == sheet["id"]
+    assert D.claim(c, "g", "g:3", ["board"]) is None                     # S1 还在等设定图
+    D.finish(c, sheet["id"], "g", "blocked", error="两张都不过")
+    assert D.claim(c, "g", "g:3", ["board"]) is None                     # 资产卡住：S1 照样等（不带着缺资产出图）

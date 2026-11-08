@@ -17,7 +17,7 @@ import time
 from datetime import datetime, timezone
 from pathlib import Path
 
-STEPS = ("script", "assets", "board", "first", "last", "video", "film")
+STEPS = ("script", "assets", "asset", "board", "first", "last", "video", "film")
 STATES = ("queued", "running", "done", "failed", "blocked", "best_effort", "na")
 PREREQ = {"last": ("first",), "video": ("first", "last")}
 # 有就必须过、没有不挡（迁移来的镜没有 script / board 行）：first ← 本镜 board；board ← 本集本机 script（shot = epNN）
@@ -156,6 +156,12 @@ def _claim_sql(step: str) -> str:
         f" ORDER BY p.id DESC LIMIT 1) IN ('done','na')" for p in PREREQ.get(step, ()))
     for soft in SOFT_PREREQ.get(step, ()):
         pre += _soft_sql(soft)
+    if step == "board":          # P6 R1a：本镜只等覆盖它的资产行（payload.shots 含本镜或 "*"）做完；不缺资产的镜不等整集
+        pre += (" AND NOT EXISTS (SELECT 1 FROM jobs a, json_each(json_extract(a.payload, '$.shots')) s"
+                " WHERE a.run_id=j.run_id AND a.ep=j.ep AND a.step='asset' AND a.state NOT IN ('done','na') AND s.value IN (j.shot, '*'))")
+    elif step == "asset":        # 设定图等身份脸：payload.after 里的资产行做完才领
+        pre += (" AND NOT EXISTS (SELECT 1 FROM jobs a, json_each(json_extract(j.payload, '$.after')) x"
+                " WHERE a.run_id=j.run_id AND a.step='asset' AND json_extract(a.payload, '$.asset')=x.value AND a.state NOT IN ('done','na'))")
     return ("SELECT j.* FROM jobs j JOIN runs r ON r.run_id = j.run_id"
             " WHERE j.state='queued' AND j.owner_trigger=0 AND r.status='producing'"
             " AND (j.want_host IS NULL OR j.want_host=?) AND (j.want_lane IS NULL OR j.want_lane=?) AND j.step=?"
