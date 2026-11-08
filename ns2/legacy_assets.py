@@ -63,7 +63,8 @@ def run_jobs(AJ, AW, run: str, ep: int, lane: str, log: list) -> int:
                 got = AW.auto_pick_waiting(root, j)
                 ok = bool(got)
             elif j["kind"] == "meta":
-                res = AW.apply_meta(root, j, push=False)
+                # P6 R1a 修：旧 meta 作业跨集复用时 job["episode"] 还是建作业那集（ep05 的祁念排期被写成 ep02，缺口永远在）→ 按当前集写
+                res = AW.apply_meta(root, {**j, "episode": ep}, push=False)
                 j = AJ.load_job(jp)
                 j.update(state="done", result=res, done_at=AJ._now(), error=None)
                 AJ.log(j, f"{BY} 写入：{json.dumps(res, ensure_ascii=False)[:300]}")
