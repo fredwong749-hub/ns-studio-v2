@@ -41,7 +41,7 @@
 
 ## 坏点队列 / 遗留
 - 待项目方：series10 尽力版视频 24 镜定 / 改；ep03-S4 首帧（成人）复核 + 触发
-- models.lock：6 个 LoRA sha 未登记、purelens 重复登记（未安装）、两台各 10+ 未登记 LoRA——是否渲染前强制校验由项目方定（reports/models_lock_check.md）
+- models.lock：6 个 LoRA sha 未登记、purelens 重复登记（未安装）、两台各 10+ 未登记 LoRA——项目方 11-09 定：暂不强制校验（只读校验照跑、不挡出片），以后再议（reports/models_lock_check.md）
 - 仓库保持 PUBLIC（项目方 11-09 定）；git 历史里仍有旧拓扑文件
 - tunnel_supervisor.py plan 子命令对现配置 KeyError 'hosts'（旧仓库工具，未修）
 - D:\c\… 有 5 个早先误写的文件（Windows python 把 /c/… 当 D:\c\…），非本轮所写，未动
