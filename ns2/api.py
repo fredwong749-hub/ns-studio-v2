@@ -9,12 +9,21 @@ import os
 import threading
 import time
 
+import urllib.error
+import urllib.request
+from pathlib import Path
+
 from fastapi import FastAPI, HTTPException
+from fastapi.responses import FileResponse, StreamingResponse
 from pydantic import BaseModel
 
 from ns2 import db as D
+from ns2 import overview as OV
 
 DB_PATH = os.environ.get("NS2_DB", "data/queue.db")
+ROOT = Path(os.environ.get("NS2_ROOT") or Path(__file__).resolve().parents[1])
+SELF = os.environ.get("NS2_SELF", "gpu33")
+FILE_PORTS = {"gpu36": "http://10.0.0.36:8901", "gpu33": "http://10.0.0.33:8901"}
 app = FastAPI(title="ns2")
 _lock = threading.Lock()          # 单进程单写者：所有写串行
 _conn = None
@@ -163,3 +172,61 @@ def finish(f: Fin):
     if j is None:
         raise HTTPException(409, "不是本机在跑的任务（可能已被心跳回收）")
     return j
+
+
+@app.get("/api/overview")
+def overview(run: str = "series10_v2"):
+    """PLAN §2.4 唯一总览只读接口（口径见 ns2/overview.py）"""
+    with _lock:
+        rows = D.jobs(conn(), run, limit=1_000_000)
+        rv = D.reviews(conn(), run)
+    return OV.build(run, rows, rv, OV.script_eps(ROOT, run), D.now_iso())
+
+
+class ReviewReq(BaseModel):
+    run_id: str = "series10_v2"
+    state: str
+    reason: str | None = None
+
+
+@app.put("/api/shots/{shot_id}/review")
+def review(shot_id: str, r: ReviewReq):
+    if r.state not in ("passed", "rejected", "unreviewed"):
+        raise HTTPException(400, "state 只能是 passed / rejected / unreviewed")
+    with _lock:
+        return D.set_review(conn(), r.run_id, shot_id, r.state, r.reason)
+
+
+@app.post("/api/shots/{shot_id}/cancel")
+def cancel(shot_id: str, run: str = "series10_v2"):
+    with _lock:
+        return {"cancelled": D.cancel(conn(), run, shot_id)}
+
+
+def _safe_rel(rel: str) -> str:
+    p = Path(rel)
+    if p.is_absolute() or ".." in p.parts:
+        raise HTTPException(400, "bad path")
+    return p.as_posix()
+
+
+@app.get("/files/{host}/{rel:path}")
+def files(host: str, rel: str):
+    """出图 / 视频在产出那台机器上：本机直接给，别的机器转到它 worker 的只读文件口（内网）"""
+    rel = _safe_rel(rel)
+    if host == SELF:
+        f = ROOT / "data" / rel
+        if not f.is_file():
+            raise HTTPException(404)
+        return FileResponse(f)
+    base = FILE_PORTS.get(host)
+    if not base:
+        raise HTTPException(404, f"不认识的机器 {host}")
+    try:
+        up = urllib.request.urlopen(f"{base}/files/{urllib.request.quote(rel)}", timeout=30)
+    except urllib.error.HTTPError as e:
+        raise HTTPException(e.code)
+    except OSError as e:
+        raise HTTPException(502, f"{host} 文件口不通：{e}")
+    return StreamingResponse(iter(lambda: up.read(1 << 16), b""), media_type=up.headers.get("Content-Type") or "application/octet-stream",
+                             headers={k: v for k, v in (("Content-Length", up.headers.get("Content-Length")),) if v})

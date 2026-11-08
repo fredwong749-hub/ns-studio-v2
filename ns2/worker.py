@@ -69,12 +69,50 @@ def lane_loop(api: str, host: str, lane: str, steps: list[str], fns: dict, idle_
         log(lane, "END", job["id"], state, (error or "")[:160])
 
 
+def serve_files(bind: str, port: int, root):
+    """只读文件口（内网，给 API 转发出图 / 视频预览）：只给 <root>/data 下的文件，不列目录、不出 data 外"""
+    import http.server
+    import mimetypes
+    import urllib.parse
+    from pathlib import Path
+    base = (Path(root) / "data").resolve()
+
+    class H(http.server.BaseHTTPRequestHandler):
+        def log_message(self, *a):
+            pass
+
+        def do_GET(self):
+            u = urllib.parse.urlparse(self.path)
+            rel = urllib.parse.unquote(u.path)
+            if not rel.startswith("/files/"):
+                return self.send_error(404)
+            try:
+                f = (base / rel[len("/files/"):]).resolve()
+                f.relative_to(base)
+            except (ValueError, OSError):
+                return self.send_error(400)
+            if not f.is_file():
+                return self.send_error(404)
+            self.send_response(200)
+            self.send_header("Content-Type", mimetypes.guess_type(f.name)[0] or "application/octet-stream")
+            self.send_header("Content-Length", str(f.stat().st_size))
+            self.end_headers()
+            with open(f, "rb") as fh:
+                while chunk := fh.read(1 << 16):
+                    self.wfile.write(chunk)
+
+    srv = http.server.ThreadingHTTPServer((bind, port), H)
+    threading.Thread(target=srv.serve_forever, daemon=True, name="files").start()
+    return srv
+
+
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--api", required=True)
     ap.add_argument("--host", required=True)
     ap.add_argument("--lanes", required=True)
     ap.add_argument("--steps", default="first,last,video,film")
+    ap.add_argument("--files", default="", help="只读文件口 bind:port（如 10.0.0.36:8901）；空 = 不开")
     a = ap.parse_args(argv)
     import os
     os.environ["NS2_API"] = a.api          # film 步要读本集各镜最新行
@@ -83,6 +121,11 @@ def main(argv=None) -> int:
     assert "gpu33:2" not in lanes, "gpu33:2 是坏卡，永不派"
     steps = a.steps.split(",")
     log("WORKER", a.host, lanes, steps, a.api)
+    if a.files:
+        from pathlib import Path
+        b, pt = a.files.rsplit(":", 1)
+        serve_files(b, int(pt), Path(__file__).resolve().parents[1])
+        log("FILES", a.files)
     ts = [threading.Thread(target=lane_loop, args=(a.api, a.host, l, steps, STEP_FNS), name=l, daemon=True) for l in lanes]
     for t in ts:
         t.start()

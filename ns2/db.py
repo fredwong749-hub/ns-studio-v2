@@ -40,6 +40,8 @@ CREATE TABLE IF NOT EXISTS jobs (
 CREATE INDEX IF NOT EXISTS idx_jobs_claim ON jobs(state, created_at, id);
 CREATE INDEX IF NOT EXISTS idx_jobs_shot ON jobs(run_id, shot, step);
 CREATE TABLE IF NOT EXISTS runs (run_id TEXT PRIMARY KEY, title TEXT NOT NULL DEFAULT '', status TEXT NOT NULL DEFAULT 'producing');
+CREATE TABLE IF NOT EXISTS reviews (run_id TEXT NOT NULL, shot TEXT NOT NULL, state TEXT NOT NULL, reason TEXT, at TEXT NOT NULL,
+  PRIMARY KEY (run_id, shot));
 CREATE TABLE IF NOT EXISTS events (id INTEGER PRIMARY KEY AUTOINCREMENT, at TEXT NOT NULL, job_id INTEGER, kind TEXT NOT NULL, detail TEXT);
 """
 STAGE_OF = {"first": "image", "last": "last", "video": "video"}
@@ -225,6 +227,31 @@ def requeue(c, job_id: int, reason: str, force: bool = False) -> dict | None:
               (job_id,))
     _event(c, job_id, "requeue", {"reason": reason})
     return row(c.execute("SELECT * FROM jobs WHERE id=?", (job_id,)).fetchone())
+
+
+def set_review(c, run_id: str, shot: str, state: str, reason: str | None = None) -> dict:
+    """项目方定稿 / 驳回（PLAN §2.4 PUT /api/shots/{id}/review）。passed 才算 final；成人镜的 owner_trigger 由本接口清掉"""
+    assert state in ("passed", "rejected", "unreviewed"), state
+    c.execute("INSERT INTO reviews(run_id, shot, state, reason, at) VALUES (?,?,?,?,?) ON CONFLICT(run_id, shot) DO UPDATE SET"
+              " state=excluded.state, reason=excluded.reason, at=excluded.at", (run_id, shot, state, reason, now_iso()))
+    trig = [r["id"] for r in c.execute("SELECT id FROM jobs WHERE run_id=? AND shot=? AND owner_trigger=1 AND state='queued'", (run_id, shot))]
+    if state == "passed" and trig:
+        c.execute(f"UPDATE jobs SET owner_trigger=0 WHERE id IN ({','.join('?' * len(trig))})", trig)
+    _event(c, None, "review", {"run": run_id, "shot": shot, "state": state, "reason": reason, "triggered": trig if state == "passed" else []})
+    return {"run_id": run_id, "shot": shot, "state": state, "reason": reason, "triggered": trig if state == "passed" else []}
+
+
+def reviews(c, run_id: str) -> dict:
+    return {r["shot"]: dict(r) for r in c.execute("SELECT * FROM reviews WHERE run_id=?", (run_id,))}
+
+
+def cancel(c, run_id: str, shot: str) -> list[int]:
+    """只取消排队中的（在途的不取消，等跑完或心跳回收）；记 na + 原因，不删行"""
+    ids = [r["id"] for r in c.execute("SELECT id FROM jobs WHERE run_id=? AND shot=? AND state='queued'", (run_id, shot))]
+    for i in ids:
+        c.execute("UPDATE jobs SET state='na', error='人工取消', finished_at=? WHERE id=?", (now_iso(), i))
+        _event(c, i, "cancel")
+    return ids
 
 
 def jobs(c, run_id: str | None = None, shot: str | None = None, state: str | None = None, limit: int = 500) -> list[dict]:
