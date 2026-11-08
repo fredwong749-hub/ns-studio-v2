@@ -110,7 +110,8 @@ G4 的执行方式是：经 `runs.set_status` 把 smoke_v2 翻成 producing，�
 5. **认领防重**：leases（45 分钟过期，O_EXCL）→ 新系统用 SQLite 原子认领 + 心跳超时回收（§2.3）。
 6. **种子永不复用**：每镜每 stage 用过的种子不重用（`seed_stream.py`，44 行）。
 7. **提交前 preflight**：参考图登记 / 脸槽 / 连续性校验不过不提交（`gen_contract/preflight.py:207`）；尾帧不能老于首帧（`producer.py:417-431` E13）。
-8. **打分与派单分离**：postflight Q1–Q8 + Q9 只打分、不拦路（旧系统里打分积压会反压停派，新系统删掉这个反压）。
+8. **打分与派单分离**：打分积压不反压派单（旧系统里打分积压会停派，新系统删掉这个反压）。**但 QC 不过的帧挡本镜下一步**（P5 修正 ④，M11 对齐：
+   首帧 = postflight.ok 且 Q9 过且未驳回才算过，`ns2/gates.py`；不过 → 重试，用尽记 best_effort 等人工，不进尾帧 / 视频；只挡这一镜，不挡别的镜）。
 9. **成人镜只由项目方触发**（L-128）：作业 `adult` 标记 + 派单拦截保留，改成 jobs 表的 `owner_trigger` 字段 + 前端一个按钮。
 10. **ComfyUI 提交协议**：check（`/object_info`）→ submit（POST `/prompt`，带 `client_id` + `extra_data.ns_tag`）→ wait（轮询 `/history/{id}`，300 秒宽限、超时不重派）→ download（`/view`，失败重试 3 次、不重渲染）；`[output]` 复用 + 上传去重（上行只有 8–25KB/s 时的关键优化）。（`comfy_client.py:245/428/456/512/536`）
 11. **工作流图本身**：Qwen 图（`workflows.qwen_edit/qwen_t2i`）、H3 图（`workflows.h3_fl2va`，17k+5 帧网格、禁加速节点清单、LoRA-shift 配对校验）、首尾帧→视频的 H3 语义（对齐句按帧重算、I2VA 去 Picture 2 句、`lint_h3` block 拦截、长镜头只派 gpu36:2、不截短）。
@@ -310,7 +311,7 @@ data/
 |---|---|---|---|---|
 | 1. script 剧本 | `import_script(run, ep)` | `P4_epNN.md` | `data/import/runs/<run>/script_v2.json`；jobs `script` done | 解析失败 → `failed`，人工修剧本重跑。解析器复用 `importer/script_md.py` |
 | 2. board 分镜 | `compile_shot(run, shot)` | `script_v2.json` + `config/visual_bible.toml` + `asset_refs` | `compiled.json`（`image_prompt` / `video_prompt` / `last_prompt` + `compile_trace.prompt_sha` + `bible_version`）+ frame_job 作业 dict | preflight 不过 → `blocked` + 缺失项清单（缺哪张参考图、缺哪个资产，写进 `error`）；资产补齐后人工重派。编译复用 `compiler.compile_shot()` + `frame_job.build_first()` |
-| 3. first 首帧 | `render_first(run, shot, seed)` | `compiled.json` + 参考图 | takes.json 新增 `stage=image` 的 take（`workflow: qwen_edit/qwen_t2i`）+ `frame.png` 副本；`result={take_n, file, qc}` | ComfyUI 不可达/超时 → `failed`，指数退避重派（最多 3 次）；3 次用尽 → `failed` 待人工。QC（Q1–Q8 + Q9）只打分写进 `take.postflight`/`score`，不过也设为当前（取最高分版），状态由人工 review 定。执行复用 `unified_frame._run` + `comfy_client.run` |
+| 3. first 首帧 | `render_first(run, shot, seed)` | `compiled.json` + 参考图 | takes.json 新增 `stage=image` 的 take（`workflow: qwen_edit/qwen_t2i`）+ `frame.png` 副本；`result={take_n, file, qc}` | ComfyUI 不可达/超时 → `failed`，指数退避重派（最多 3 次）；3 次用尽 → `failed` 待人工。QC（Q1–Q8 + Q9）写进 `take.postflight`/`score`；过了才设当前（旧 auto_current 契约）；不过不设当前、重试，用尽 → best_effort 等人工定（P5 ④，M11 对齐）。执行复用 `unified_frame._run` + `comfy_client.run` |
 | 4. last 尾帧 | `render_last(run, shot)` | 首帧当前版 + 落幅构图（`build_last_compose`） | takes.json 新增 `stage=last` 的 take + `last.png` 副本 | 首帧无当前版 → 不领活（等前一步 done）；L-204 D8 不用尾帧的镜记 `na`，跳过。执行复用 `frame_job.build_last_compose` + `unified_frame.render_last` |
 | 5. video 视频 | `render_video(run, shot, variant)` | 首帧当前版 + 尾帧当前版（或 `i2va` 兜底）+ H3 提示词 + 变体规格 | `video/clips/epNN/<shot>__<变体>_s<seed>.mp4` + takes.json 新增 `stage=video` 的 take | 变体顺序固定 `v1 → s2 → s3 → s4 → mot`，最多 4 次；不过取 penalty 最小标 `best_effort` 等人工定。变体编译失败 → `blocked` + 缺失项清单（这是 A14 `needs_writer` 的新版定义：不许只写一个状态词，必须写缺什么）。执行复用 `h3_video.render` + `workflows.h3_fl2va` |
 | 6. film 成片 | `assemble_episode(run, ep)` | 本集全部 video 当前版 | `data/episodes/<run>/epNN_vN.mp4`；`result={film, missing:[...]}` | 缺视频的镜用静帧占位，并在 `result.missing` 列出，不阻塞、不失败。v1 只拼视频 + 静帧占位 + 响度归一 -14 LUFS；TTS / 配乐 / 4K upscale 移到 v1.1。执行复用 `ns_post.assemble` + `ffmpeg` 最小集 |
@@ -472,7 +473,7 @@ data/
 - 动态负载均衡 / GPU 池注册 / 心跳中心服务（lane 写死在 job 里；v1 不做调度优化）
 - 多剧并行（series10_s2 不迁移；第二季要开时再加 run，不改架构）
 - 新前端（前端原样跑，只改 5 处调用点；画布审片、胶片模式、筛选逻辑全部不动）
-- 打分模型升级（Q1–Q9 原样用；QC 只打分不拦路的口径不变）
+- 打分模型升级（Q1–Q9 原样用；“QC 不过挡本镜下一步”的口径不变）
 - 速率限制与 24 小时硬上限的时间窗口版（v1 只留 `max_tries=3` + 人工 `blocked`；跑飞时靠人工停。M4 复评是否加回一个全局每日上限——这是有意简化，不是遗漏）
 
 ---

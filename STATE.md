@@ -14,7 +14,8 @@
 - P1 r7：M8 ✅ enqueue_video 一镜坏不连坐。证据 reports/p0/r7_M8.md
 - P1 r8：M9 ✅ 迁移认 review.json（现网 0 个）/ 视频 master_reject；models.lock 两台实测（6 未校验、purelens 重复登记但未安装、两台各 10+ 未登记 LoRA）。证据 reports/p0/r8_M9.md、reports/models_lock_check.md
 - P1 r9：M10 ✅ ROLLBACK.md 重写 + ns2/rollback.sh；gpu33 真演练 02:21 通过（数据 seq 167 不变、echo 203 done）。证据 reports/p0/r9_M10.md
-- 待（P1）：M11 文档对齐 → M13 余项（重试保 created_at 插队）→ minor；然后 P2 前端（ns2 同源新页）、P3
+- P1 r10：M11 ✅ PLAN 与“QC 不过挡本镜下一步”对齐；gates 看图模块问题报 infra 不冒充 Q9 没过。证据 reports/p0/r10_M11.md
+- 待（P1）：M5 视频 preflight → M7 首尾帧新旧 / 种子 → M13 余项（重试保 created_at 插队）→ minor；然后 P2 前端（ns2 同源新页）、P3
 
 ## 线上（gpu33 / gpu36，/root/work/fredw/ns2/）
 - API：gpu33 10.0.0.33:8900（pid 见 api.pid），db data/queue.db；worker：gpu33 道 0,1（GPU3 专审图）、gpu36 道 0,1,2；各机 worker.pid

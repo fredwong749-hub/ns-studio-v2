@@ -31,6 +31,10 @@ def frame_passed(stage: str, take: dict | None, locked: bool = False) -> tuple[b
     if not pf.get("ok"):
         return False, "postflight 未过"
     VQ = _vq()
-    if VQ is None or not VQ.q9_passed(pf):
-        return False, "Q9 看图未过（尽力版待复核）"
-    return True, "过"
+    if VQ is None:                    # M11：看图模块载不进是 infra，不是“Q9 没过”——照样判不过（失败关闭），但原因写对
+        return False, "Q9 无法判定（看图模块载不进，infra）"
+    try:
+        ok = VQ.q9_passed(pf)
+    except Exception as e:  # noqa: BLE001 — 离线工具（migrate / enqueue_video）里也不让一镜异常炸掉整批
+        return False, f"Q9 无法判定（{type(e).__name__}，infra）"
+    return (True, "过") if ok else (False, "Q9 看图未过（尽力版待复核）")
