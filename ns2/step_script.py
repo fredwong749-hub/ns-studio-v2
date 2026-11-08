@@ -16,6 +16,8 @@ import time
 from ns2.step_frame import OFF, legacy_env
 from ns2.step_video import ROOT
 
+LEGACY_PATHS = ("services/agent", "services/api", "packages/schema", "services/render_router", "services/recipes", "services/post", "packages/qc", "tools", ".")
+
 
 def run(job: dict, lane: str):
     p = job.get("payload") or {}
@@ -35,7 +37,9 @@ def run(job: dict, lane: str):
         bak = out.with_name(f"script_v2.json.bak_ns2_{time.strftime('%Y%m%d-%H%M%S')}")
         shutil.copy2(out, bak)
         cmd += ["--merge-base", str(bak)]
-    r = subprocess.run(cmd, cwd=str(OFF / "repo"), env=legacy_env(lane.split(":")[0], run_id), capture_output=True, text=True, timeout=900)
+    env = legacy_env(lane.split(":")[0], run_id)
+    env["PYTHONPATH"] = ":".join(str(OFF / "repo" / x) for x in LEGACY_PATHS)     # 旧 import_script 靠包路径（笔记本是装进 venv 的，服务器没装）
+    r = subprocess.run(cmd, cwd=str(OFF / "repo"), env=env, capture_output=True, text=True, timeout=900)
     tail = (r.stdout or "")[-1500:] + (r.stderr or "")[-500:]
     if r.returncode:
         return "failed", {"md": str(md.relative_to(ROOT)), "backup": bak and str(bak.relative_to(ROOT)), "log": tail}, f"导入不过（rc={r.returncode}）：{tail[-400:]}"

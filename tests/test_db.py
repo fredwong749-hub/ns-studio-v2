@@ -165,3 +165,14 @@ def test_manual_requeue_clears_backoff(tmp_path):
     c.execute("UPDATE jobs SET state='failed'")                                         # 人工判死后重派
     assert D.requeue(c, f["id"], "x")["ready_at"] is None
     assert D.claim(c, "h", "h:0", ["first"])["id"] == f["id"]
+
+
+def test_enqueue_episode_one_script_row_per_host(tmp_path, monkeypatch):
+    from ns2 import enqueue_episode as EE
+    md = tmp_path / "P4_ep05.md"; md.write_text("# 第5集", encoding="utf-8")
+    sent = []
+    monkeypatch.setattr(EE, "post", lambda api, path, body: (sent.append(body), {"job": {"id": len(sent)}, "created": True})[1])
+    EE.main(["--api", "x", "--run", "r", "--ep", "5", "--md", str(md)])
+    hosts = sorted(b["want_host"] for b in sent)
+    assert hosts == ["gpu33", "gpu36"] and len({D.idem_key("r", b["shot"], "script", b["sig"]) for b in sent}) == 2
+    assert [b["payload"]["enqueue_shots"] for b in sent if b["want_host"] == "gpu33"] == [True]     # ep05 出图机 gpu33 负责入队镜头

@@ -25,7 +25,7 @@ def main(argv=None) -> int:
     sha = hashlib.sha256(text.encode("utf-8")).hexdigest()[:16]
     for host in sorted({h for kind in PARTITION.values() for h in kind}):
         r = {"run_id": a.run, "ep": a.ep, "shot": f"ep{a.ep:02d}", "step": "script", "want_host": host, "max_tries": 1,
-             "sig": {"script": sha}, "payload": {"md_text": text, "name": Path(a.md).name, "version": a.version,
+             "sig": {"script": sha, "host": host}, "payload": {"md_text": text,     # 每台一行：签名带机器（否则第二台被当重复） "name": Path(a.md).name, "version": a.version,
                                                  "enqueue_shots": host == next(h for h, eps in PARTITION["images"].items() if a.ep in eps)}}
         if a.dry:
             print("script", host, sha, "enqueue_shots" if r["payload"]["enqueue_shots"] else "")
