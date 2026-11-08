@@ -243,7 +243,7 @@ CREATE TABLE runs (
 
 | 口径 | 新定义（唯一） |
 |---|---|
-| `final`（视频已定） | 只认 `review.json passed` 且 takes.json 有当前视频。登记表 `passed` 不算 |
+| `final`（视频已定） | 只认队列 `reviews` 表 passed 且该镜最新视频行有片（项目方 11-09 定：单一来源，不写 / 不读 review.json）。登记表 `passed` 不算 |
 | `video_done` | 与 `final` 同义。`best_effort` **不算** done，单独计数 |
 | `total` 分母 | 剧本镜数（`script_v2.json` 的镜数），不再是“有 takes.json 的目录 ∪ 登记表” |
 | `best_effort` | 独立状态，有筛选项、有计数，不再随 `pending_review` 一起出现 |
