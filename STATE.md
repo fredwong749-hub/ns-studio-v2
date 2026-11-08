@@ -5,7 +5,9 @@
 ## 任务书迭代进度（证据 reports/p0/ …）
 - P0 r1（11-09 01:5x）：B1 ✅ · B2 ✅ · B4 ✅；B3 部分（op_id / cancel）；顺带 M4、M5 部分、M13 部分。证据 reports/p0/r1_B1_B2_B4.md
 - P0 r2（11-09 01:55）：B3 ✅（结果落盘 + 重试到接受、409 停；每道并发 1 库强制）。证据 reports/p0/r2_B3.md → **P0 B1–B4 全部关闭**
-- 待（P1，按审查 §8）：M2 reaper → M3 谓词更新 → M6 长镜头道 / 前置失败 → M8 → M9 review.json / models.lock → M10 ROLLBACK → M12/M13 余项 → netfix 移出公开仓库
+- P1 r3（11-09 02:0x）：内网拓扑移出仓库树（git 历史里仍有，仓库 PUBLIC → **待项目方定：改私有 / 改写历史**）。证据 reports/p0/r3_netfix.md
+- **停下等项目方**（任务书红线）：① 仓库 PUBLIC + 历史含拓扑；② 旧仓库 87c78b47 / a12f5890 两个提交（任务书到达前推的）是否 revert；③ final 口径 review.json vs 队列 reviews 表
+- 待（P1，按审查 §8）：M2 reaper → M3 谓词更新 → M6 长镜头道 / 前置失败 → M8 → M9 review.json / models.lock → M10 ROLLBACK → M12/M13 余项
 
 ## 线上（gpu33 / gpu36，/root/work/fredw/ns2/）
 - API：gpu33 10.0.0.33:8900（pid 见 api.pid），db data/queue.db；worker：gpu33 道 0,1（GPU3 专审图）、gpu36 道 0,1,2；各机 worker.pid

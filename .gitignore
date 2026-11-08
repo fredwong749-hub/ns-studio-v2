@@ -5,3 +5,9 @@ __pycache__/
 config/pipeline/state.json
 knowledge/generated/
 *.local.json
+
+# 内网拓扑（隧道 / 跳板 / SSH / 车道主机表）不进公开仓库（审查 §3、任务书红线）
+config/netfix/
+config/factory/hosts.json
+tools/netfix/
+*.key
