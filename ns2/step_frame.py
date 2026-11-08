@@ -43,6 +43,8 @@ def run(job: dict, lane: str):
             "attempt": int(job.get("tries") or 0) + 1, "prev_blocking": prev}
     if p.get("edit"):
         args["edit"] = p["edit"]
+    if p.get("owner_triggered"):
+        args["owner_triggered"] = True
     if res.get("infra_take"):                       # 上次图已出、打分 infra → 这次只重打分（不占新版本号、不耗 GPU 出图）
         args["rescore_take"] = res["infra_take"]
     out = call_legacy(args, lane.split(":")[0], float(p.get("timeout_s") or 3600))

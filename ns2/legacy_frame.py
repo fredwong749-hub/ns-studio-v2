@@ -65,6 +65,9 @@ def main(a: dict) -> dict:
         tf.write_text(json.dumps({f"{a['kind']}:{a['sid']}": {"edit": a["edit"]}}, ensure_ascii=False), encoding="utf-8")
         paths.__class__ = type("NS2EditPaths", (PR.Paths,), {"rejects": property(lambda self, _f=tf: _f)})   # rejects 是只读属性
     script = P.load_script()
+    if a.get("owner_triggered"):     # B2：项目方已在新系统触发本镜 → 旧 FrameExec 的成人闸认这次触发（没触发时旧闸照挡 = 第二道防线）
+        _orig = PR.owner_trigger_ids
+        PR.owner_trigger_ids = lambda p, _o=_orig, _s=a["sid"], _r=a["run"]: set(_o(p)) | {f"first:{_s}", f"{_r}/first:{_s}", f"last:{_s}", f"{_r}/last:{_s}"}
     st = _Stub(PR, paths, script, a.get("prev_blocking") or [])
     o = {"id": f"{a['kind']}:{a['sid']}", "shot": a["sid"], "kind": a["kind"]}
     if a.get("rescore_take"):        # M2：上次图已出、只是打分 infra 出错 → 只重打分，不重出图（同旧 Producer._rescore_one）

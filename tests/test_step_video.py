@@ -52,6 +52,7 @@ def test_record_take_final_fail_picks_min_penalty(tmp_path, monkeypatch):
 
 
 def test_run_flow_with_fake_comfy(tmp_path, monkeypatch):
+    monkeypatch.setattr(V, "shot_adult", lambda run, sid: False)
     _patch_takes(tmp_path, monkeypatch)
     monkeypatch.setattr(V, "ROOT", tmp_path)
     (tmp_path / "data").mkdir()
@@ -90,6 +91,7 @@ def _fake_render(tmp_path, monkeypatch, score_fn):
 
 
 def test_score_infra_error_blocks_without_rerender_then_rescore_passes(tmp_path, monkeypatch):
+    monkeypatch.setattr(V, "shot_adult", lambda run, sid: False)
     calls = _fake_render(tmp_path, monkeypatch, lambda clip, meta, host="": {"error": "ffmpeg not found"})
     job = {**_job(max_tries=4), "payload": {"variants": VARS, "ladder": ["v1", "s2"]}}
     st, res, err = V.run(job, "gpu33:1")
@@ -97,3 +99,11 @@ def test_score_infra_error_blocks_without_rerender_then_rescore_passes(tmp_path,
     monkeypatch.setattr(V, "score", lambda clip, meta, host="": {"gate": {"pass": True}, "penalty": 0.1})
     st, res, err = V.run(job, "gpu33:1")
     assert st == "done" and res["rescored"][0]["passed"] and calls["submit"] == 1   # 重派 = 只补打分，不再渲
+
+
+def test_adult_untriggered_refused_by_worker(monkeypatch):
+    """B2 第二道：队列放错了也不渲——未触发的成人镜 worker 直接 blocked，不提交 ComfyUI"""
+    monkeypatch.setattr(V, "shot_adult", lambda run, sid: True)
+    monkeypatch.setattr(V, "submit", lambda *a, **k: (_ for _ in ()).throw(AssertionError("不该提交")))
+    st, _, err = V.run({"id": 1, "run_id": "r", "shot": "ep03-S1", "ep": 3, "tries": 0, "payload": {"variants": {"v1": {}}}}, "gpu33:0")
+    assert st == "blocked" and "成人" in err

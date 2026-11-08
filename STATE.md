@@ -1,6 +1,10 @@
 # STATE（ns-studio-v2，活文件）
 
-当前：**M2 进行中**（M0 ✅ · M1 ✅ 11-08 20:18 · M2a/M2b 11-08 22:0x）
+当前：**按任务书 ns2-auto-iterate-brief 迭代**（P0 堵点 → P1 主要项 → P2 前端 → P3 视频收尾）。M0 ✅ · M1 ✅ 11-08 20:18 · M2a/M2b 11-08 22:05
+
+## 任务书迭代进度（证据 reports/p0/ …）
+- P0 r1（11-09 01:5x）：B1 ✅ · B2 ✅ · B4 ✅；B3 部分（op_id / cancel）；顺带 M4、M5 部分、M13 部分。证据 reports/p0/r1_B1_B2_B4.md
+- 待：B3 余项（finish 不丢 + lane 守卫）→ M2 reaper → M3 谓词更新 → M6 长镜头道 / 前置失败 → …
 
 ## 线上（gpu33 / gpu36，/root/work/fredw/ns2/）
 - API：gpu33 10.0.0.33:8900（pid 见 api.pid），db data/queue.db；worker：gpu33 道 0,1（GPU3 专审图）、gpu36 道 0,1,2；各机 worker.pid

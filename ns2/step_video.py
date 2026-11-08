@@ -38,12 +38,13 @@ def api(port: int, path: str, data: bytes | None = None, ctype: str = "applicati
 
 
 def upload(lane: str, rel: str) -> str:
-    key = (lane, rel)
+    p = ROOT / rel
+    st = p.stat()
+    key = (lane, rel, st.st_mtime_ns, st.st_size)          # M5：同路径重渲后指纹变 → 重传，不复用旧的 Comfy 文件
     if key in _uploads:
         return _uploads[key]
-    p = ROOT / rel
     b = "----ns2" + uuid.uuid4().hex
-    body = (f"--{b}\r\nContent-Disposition: form-data; name=\"image\"; filename=\"ns2_{p.name}\"\r\nContent-Type: image/png\r\n\r\n").encode() \
+    body = (f"--{b}\r\nContent-Disposition: form-data; name=\"image\"; filename=\"ns2_{uuid.uuid4().hex[:8]}_{p.name}\"\r\nContent-Type: image/png\r\n\r\n").encode() \
         + p.read_bytes() + (f"\r\n--{b}\r\nContent-Disposition: form-data; name=\"subfolder\"\r\n\r\nns2\r\n"
                             f"--{b}\r\nContent-Disposition: form-data; name=\"overwrite\"\r\n\r\ntrue\r\n--{b}--\r\n").encode()
     r = json.loads(api(PORTS[lane], "/upload/image", body, f"multipart/form-data; boundary={b}", timeout=180))
@@ -78,21 +79,45 @@ def submit(lane: str, var: dict, prefix: str, tag: dict, seed: int | None = None
     return r["prompt_id"]
 
 
-def wait(lane: str, pid: str, timeout_s: float, poll_s: float = 10) -> dict:
-    """→ {"path", "gpu_s"} 或 {"error"}；超时 = {"error": "timeout"}（不重派同一 pid）"""
+def cancel(lane: str, pid: str) -> str:
+    """B3：超时 / 放弃时把我们自己的 prompt 从 ComfyUI 撤掉（排队中 → 删；正在跑的是它 → interrupt），不留着占卡"""
+    out = []
+    try:
+        api(PORTS[lane], "/queue", json.dumps({"delete": [pid]}).encode(), timeout=30)
+        out.append("deleted")
+        q = json.loads(api(PORTS[lane], "/queue", timeout=30))
+        if any(len(x) > 1 and x[1] == pid for x in q.get("queue_running") or []):
+            api(PORTS[lane], "/interrupt", b"{}", timeout=30)
+            out.append("interrupted")
+    except OSError as e:
+        out.append(f"cancel_err {e!r}"[:120])
+    return ",".join(out)
+
+
+def wait(lane: str, pid: str, timeout_s: float, poll_s: float = 10, grace_s: float = 300) -> dict:
+    """→ {"path", "gpu_s"} 或 {"error", "infra": True}。M4：ComfyUI 连不上给 grace_s 宽限，HTTP 错误立即返回；超时先撤掉自己的 prompt"""
+    import urllib.error
     t_end = time.time() + timeout_s
+    down_since = None
     while time.time() < t_end:
         try:
             h = json.loads(api(PORTS[lane], f"/history/{pid}", timeout=30))
-        except OSError:
-            time.sleep(poll_s); continue
+            down_since = None
+        except urllib.error.HTTPError as e:
+            return {"error": f"comfy_http {e.code}", "infra": True, "cancel": cancel(lane, pid)}
+        except OSError as e:
+            down_since = down_since or time.time()
+            if time.time() - down_since > grace_s:
+                return {"error": f"comfy_down {grace_s:.0f}s：{e!r}"[:200], "infra": True}
+            time.sleep(poll_s)
+            continue
         if pid in h:
             st = h[pid].get("status") or {}
             ts = {m[0]: (m[1] or {}).get("timestamp") for m in st.get("messages") or [] if len(m) > 1}
             gpu_s = round((ts.get("execution_success") or ts.get("execution_error") or 0) / 1000 - (ts.get("execution_start") or 0) / 1000, 1) \
                 if ts.get("execution_start") else None
             if st.get("status_str") == "error":
-                return {"error": "comfy_error " + json.dumps([m for m in st.get("messages") or [] if m[0] == "execution_error"], ensure_ascii=False)[-500:],
+                return {"infra": True, "error": "comfy_error " + json.dumps([m for m in st.get("messages") or [] if m[0] == "execution_error"], ensure_ascii=False)[-500:],
                         "gpu_s": gpu_s}
             for node in (h[pid].get("outputs") or {}).values():
                 for key in ("images", "videos", "gifs"):
@@ -100,9 +125,9 @@ def wait(lane: str, pid: str, timeout_s: float, poll_s: float = 10) -> dict:
                         if str(im.get("filename", "")).endswith(".mp4"):
                             return {"path": "/".join(x for x in (OUTDIR[lane], im.get("subfolder"), im["filename"]) if x), "gpu_s": gpu_s}
             if st.get("completed"):
-                return {"error": "no_output", "gpu_s": gpu_s}
+                return {"error": "no_output", "gpu_s": gpu_s, "infra": True}
         time.sleep(poll_s)
-    return {"error": "timeout"}
+    return {"error": "timeout", "infra": True, "cancel": cancel(lane, pid)}
 
 
 def score(clip: Path, meta: dict, host: str = "", tries: int = 2) -> dict:
@@ -142,7 +167,7 @@ def rescore_pending(job: dict, meta: dict, host: str) -> list[dict]:
             if passed and not x.get("trial"):
                 d.setdefault("active", {})["video"] = n
             return d
-        P.mutate_takes(job["shot"], fn, op="ns2_rescore", by="ns2-worker", op_id=f"ns2-rescore-{job['id']}-{t['n']}", run=job["run_id"])
+        P.mutate_takes(job["shot"], fn, op="ns2_rescore", by="ns2-worker", op_id=f"ns2-rescore-{job['id']}-{t['n']}-{uuid.uuid4().hex[:8]}", run=job["run_id"])
         out.append({"n": t["n"], "variant": t.get("variant"), "passed": passed, "error": s.get("error"),
                     "penalty": s.get("penalty"), "fails": (s.get("gate") or {}).get("fails")})
     return out
@@ -171,7 +196,8 @@ def pick_variant(payload: dict, tries: int, lane: str) -> tuple[str, dict] | Non
     return name, vs[name]
 
 
-def record_take(job: dict, var_name: str, var: dict, clip_rel: str, s: dict, *, final: bool, seed=None, trial: bool = False) -> dict:
+def record_take(job: dict, var_name: str, var: dict, clip_rel: str, s: dict, *, final: bool, seed=None, trial: bool = False,
+                attempt: str | None = None) -> dict:
     """写一条 video take；过门设当前；final 且没过 → ns2 视频里 penalty 最小的设当前。op_id 幂等（同 job 同次只写一次）。
     trial（验收 / 试跑）：只记 take，不动当前版"""
     import sys
@@ -189,7 +215,7 @@ def record_take(job: dict, var_name: str, var: dict, clip_rel: str, s: dict, *, 
         n = 1 + max([t.get("n") or 0 for t in takes if t.get("stage") == "video"] or [0])
         t = {"n": n, "stage": "video", "file": clip_rel, "seed": var.get("seed") if seed is None else seed, "trial": trial, "prompt": var.get("prompt", ""),
              "workflow": var.get("recipe"), "variant": var_name, "gpu": job.get("lane"), "created_at": P._iso_jst(),
-             "source": "ns2", "job_id": job["id"], "score": {k: s.get(k) for k in ("mean", "penalty", "gate", "J4", "error") if k in s},
+             "source": "ns2", "job_id": job["id"], "attempt": attempt, "score": {k: s.get(k) for k in ("mean", "penalty", "gate", "J4", "error") if k in s},
              "postflight": {"ok": passed, "gate": gate, "ts": P._iso_jst()}}
         takes.append(t)
         out["n"] = n
@@ -206,7 +232,15 @@ def record_take(job: dict, var_name: str, var: dict, clip_rel: str, s: dict, *, 
                 out["best_effort_n"] = best["n"]
         return doc
 
-    P.mutate_takes(sid, fn, op="ns2_video", by="ns2-worker", op_id=f"ns2-{job['id']}-{job['tries']}", run=run)
+    # B3：op_id 绑这一次渲染（job + 第几条 + 变体 + 种子），回收 / 重派都不会撞号或重复写
+    attempt = attempt or f"{job['id']}-{job['tries']}"
+    P.mutate_takes(sid, fn, op="ns2_video", by="ns2-worker", op_id=f"ns2-{attempt}", run=run)
+    if "n" not in out:                    # 重放（同一次渲染已写过）：找回那一条，不 KeyError
+        doc = json.loads(P.takes_path(sid, run).read_text(encoding="utf-8"))
+        t = next((x for x in doc.get("takes") or [] if x.get("stage") == "video" and x.get("attempt") == attempt), None)
+        if t is None:
+            raise RuntimeError(f"takes.json 判重放但找不到 attempt={attempt} 的 take")
+        return {"n": t["n"], "passed": bool((t.get("postflight") or {}).get("ok")), "replayed": True}
     return {**out, "passed": passed}
 
 
@@ -238,9 +272,24 @@ def compile_payload(job: dict, host: str) -> tuple[dict | None, str | None]:
         return None, f"视频变体编译后仍找不到本镜：{e}"
 
 
+def shot_adult(run_id: str, sid: str) -> bool:
+    """B2 第二道：本机导入稿判成人（读不到 = 当成人）"""
+    try:
+        d = json.loads((ROOT / "data/import/runs" / run_id / "script_v2.json").read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return True
+    for e in d.get("episodes") or []:
+        for x in e.get("shots") or []:
+            if f"ep{int(e['number']):02d}-S{int(x.get('index') or 0)}" == sid:
+                return bool(x.get("adult"))
+    return True
+
+
 def run(job: dict, lane: str):
     p = job.get("payload") or {}
     host = lane.split(":")[0]
+    if not p.get("echo") and not p.get("owner_triggered") and shot_adult(job["run_id"], job["shot"]):
+        return "blocked", None, "成人镜未经项目方触发（L-128）：worker 拒渲；请在前端点“触发”"
     if not p.get("variants") and not p.get("echo"):
         cp, why = compile_payload(job, host)
         if cp is None:
@@ -257,8 +306,8 @@ def run(job: dict, lane: str):
     pv = pick_variant(p, k, lane)
     if pv is None:
         vs = p.get("variants") or {}
-        why = {k: v.get("status") for k, v in vs.items()}
-        return "blocked", None, f"没有可派的变体（各变体状态：{why}）"     # 修正：写清缺什么，不只一个状态词
+        why = "；".join(f"{k}={v.get('status')}" + (f"（{v.get('reason')}）" if v.get("reason") else "") for k, v in vs.items())
+        return "blocked", None, f"没有可派的变体：{why}"[:900]     # B4：编译器给的缺什么原文带出来（A14 needs_writer）
     name, var = pv
     sid, ep = job["shot"], int(job["ep"])
     prefix = f"ns2/{sid}__{name}"
@@ -267,15 +316,25 @@ def run(job: dict, lane: str):
     pid = submit(lane, var, prefix, tag, seed)
     frames = int(var.get("frames") or 125)
     res = wait(lane, pid, timeout_s=max(1800, frames * 12))
-    if res.get("error"):
-        return "retry", {"variant": name, "pid": pid, "has_output": False, **res}, res["error"]
+    if res.get("error"):              # M4：ComfyUI 出错 / 超时 / 没产出 / 连不上 = infra（不烧变体机会；连续 5 次转 blocked）
+        return "infra", {"variant": name, "pid": pid, "has_output": False, **res}, res["error"]
     used = var.get("seed") if seed is None else seed
     dst = ROOT / "data/pipeline/runs" / job["run_id"] / "video/clips" / f"ep{ep:02d}" / f"{sid}__{name}_s{used}.mp4"
     dst.parent.mkdir(parents=True, exist_ok=True)
-    shutil.copy2(res["path"], dst)
+    for i in range(3):                # M5：拷贝重试 3 次，先写临时名再改名，不留半截文件
+        try:
+            tmp = dst.with_suffix(".part")
+            shutil.copy2(res["path"], tmp)
+            tmp.replace(dst)
+            break
+        except OSError:
+            if i == 2:
+                raise
+            time.sleep(5)
     s = score(dst, p.get("score_meta") or {}, host)
     final = k + 1 >= int(job.get("max_tries") or 3)
-    rec = record_take(job, name, var, str(dst.relative_to(ROOT / "data")), s, final=final, seed=used, trial=bool(p.get("trial")))
+    rec = record_take(job, name, var, str(dst.relative_to(ROOT / "data")), s, final=final, seed=used, trial=bool(p.get("trial")),
+                      attempt=f"{job['id']}-r{k}-{name}-s{used}")
     result = {"variant": name, "seed": used, "trial": bool(p.get("trial")), "pid": pid, "gpu_s": res.get("gpu_s"), "clip": str(dst.relative_to(ROOT)), "take_n": rec["n"],
               "score": {k: s.get(k) for k in ("mean", "penalty", "gate", "error") if k in s}, "has_output": True}
     if rec["passed"]:

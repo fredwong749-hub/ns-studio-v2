@@ -13,13 +13,14 @@ import os
 from pathlib import Path
 
 ROOT = Path(os.environ.get("NS2_ROOT") or Path(__file__).resolve().parents[1])
-KEEP = ("graph", "inputs", "seed", "prompt", "status", "recipe", "frames", "variant", "mode", "long")
+KEEP = ("graph", "inputs", "seed", "prompt", "status", "recipe", "frames", "variant", "mode", "long", "reason", "missing", "ref_slots")   # B4：reason 必须带
 MAX_RENDERS = 4                      # 旧阶梯上限（vidgen MAX_RENDERS）
 
 
 def post(api: str, path: str, body: dict) -> dict:
     import urllib.request
-    req = urllib.request.Request(api.rstrip("/") + path, json.dumps(body).encode(), {"Content-Type": "application/json"})
+    from ns2 import auth as AU
+    req = urllib.request.Request(api.rstrip("/") + path, json.dumps(body).encode(), {"Content-Type": "application/json", **AU.headers()})
     with urllib.request.urlopen(req, timeout=60) as r:
         return json.loads(r.read())
 

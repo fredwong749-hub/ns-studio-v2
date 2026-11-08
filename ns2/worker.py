@@ -19,7 +19,8 @@ STOP = threading.Event()
 
 
 def post(api: str, path: str, body: dict, timeout: float = 60) -> dict:
-    req = urllib.request.Request(api.rstrip("/") + path, json.dumps(body).encode("utf-8"), {"Content-Type": "application/json"})
+    from ns2 import auth as AU
+    req = urllib.request.Request(api.rstrip("/") + path, json.dumps(body).encode("utf-8"), {"Content-Type": "application/json", **AU.headers()})
     with urllib.request.urlopen(req, timeout=timeout) as r:
         return json.loads(r.read())
 
@@ -82,6 +83,9 @@ def serve_files(bind: str, port: int, root):
             pass
 
         def do_GET(self):
+            from ns2 import auth as AU
+            if not AU.ok(self.headers.get(AU.HEADER)):          # B1 / M12：文件口也要密钥（否则内网谁都能下 queue.db）
+                return self.send_error(401)
             u = urllib.parse.urlparse(self.path)
             rel = urllib.parse.unquote(u.path)
             if not rel.startswith("/files/"):

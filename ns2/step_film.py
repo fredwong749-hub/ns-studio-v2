@@ -35,7 +35,9 @@ def script_durations(run: str, ep: int, root: Path) -> dict:
 
 def api_jobs(run: str) -> list[dict]:
     api = os.environ.get("NS2_API", "http://10.0.0.33:8900")
-    with urllib.request.urlopen(f"{api.rstrip('/')}/api/jobs?run={run}&limit=100000", timeout=60) as r:
+    from ns2 import auth as AU
+    req = urllib.request.Request(f"{api.rstrip('/')}/api/jobs?run={run}&limit=100000", headers=AU.headers())
+    with urllib.request.urlopen(req, timeout=60) as r:
         return json.loads(r.read())
 
 

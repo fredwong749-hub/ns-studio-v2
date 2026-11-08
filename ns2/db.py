@@ -42,6 +42,7 @@ CREATE TABLE IF NOT EXISTS jobs (
 CREATE INDEX IF NOT EXISTS idx_jobs_claim ON jobs(state, created_at, id);
 CREATE INDEX IF NOT EXISTS idx_jobs_shot ON jobs(run_id, shot, step);
 CREATE TABLE IF NOT EXISTS runs (run_id TEXT PRIMARY KEY, title TEXT NOT NULL DEFAULT '', status TEXT NOT NULL DEFAULT 'producing');
+CREATE TABLE IF NOT EXISTS triggers (run_id TEXT NOT NULL, shot TEXT NOT NULL, at TEXT NOT NULL, by TEXT, PRIMARY KEY (run_id, shot));
 CREATE TABLE IF NOT EXISTS reviews (run_id TEXT NOT NULL, shot TEXT NOT NULL, state TEXT NOT NULL, reason TEXT, at TEXT NOT NULL,
   PRIMARY KEY (run_id, shot));
 CREATE TABLE IF NOT EXISTS events (id INTEGER PRIMARY KEY AUTOINCREMENT, at TEXT NOT NULL, job_id INTEGER, kind TEXT NOT NULL, detail TEXT);
@@ -85,11 +86,26 @@ def _event(c, job_id, kind, detail=None):
               (now_iso(), job_id, kind, json.dumps(detail, ensure_ascii=False) if detail is not None else None))
 
 
+ADULT_STEPS = ("first", "last", "video")
+
+
+def triggered(c, run_id: str, shot: str) -> bool:
+    return c.execute("SELECT 1 FROM triggers WHERE run_id=? AND shot=?", (run_id, shot)).fetchone() is not None
+
+
 def enqueue(c, *, run_id: str, ep: int, shot: str, step: str, payload: dict | None = None, want_host: str | None = None,
             sig: dict | None = None, state: str = "queued", result: dict | None = None, owner_trigger: bool = False,
-            max_tries: int = 3, key: str | None = None, error: str | None = None) -> tuple[dict, bool]:
-    """→ (job, created)。同 idem_key 已有 → 原行、created=False"""
-    assert step in STEPS and state in STATES, (step, state)
+            max_tries: int = 3, key: str | None = None, error: str | None = None, adult: bool = False) -> tuple[dict, bool]:
+    """→ (job, created)。同 idem_key 已有 → 原行、created=False。
+    B2：adult = 服务端按剧本判的成人镜（调用方的 owner_trigger 只能加严不能放宽）；成人镜的出图 / 出片行在项目方触发前一律 owner_trigger=1，
+    触发过的镜 payload 带 owner_triggered（worker 侧第二道检查用）"""
+    if step not in STEPS or state not in STATES:
+        raise ValueError(f"step/state 不认识：{step}/{state}")
+    if adult and step in ADULT_STEPS:
+        if triggered(c, run_id, shot):
+            payload = {**(payload or {}), "owner_triggered": True}
+        else:
+            owner_trigger = True
     k = key or idem_key(run_id, shot, step, sig)
     old = c.execute("SELECT * FROM jobs WHERE idem_key=?", (k,)).fetchone()
     if old is not None:
@@ -180,8 +196,8 @@ def finish(c, job_id: int, host: str, state: str, result: dict | None = None, er
     tries = j["tries"]
     if state == "infra":
         n = 1
-        for ev in c.execute("SELECT detail FROM events WHERE job_id=? AND kind='finish' ORDER BY id DESC", (job_id,)):
-            if json.loads(ev["detail"] or "{}").get("asked") != "infra":
+        for ev in c.execute("SELECT kind, detail FROM events WHERE job_id=? AND kind IN ('finish','requeue') ORDER BY id DESC", (job_id,)):
+            if ev["kind"] == "requeue" or json.loads(ev["detail"] or "{}").get("asked") != "infra":
                 break
             n += 1
         new = "blocked" if n >= INFRA_MAX else "queued"
@@ -203,7 +219,7 @@ def finish(c, job_id: int, host: str, state: str, result: dict | None = None, er
     r_ = result or {}
     _event(c, job_id, "finish", {"asked": state, "state": new, "tries": tries, "error": (error or "")[:300],
                                  "secs": r_.get("secs"), "gpu_s": r_.get("gpu_s"), "lane": j.get("lane"), "started_at": j.get("started_at")})
-    if j["step"] == "board" and new == "done" and (result or {}).get("adult"):    # L-128：成人镜只由项目方触发
+    if j["step"] == "board" and new == "done" and (result or {}).get("adult") and not triggered(c, j["run_id"], j["shot"]):    # L-128
         c.execute("UPDATE jobs SET owner_trigger=1 WHERE run_id=? AND shot=? AND step IN ('first','last','video') AND state='queued'",
                   (j["run_id"], j["shot"]))
         _event(c, job_id, "adult_hold", {"shot": j["shot"]})
@@ -241,25 +257,44 @@ def reap(c, lease_s: float = LEASE_S, now: float | None = None) -> list[int]:
     return ids
 
 
-def requeue(c, job_id: int, reason: str, force: bool = False) -> dict | None:
-    """人工重派（failed / blocked / best_effort → queued，tries 清零）；force 也收 running（其 worker 已停，不等 45 分钟回收）"""
+def requeue(c, job_id: int, reason: str, force: bool = False, adult_of=None) -> dict | None:
+    """人工重派（failed / blocked / best_effort → queued，tries 清零、旧 result / 心跳清掉、infra 连续计数从这里重算）。
+    force 也收 running（只在确认其 worker 已停时用；活 worker 之后的 finish 会被 409 拒）。没改到任何行 → None（API 回 409）。
+    adult_of(run, shot)：成人镜且未触发 → 回队时重新挡住（owner_trigger=1）"""
     states = "('failed','blocked','best_effort','running')" if force else "('failed','blocked','best_effort')"
-    c.execute(f"UPDATE jobs SET state='queued', tries=0, host=NULL, lane=NULL, error=NULL, finished_at=NULL WHERE id=? AND state IN {states}",
-              (job_id,))
-    _event(c, job_id, "requeue", {"reason": reason})
+    j = row(c.execute("SELECT * FROM jobs WHERE id=?", (job_id,)).fetchone())
+    if j is None:
+        return None
+    hold = 1 if (adult_of and j["step"] in ADULT_STEPS and adult_of(j["run_id"], j["shot"]) and not triggered(c, j["run_id"], j["shot"])) else j["owner_trigger"]
+    cur = c.execute(f"UPDATE jobs SET state='queued', tries=0, host=NULL, lane=NULL, error=NULL, finished_at=NULL, result=NULL, beat_at=NULL,"
+                    f" owner_trigger=? WHERE id=? AND state IN {states}", (hold, job_id))
+    if cur.rowcount != 1:
+        return None
+    _event(c, job_id, "requeue", {"reason": reason, "force": force})
     return row(c.execute("SELECT * FROM jobs WHERE id=?", (job_id,)).fetchone())
 
 
 def set_review(c, run_id: str, shot: str, state: str, reason: str | None = None) -> dict:
-    """项目方定稿 / 驳回（PLAN §2.4 PUT /api/shots/{id}/review）。passed 才算 final；成人镜的 owner_trigger 由本接口清掉"""
+    """项目方定稿 / 驳回（PLAN §2.4 PUT /api/shots/{id}/review）。passed 才算 final。
+    成人镜触发是另一件事（POST /api/shots/{id}/trigger → db.trigger），定稿不再顺带放行"""
     assert state in ("passed", "rejected", "unreviewed"), state
     c.execute("INSERT INTO reviews(run_id, shot, state, reason, at) VALUES (?,?,?,?,?) ON CONFLICT(run_id, shot) DO UPDATE SET"
               " state=excluded.state, reason=excluded.reason, at=excluded.at", (run_id, shot, state, reason, now_iso()))
-    trig = [r["id"] for r in c.execute("SELECT id FROM jobs WHERE run_id=? AND shot=? AND owner_trigger=1 AND state='queued'", (run_id, shot))]
-    if state == "passed" and trig:
-        c.execute(f"UPDATE jobs SET owner_trigger=0 WHERE id IN ({','.join('?' * len(trig))})", trig)
-    _event(c, None, "review", {"run": run_id, "shot": shot, "state": state, "reason": reason, "triggered": trig if state == "passed" else []})
-    return {"run_id": run_id, "shot": shot, "state": state, "reason": reason, "triggered": trig if state == "passed" else []}
+    _event(c, None, "review", {"run": run_id, "shot": shot, "state": state, "reason": reason})
+    return {"run_id": run_id, "shot": shot, "state": state, "reason": reason}
+
+
+def trigger(c, run_id: str, shot: str, by: str = "owner") -> list[int]:
+    """项目方触发成人镜（L-128）：记 triggers 表；本镜排队中的出图 / 出片行放行（owner_trigger=0 + payload.owner_triggered）"""
+    c.execute("INSERT OR IGNORE INTO triggers(run_id, shot, at, by) VALUES (?,?,?,?)", (run_id, shot, now_iso(), by))
+    ids = []
+    for r in c.execute("SELECT id, payload FROM jobs WHERE run_id=? AND shot=? AND state='queued' AND step IN ('first','last','video')",
+                       (run_id, shot)).fetchall():
+        pl = {**json.loads(r["payload"] or "{}"), "owner_triggered": True}
+        c.execute("UPDATE jobs SET owner_trigger=0, payload=? WHERE id=?", (json.dumps(pl, ensure_ascii=False), r["id"]))
+        ids.append(r["id"])
+    _event(c, None, "trigger", {"run": run_id, "shot": shot, "by": by, "released": ids})
+    return ids
 
 
 def reviews(c, run_id: str) -> dict:

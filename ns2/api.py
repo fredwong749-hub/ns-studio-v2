@@ -1,6 +1,6 @@
 """ns2 API（P5 修正 ①：跑在 gpu33，绑 10.0.0.33 + 127.0.0.1）。queue.db 唯一写者。
 
-启动：NS2_DB=/root/work/fredw/ns2/data/queue.db uvicorn ns2.api:app --host 0.0.0.0 --port 8900
+启动：NS2_DB=/root/work/fredw/ns2/data/queue.db uvicorn ns2.api:app --host 10.0.0.33 --port 8900（只绑内网口；全部接口要 X-NS2-Key，见 ns2/auth.py）
 M1a 接口：health / jobs / enqueue / requeue / runs / worker claim·heartbeat·finish。overview 与前端在 M2。
 """
 from __future__ import annotations
@@ -17,6 +17,9 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
+from fastapi.responses import JSONResponse
+
+from ns2 import auth as AU
 from ns2 import db as D
 from ns2 import overview as OV
 
@@ -25,6 +28,37 @@ ROOT = Path(os.environ.get("NS2_ROOT") or Path(__file__).resolve().parents[1])
 SELF = os.environ.get("NS2_SELF", "gpu33")
 FILE_PORTS = {"gpu36": "http://10.0.0.36:8901", "gpu33": "http://10.0.0.33:8901"}
 app = FastAPI(title="ns2")
+
+
+_adult_cache: dict = {}
+
+
+def is_adult(run: str, shot: str) -> bool:
+    """B2：成人镜以剧本导入稿每镜 adult 字段为准（旧导入器 classify_adult 写的，与旧系统同口径）；读不到剧本 = 当成人（fail-closed）"""
+    import json as _json
+    f = ROOT / "data/import/runs" / run / "script_v2.json"
+    try:
+        mt = f.stat().st_mtime
+    except OSError:
+        return True
+    if _adult_cache.get(run, (None,))[0] != mt:
+        try:
+            d = _json.loads(f.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            return True
+        _adult_cache[run] = (mt, {f"ep{int(e['number']):02d}-S{int(x['index'])}": bool(x.get("adult"))
+                                  for e in d.get("episodes") or [] for x in e.get("shots") or [] if x.get("index")})
+    return _adult_cache[run][1].get(shot, True)          # 剧本里没有的镜 → 当成人（fail-closed）
+
+
+@app.middleware("http")
+async def _auth(request, call_next):
+    """B1（任务书：全部写接口要共享密钥头）：非 GET 一律要 X-NS2-Key；worker 接口全要；读不到密钥 = 写全拒（fail-closed）。
+    只读 GET（总览 / 队列 / 媒体 / 前端页）不要密钥，供浏览器看；/files 只给媒体与 JSON（不给 queue.db 等，M12）"""
+    path = request.url.path
+    if (request.method not in ("GET", "HEAD") or path.startswith("/api/worker/")) and not AU.ok(request.headers.get(AU.HEADER)):
+        return JSONResponse({"detail": "写操作需要 X-NS2-Key"}, status_code=401)
+    return await call_next(request)
 _lock = threading.Lock()          # 单进程单写者：所有写串行
 _conn = None
 _workers: dict[str, dict] = {}
@@ -109,10 +143,12 @@ def list_jobs(run: str | None = None, shot: str | None = None, state: str | None
 
 @app.post("/api/jobs")
 def enqueue(e: Enq):
-    if e.step not in D.STEPS or e.state not in D.STATES:
+    if e.step not in D.STEPS or e.state not in D.STATES or e.state == "running":
         raise HTTPException(400, f"step/state 不认识：{e.step}/{e.state}")
+    if e.key:
+        raise HTTPException(400, "不接受调用方自带幂等键（key 由服务端按 run/shot/step/sig 算）")
     with _lock:
-        j, created = D.enqueue(conn(), **e.model_dump())
+        j, created = D.enqueue(conn(), **{**e.model_dump(), "adult": e.step in D.ADULT_STEPS and is_adult(e.run_id, e.shot)})
     return {"job": j, "created": created}
 
 
@@ -134,14 +170,16 @@ def assemble(ep: int, f: FilmReq):
 @app.post("/api/jobs/{job_id}/requeue")
 def requeue(job_id: int, reason: str = "manual", force: bool = False):
     with _lock:
-        j = D.requeue(conn(), job_id, reason, force)
+        j = D.requeue(conn(), job_id, reason, force, adult_of=is_adult)
     if j is None:
-        raise HTTPException(404)
+        raise HTTPException(409, "没有重派：任务不存在，或不在 failed / blocked / best_effort（force 才收 running）")
     return j
 
 
 @app.put("/api/runs")
 def put_run(r: RunReq):
+    if r.status not in ("producing", "paused", "archived"):
+        raise HTTPException(400, "status 只能是 producing / paused / archived")
     with _lock:
         conn().execute("INSERT INTO runs(run_id, title, status) VALUES (?,?,?) ON CONFLICT(run_id) DO UPDATE SET title=excluded.title, status=excluded.status",
                        (r.run_id, r.title, r.status))
@@ -167,6 +205,8 @@ def heartbeat(b: Beat):
 
 @app.post("/api/worker/finish")
 def finish(f: Fin):
+    if f.state not in ("done", "failed", "blocked", "best_effort", "na", "retry", "infra"):
+        raise HTTPException(400, f"state 不认识：{f.state}")
     with _lock:
         j = D.finish(conn(), f.job_id, f.host, f.state, f.result, f.error)
     if j is None:
@@ -204,10 +244,15 @@ def cancel(shot_id: str, run: str = "series10_v2"):
         return {"cancelled": D.cancel(conn(), run, shot_id)}
 
 
+MEDIA_EXT = {".png", ".jpg", ".jpeg", ".webp", ".mp4", ".webm", ".mov", ".json"}
+
+
 def _safe_rel(rel: str) -> str:
     p = Path(rel)
     if p.is_absolute() or ".." in p.parts:
         raise HTTPException(400, "bad path")
+    if p.suffix.lower() not in MEDIA_EXT:            # M12：不经 /files 外泄 queue.db / 密钥 / 日志等
+        raise HTTPException(403, "只给图 / 片 / JSON")
     return p.as_posix()
 
 
@@ -220,7 +265,7 @@ def files(host: str, rel: str, request: Request):
         raise HTTPException(404, f"不认识的机器 {host}")
     hdr = {"Range": request.headers["range"]} if request.headers.get("range") else {}
     try:
-        up = urllib.request.urlopen(urllib.request.Request(f"{base}/files/{urllib.request.quote(rel)}", headers=hdr), timeout=30)
+        up = urllib.request.urlopen(urllib.request.Request(f"{base}/files/{urllib.request.quote(rel)}", headers={**hdr, **AU.headers()}), timeout=30)
     except urllib.error.HTTPError as e:
         raise HTTPException(e.code)
     except OSError as e:
@@ -254,10 +299,20 @@ def dispatch(shot_id: str, r: DispatchReq):
     host = host_for("video" if r.stage == "video" else "images", ep)
     with _lock:
         c = conn()
-        adult = c.execute("SELECT 1 FROM jobs WHERE run_id=? AND shot=? AND (owner_trigger=1 OR (step='board' AND result LIKE '%\"adult\": true%'))",
-                          (r.run_id, shot_id)).fetchone() is not None
         j, created = D.enqueue(c, run_id=r.run_id, ep=ep, shot=shot_id, step=r.stage, want_host=host,
                                payload={"edit": r.edit.strip()} if r.mode == "edit" else {},
-                               sig={"manual": D.now_iso(), "by": r.by, "mode": r.mode}, owner_trigger=adult,
+                               sig={"manual": D.now_iso(), "by": r.by, "mode": r.mode}, adult=is_adult(r.run_id, shot_id),
                                max_tries=4 if r.stage == "video" else 3)
-    return {"job": j, "created": created, "adult_hold": adult}
+    return {"job": j, "created": created, "adult_hold": bool(j["owner_trigger"])}
+
+
+class TriggerReq(BaseModel):
+    run_id: str = "series10_v2"
+    by: str = "owner"
+
+
+@app.post("/api/shots/{shot_id}/trigger")
+def trigger(shot_id: str, t: TriggerReq):
+    """L-128：项目方触发成人镜（只由项目方在前端点；放行本镜排队中的出图 / 出片行，之后新起的行直接带触发）"""
+    with _lock:
+        return {"released": D.trigger(conn(), t.run_id, shot_id, t.by)}

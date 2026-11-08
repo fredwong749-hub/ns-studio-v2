@@ -28,15 +28,27 @@ def test_overview_metrics(tmp_path):
     assert d["videos"]["final"] == 1 and d["videos"]["best_effort"] == 0 and d["episodes"][0]["shots"][1]["video"]["state"] == "passed"
 
 
-def test_review_clears_owner_trigger_and_cancel(tmp_path):
+def test_trigger_releases_and_cancel(tmp_path):
     c = D.connect(tmp_path / "q.db")
     c.execute("INSERT INTO runs(run_id) VALUES ('r')")
-    j = D.enqueue(c, run_id="r", ep=1, shot="s", step="first", owner_trigger=True)[0]
+    j = D.enqueue(c, run_id="r", ep=1, shot="s", step="first", adult=True)[0]
+    assert j["owner_trigger"] == 1 and D.claim(c, "h", "h:0", ["first"]) is None
+    D.set_review(c, "r", "s", "passed")                                              # 定稿 ≠ 触发
     assert D.claim(c, "h", "h:0", ["first"]) is None
-    assert D.set_review(c, "r", "s", "passed")["triggered"] == [j["id"]]
+    assert D.trigger(c, "r", "s") == [j["id"]]
     D.enqueue(c, run_id="r", ep=1, shot="t", step="first")
     assert len(D.cancel(c, "r", "t")) == 1 and D.jobs(c, shot="t")[0]["state"] == "na"
     assert D.claim(c, "h", "h:0", ["first"])["shot"] == "s"
+
+
+def test_requeue_rowcount_and_adult_rehold(tmp_path):
+    c = D.connect(tmp_path / "q.db")
+    c.execute("INSERT INTO runs(run_id) VALUES ('r')")
+    j = D.enqueue(c, run_id="r", ep=1, shot="s", step="first")[0]
+    assert D.requeue(c, j["id"], "x") is None                                         # queued 行不能“重派”→ 不假装成功
+    D.claim(c, "h", "h:0", ["first"]); D.finish(c, j["id"], "h", "failed", {"x": 1})
+    r = D.requeue(c, j["id"], "x", adult_of=lambda run, shot: True)
+    assert r["state"] == "queued" and r["owner_trigger"] == 1 and r["result"] is None
 
 
 def test_timing_attribution(tmp_path):
