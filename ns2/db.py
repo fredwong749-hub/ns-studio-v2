@@ -170,9 +170,10 @@ def reap(c, lease_s: float = LEASE_S, now: float | None = None) -> list[int]:
     return ids
 
 
-def requeue(c, job_id: int, reason: str) -> dict | None:
-    """人工重派（failed / blocked / best_effort → queued，tries 清零）"""
-    c.execute("UPDATE jobs SET state='queued', tries=0, host=NULL, lane=NULL, error=NULL, finished_at=NULL WHERE id=? AND state IN ('failed','blocked','best_effort')",
+def requeue(c, job_id: int, reason: str, force: bool = False) -> dict | None:
+    """人工重派（failed / blocked / best_effort → queued，tries 清零）；force 也收 running（其 worker 已停，不等 45 分钟回收）"""
+    states = "('failed','blocked','best_effort','running')" if force else "('failed','blocked','best_effort')"
+    c.execute(f"UPDATE jobs SET state='queued', tries=0, host=NULL, lane=NULL, error=NULL, finished_at=NULL WHERE id=? AND state IN {states}",
               (job_id,))
     _event(c, job_id, "requeue", {"reason": reason})
     return row(c.execute("SELECT * FROM jobs WHERE id=?", (job_id,)).fetchone())

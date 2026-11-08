@@ -58,7 +58,7 @@ def test_run_flow_with_fake_comfy(tmp_path, monkeypatch):
     out = tmp_path / "out.mp4"; out.write_bytes(b"x")
     monkeypatch.setattr(V, "submit", lambda lane, var, prefix, tag, seed=None: "pid1")
     monkeypatch.setattr(V, "wait", lambda lane, pid, timeout_s: {"path": str(out), "gpu_s": 400})
-    monkeypatch.setattr(V, "score", lambda clip, meta: {"gate": {"pass": False, "fails": ["动作不足"]}, "penalty": 0.4})
+    monkeypatch.setattr(V, "score", lambda clip, meta, host="": {"gate": {"pass": False, "fails": ["动作不足"]}, "penalty": 0.4})
     st, res, err = V.run({**_job(), "payload": {"variants": VARS, "ladder": ["v1", "s2"]}}, "gpu36:0")
     assert st == "retry" and res["has_output"] and "动作不足" in err
     assert (tmp_path / "data/pipeline/runs/r/video/clips/ep01/ep01-S1__v1_s1.mp4").is_file()
@@ -71,3 +71,29 @@ def test_trial_keeps_active_and_reseed(tmp_path, monkeypatch):
     assert d["active"]["video"] == 3 and d["takes"][-1]["seed"] == 99 and d["takes"][-1]["trial"] is True
     g = {"1": {"class_type": "RandomNoise", "inputs": {"noise_seed": 1}}, "2": {"class_type": "X", "inputs": {}}}
     assert V.reseed(g, 7) == 1 and g["1"]["inputs"]["noise_seed"] == 7
+
+
+def _fake_render(tmp_path, monkeypatch, score_fn):
+    _patch_takes(tmp_path, monkeypatch)
+    monkeypatch.setattr(V, "ROOT", tmp_path)
+    (tmp_path / "data").mkdir(exist_ok=True)
+    out = tmp_path / "out.mp4"; out.write_bytes(b"x")
+    calls = {"submit": 0}
+
+    def sub(lane, var, prefix, tag, seed=None):
+        calls["submit"] += 1
+        return "pid"
+    monkeypatch.setattr(V, "submit", sub)
+    monkeypatch.setattr(V, "wait", lambda lane, pid, timeout_s: {"path": str(out), "gpu_s": 1})
+    monkeypatch.setattr(V, "score", score_fn)
+    return calls
+
+
+def test_score_infra_error_blocks_without_rerender_then_rescore_passes(tmp_path, monkeypatch):
+    calls = _fake_render(tmp_path, monkeypatch, lambda clip, meta, host="": {"error": "ffmpeg not found"})
+    job = {**_job(max_tries=4), "payload": {"variants": VARS, "ladder": ["v1", "s2"]}}
+    st, res, err = V.run(job, "gpu33:1")
+    assert st == "blocked" and "infra" in err and calls["submit"] == 1          # 打分崩 ≠ 没过门：不换变体重渲
+    monkeypatch.setattr(V, "score", lambda clip, meta, host="": {"gate": {"pass": True}, "penalty": 0.1})
+    st, res, err = V.run(job, "gpu33:1")
+    assert st == "done" and res["rescored"][0]["passed"] and calls["submit"] == 1   # 重派 = 只补打分，不再渲

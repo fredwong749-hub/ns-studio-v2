@@ -24,6 +24,7 @@ OUTDIR = {"gpu33:0": "/root/claude-kimi-ns-studio-v1/ComfyUI/output/gpu0", "gpu3
           "gpu33:3": "/root/claude-kimi-ns-studio-v1/ComfyUI/output/gpu3", "gpu36:0": "/root/work/fredw/comfy/output/gpu0",
           "gpu36:1": "/root/work/fredw/comfy/output/gpu1", "gpu36:2": "/root/work/fredw/comfy/output/gpu2"}
 SCORE_PY = "/root/work/fredw/venv_idm/bin/python"
+FFMPEG = {"gpu33": "/root/claude-kimi-ns-studio-v1/env/ffmpeg/bin", "gpu36": "/root/work/fredw/tools_bin"}   # 同旧 vidgen self.env
 SCORE_SCRIPT = "/root/work/fredw/offline_20261101/repo/tools/series10_video/score_clip.py"   # 旧部署里的同一份（不复制，口径不分叉）
 CLIENT = "ns2-"
 LONG_LANE, LONG_FRAMES = "gpu36:2", 260
@@ -104,11 +105,59 @@ def wait(lane: str, pid: str, timeout_s: float, poll_s: float = 10) -> dict:
     return {"error": "timeout"}
 
 
-def score(clip: Path, meta: dict) -> dict:
-    r = subprocess.run([SCORE_PY, SCORE_SCRIPT, str(clip), str(clip.with_suffix(".sheet.jpg")), json.dumps(meta, ensure_ascii=False)],
-                       capture_output=True, text=True, timeout=1500, cwd=str(ROOT))
-    line = [ln for ln in r.stdout.splitlines() if ln.startswith("{")]
-    return json.loads(line[-1]) if line else {"error": (r.stderr or "")[-800:]}
+def score(clip: Path, meta: dict, host: str = "", tries: int = 2) -> dict:
+    """与旧 vidgen 同脚本、同环境（PATH 带本机 ffmpeg，M1 实测缺它 motion_judder 崩）。打分出错 = infra：原地重打，不当没过门"""
+    env = dict(os.environ, PATH=FFMPEG.get(host, "") + ":" + os.environ.get("PATH", ""), OMP_NUM_THREADS="4",
+               OPENBLAS_NUM_THREADS="4", PYTHONUTF8="1")
+    s: dict = {}
+    for _ in range(tries):
+        r = subprocess.run([SCORE_PY, SCORE_SCRIPT, str(clip), str(clip.with_suffix(".sheet.jpg")), json.dumps(meta, ensure_ascii=False)],
+                           capture_output=True, text=True, timeout=1500, cwd=str(ROOT), env=env)
+        line = [ln for ln in r.stdout.splitlines() if ln.startswith("{")]
+        s = json.loads(line[-1]) if line else {"error": (r.stderr or "")[-800:]}
+        if not s.get("error"):
+            break
+    return s
+
+
+def rescore_pending(job: dict, meta: dict, host: str) -> list[dict]:
+    """本 job 已出片、打分出错的 take → 重打分并写回（不重渲）。返回重打后的 [{n, passed}]"""
+    import sys
+    for p in ("services/render_router", "services/agent", "packages/schema"):
+        if str(ROOT / p) not in sys.path:
+            sys.path.insert(0, str(ROOT / p))
+    from ns_render import pipeline as P
+    doc = json.loads(P.takes_path(job["shot"], job["run_id"]).read_text(encoding="utf-8"))
+    todo = [t for t in doc.get("takes") or [] if t.get("stage") == "video" and t.get("job_id") == job["id"]
+            and (t.get("score") or {}).get("error") and (ROOT / "data" / t["file"]).is_file()]
+    out = []
+    for t in todo:
+        s = score(ROOT / "data" / t["file"], meta, host)
+        passed = bool((s.get("gate") or {}).get("pass")) and not s.get("error")
+
+        def fn(d, n=t["n"], s=s, passed=passed):
+            x = next(x for x in d["takes"] if x.get("stage") == "video" and x.get("n") == n)
+            x["score"] = {k: s.get(k) for k in ("mean", "penalty", "gate", "J4", "error") if k in s}
+            x["postflight"] = {"ok": passed, "gate": s.get("gate") or {}, "ts": P._iso_jst(), "rescored": True}
+            if passed and not x.get("trial"):
+                d.setdefault("active", {})["video"] = n
+            return d
+        P.mutate_takes(job["shot"], fn, op="ns2_rescore", by="ns2-worker", op_id=f"ns2-rescore-{job['id']}-{t['n']}", run=job["run_id"])
+        out.append({"n": t["n"], "variant": t.get("variant"), "passed": passed, "error": s.get("error"),
+                    "penalty": s.get("penalty"), "fails": (s.get("gate") or {}).get("fails")})
+    return out
+
+
+def rendered_count(job: dict) -> int:
+    import sys
+    if str(ROOT / "services/render_router") not in sys.path:
+        sys.path.insert(0, str(ROOT / "services/render_router"))
+    from ns_render import pipeline as P
+    try:
+        doc = json.loads(P.takes_path(job["shot"], job["run_id"]).read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return 0
+    return sum(1 for t in doc.get("takes") or [] if t.get("stage") == "video" and t.get("job_id") == job["id"])
 
 
 def pick_variant(payload: dict, tries: int, lane: str) -> tuple[str, dict] | None:
@@ -163,7 +212,15 @@ def record_take(job: dict, var_name: str, var: dict, clip_rel: str, s: dict, *, 
 
 def run(job: dict, lane: str):
     p = job.get("payload") or {}
-    pv = pick_variant(p, int(job.get("tries") or 0), lane)
+    host = lane.split(":")[0]
+    re_ = rescore_pending(job, p.get("score_meta") or {}, host)          # 先补打分（M1：打分崩过的片不重渲）
+    if any(r["passed"] for r in re_):
+        best = next(r for r in re_ if r["passed"])
+        return "done", {"rescored": re_, "take_n": best["n"], "variant": best["variant"], "has_output": True}, None
+    if any(r.get("error") for r in re_):
+        return "blocked", {"rescored": re_, "has_output": True}, "打分仍出错（infra，不重渲）：" + str(re_[0]["error"])[:300]
+    k = rendered_count(job)                                              # 变体按“本 job 已出几条”取，不按 tries（重启 / 回收不跳号也不重出）
+    pv = pick_variant(p, k, lane)
     if pv is None:
         vs = p.get("variants") or {}
         why = {k: v.get("status") for k, v in vs.items()}
@@ -182,11 +239,13 @@ def run(job: dict, lane: str):
     dst = ROOT / "data/pipeline/runs" / job["run_id"] / "video/clips" / f"ep{ep:02d}" / f"{sid}__{name}_s{used}.mp4"
     dst.parent.mkdir(parents=True, exist_ok=True)
     shutil.copy2(res["path"], dst)
-    s = score(dst, p.get("score_meta") or {})
-    final = int(job.get("tries") or 0) + 1 >= int(job.get("max_tries") or 3)
+    s = score(dst, p.get("score_meta") or {}, host)
+    final = k + 1 >= int(job.get("max_tries") or 3)
     rec = record_take(job, name, var, str(dst.relative_to(ROOT / "data")), s, final=final, seed=used, trial=bool(p.get("trial")))
     result = {"variant": name, "seed": used, "trial": bool(p.get("trial")), "pid": pid, "gpu_s": res.get("gpu_s"), "clip": str(dst.relative_to(ROOT)), "take_n": rec["n"],
               "score": {k: s.get(k) for k in ("mean", "penalty", "gate", "error") if k in s}, "has_output": True}
     if rec["passed"]:
         return "done", result, None
-    return "retry", result, "视频门没过：" + "/".join((s.get("gate") or {}).get("fails") or [s.get("error") or "?"])[:300]
+    if s.get("error"):                                                   # 打分 infra 错：片留着，下次领到先补打分，不重渲
+        return "blocked", result, "打分出错（infra，片已出、不重渲；修好后重派即补打分）：" + str(s["error"])[:300]
+    return "retry", {**result, "rescored": re_},  "视频门没过：" + "/".join((s.get("gate") or {}).get("fails") or [s.get("error") or "?"])[:300]

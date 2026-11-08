@@ -107,9 +107,9 @@ def enqueue(e: Enq):
 
 
 @app.post("/api/jobs/{job_id}/requeue")
-def requeue(job_id: int, reason: str = "manual"):
+def requeue(job_id: int, reason: str = "manual", force: bool = False):
     with _lock:
-        j = D.requeue(conn(), job_id, reason)
+        j = D.requeue(conn(), job_id, reason, force)
     if j is None:
         raise HTTPException(404)
     return j
