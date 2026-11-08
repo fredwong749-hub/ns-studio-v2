@@ -1,15 +1,32 @@
 # STATE（ns-studio-v2，活文件）
 
-当前：**M2**（M0 ✅ · **M1 ✅ 11-08 20:18 JST**：smoke_v2 ep01-S2 首→尾→视频全走新系统；同输入 0 新行；回滚演练过）
+当前：**M2 进行中**（M0 ✅ · M1 ✅ 11-08 20:18 · M2a/M2b 11-08 22:0x）
 
 ## 线上（gpu33 / gpu36，/root/work/fredw/ns2/）
-- API：gpu33 10.0.0.33:8900，pid 4015035，db /root/work/fredw/ns2/data/queue.db，日志 logs/api.log
-- worker：gpu33 pid 4015683（道 gpu33:0,1；GPU3 专审图）；gpu36 pid 1390048（道 gpu36:0,1,2）。真步函数未上线 → 生产 run 的活一律 blocked，不碰 GPU
-- M1a 跨机验收：test-m1a 12/12 done，同镜顺序对、按机分派对（11-08 18:44 JST）
-- **gpu33 旧派单已停**（项目方 11-08 批准）：18:51 JST touch $OFF/STOP + 停 producer 2013138 / night 2013140 / vidgen 2013340 / 回魂的冒烟 producer 3925202（日志 gpu33 /root/work/fredw/ns2/logs/P5_stop_old_gpu33.log）。回魂源 = 笔记本 resident_sync loop → ensure_runs（runs.json producing 的非主剧都拉起；STOP 存在时不起）
-- gpu36 旧系统照跑（sv-20261107-13）至 M1 验收
-- worker pid（M1b 部署后）：见各机 /root/work/fredw/ns2/worker.pid；data → 旧部署 data 软链（同一账本，双写禁令保证不重叠）
-- 首个真活：job 15 ep01-S1 视频试跑（trial：只记 take 不动当前版、新种子），gpu33:1 18:56 起
+- API：gpu33 10.0.0.33:8900（pid 见 api.pid），db data/queue.db；worker：gpu33 道 0,1（GPU3 专审图）、gpu36 道 0,1,2；各机 worker.pid
+- worker 只读文件口 :8901（10.0.0.33 / 10.0.0.36，内网，只给 data/ 下文件、支持 Range）；API /files/<host>/… 统一经它转发
+- 部署：笔记本 scratchpad redeploy.sh（解包 ns2.tar → 只停本目录 cwd 的 ns2 进程 → 重起；gpu33 连 API）
+- 旧派单两台全停（STOP 在，lifecycle.apply=false）；21:30 复核无复活
+- 笔记本前端经旧 :8800 的 /ns2/… 桥 → 隧道 18900（tunnels.json gpu33-l0，监管常驻）→ gpu33:8900
+
+## M2 进度（PLAN §M2 完成标准）
+- M2a 4398720：迁移导入 55 镜 × 3 步 = 165 行（done/na/best_effort 原样；ep03-S4 首帧 needs_review + 视频 → blocked 写清原因）
+- film 步 v1：本集视频全部落定才领、只领最新一行；视频行每落定一镜自动新起 film（旧排队行记 na“被取代”）；POST /api/episodes/{ep}/assemble（force 出新版）
+  - 输出 data/episodes/<run>/ns2/epNN_vN.mp4（与旧 epNN_vN 分目录）；720×1280/24fps；-14 LUFS；占位 = 首帧静帧（首帧过门）/ 黑场，时长按剧本
+  - 坑：-shortest+apad 会按声轨截短 → ep01 曾短 5 秒；改为按片长 -t
+  - **② 成片 4 集出片**：ep01–04 v1 = 92.75 / 91.34 / 61.78 / 67.75 秒 vs 剧本 94 / 92 / 62 / 68（±2 秒内 ✅），各 15–20 秒合成；ep03 S4 黑场占位（成人、首帧待项目方看）
+- M2b 5be9df1 / 2211a81：GET /api/overview（口径 §2.4 定死）、PUT /api/shots/{id}/review（reviews 表，passed 清成人镜触发）、POST cancel、/files Range
+  - 真机：first 54/55、last 55/55、视频 待审 30 + 尽力 24 + 阻断 1 = 55，与迁移报告一致；overview 163 条图 / 片 url 全部 206
+- 前端（旧仓库 87c78b47 桥 + 隧道；a12f5890 调用点，回滚 = revert 它）：顶栏视频圆点 / 视频页 / 每集 KPI / 全剧五段进度 → /ns2/api/overview；定稿双写；修 ReviewRow“定稿 #N”与 stale_global 两处口径
+- **与 PLAN 的偏差（如实）**：前端实际读的字段远多于 PLAN 估计（剧本静态内容 cast/lens/scene、出图页单格 new_n/pending/edit、步骤条、大脑面板）。
+  本次只把“状态 / 计数”切到新总览；/api/season 剧本静态内容、出图页 frames-index、stepbar、brain 仍读旧 :8800（M3 下线旧 API 前要么搬进 ns2、要么在前端下线并报项目方）
+- 未完：① ep01 16/16（S3 尽力版等项目方点“用这版 / 修改”）；④ 单集耗时归因（迁移来的集没有开工时间，等第一集全程新系统跑时记）；script / board 两步
+
+## 坏点队列
+- 18893 隧道：已入 tunnels.json（gpu36-l0），#9 恢复
+- tunnel_supervisor.py plan 子命令对现配置 KeyError 'hosts'（_dry 未合并配置），没用它，直接 stop→ensure 切换
+- D:\c\… 有 5 个早先误写的文件（Windows python 把 /c/… 当 D:\c\…），非本轮所写，未动
+- 待项目方：24 镜视频尽力版定 / 改；ep03-S4 首帧（成人）复核
 
 ## M1 剩余
 - M1b 视频步：payload = build_jobs 已编译变体（graph + inputs）；worker 上传→提交本机 ComfyUI→等→取片→打分→写回 takes.json。首个真活 ep03-S4（gpu33）

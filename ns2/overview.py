@@ -143,8 +143,12 @@ def build(run: str, rows: list[dict], reviews: dict, script: dict, now_iso: str)
                  "videos" if sum(1 for s in shots if s["video"]["state"] in ("passed", "best_effort", "ready")) < n else
                  "done" if assembled and cnt["video"] == n else "assembly")
         fr = (fd or {}).get("result") or {}
+        eprows = [j for j in rows if j["ep"] == ep and not (j.get("result") or {}).get("migrated")]
+        starts = [j["started_at"] for j in eprows if j.get("started_at")]
+        ends = [j["finished_at"] for j in eprows if j.get("finished_at")]
         episodes.append({
             "ep": ep, "title": (script.get(ep) or {}).get("title") or "", "total": n, "phase": phase,
+            "start": min(starts, key=_t) if starts else None, "last_at": max(ends, key=_t) if ends else None,
             "first_done": cnt["first"], "last_done": cnt["last"], "fallback_n": cnt["fallback"], "video_done": cnt["video"],
             "assembled": assembled,
             "film": ({"name": Path(fr["file"]).name, "version": fr.get("version"), "url": file_url(fd), "kind": "preview",
