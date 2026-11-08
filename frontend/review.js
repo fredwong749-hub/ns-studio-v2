@@ -182,7 +182,7 @@
     var k = null;
     try { k = window.localStorage.getItem(KEY_NAME); } catch (e) { k = null; }
     if (!k || forcePrompt) {
-      k = window.prompt('写操作需要密钥（服务器 /root/work/fredw/ns2/secret.key 的内容，只存本浏览器）：');
+      k = window.prompt('写操作需要密钥：粘贴那一长串（64 位字母数字），只要粘一次，以后这台电脑都记住（总览页顶上也能粘）：');
       if (k) { k = k.trim(); try { window.localStorage.setItem(KEY_NAME, k); } catch (e) { /* 存不了就只用这一次 */ } }
     }
     return k;

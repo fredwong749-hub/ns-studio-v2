@@ -255,6 +255,30 @@ def review(shot_id: str, r: ReviewReq):
         return D.set_review(conn(), r.run_id, shot_id, r.state, r.reason)
 
 
+class BulkReviewReq(BaseModel):
+    run_id: str = "series10_v2"
+    shots: list[str]
+    state: str = "passed"
+    by: str = "owner"
+
+
+@app.post("/api/reviews/bulk")
+def review_bulk(r: BulkReviewReq):
+    """一键用这版：一次请求定一批镜（没片的跳过并说明原因）"""
+    if r.state != "passed":
+        raise HTTPException(400, "批量只支持 passed（用这版）；驳回要逐镜写原因")
+    if len(r.shots) > 500:
+        raise HTTPException(400, "一次最多 500 镜")
+    with _lock:
+        return D.review_bulk(conn(), r.run_id, r.shots, r.state, r.by)
+
+
+@app.post("/api/auth/check")
+def auth_check():
+    """前端保存密钥时验一下对不对（中间件已验；能到这里就是对的）"""
+    return {"ok": True}
+
+
 @app.post("/api/shots/{shot_id}/cancel")
 def cancel(shot_id: str, run: str = "series10_v2"):
     with _lock:

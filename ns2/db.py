@@ -308,6 +308,26 @@ def set_review(c, run_id: str, shot: str, state: str, reason: str | None = None)
     return {"run_id": run_id, "shot": shot, "state": state, "reason": reason}
 
 
+def review_bulk(c, run_id: str, shots: list[str], state: str = "passed", by: str = "owner") -> dict:
+    """项目方一键“用这版”（11-09 项目方：逐镜点太累）。只收最新视频行有片（done / best_effort）的镜，其他跳过并写原因；
+    已是同状态的不重写。和逐镜 set_review 同一张 reviews 表，口径不变（final = 有片 + passed）"""
+    assert state in ("passed",), state
+    done, skipped = [], {}
+    for sh in dict.fromkeys(shots):
+        v = c.execute("SELECT state FROM jobs WHERE run_id=? AND shot=? AND step='video' ORDER BY id DESC LIMIT 1", (run_id, sh)).fetchone()
+        if not v or v["state"] not in ("done", "best_effort"):
+            skipped[sh] = "还没有片子" if not v else f"视频状态 {v['state']}，没有可用的片"
+            continue
+        cur = c.execute("SELECT state FROM reviews WHERE run_id=? AND shot=?", (run_id, sh)).fetchone()
+        if cur and cur["state"] == state:
+            skipped[sh] = "已经是这个状态"
+            continue
+        set_review(c, run_id, sh, state, f"一键用这版（{by}）")
+        done.append(sh)
+    _event(c, None, "review_bulk", {"run": run_id, "state": state, "by": by, "done": done, "skipped": skipped})
+    return {"run_id": run_id, "state": state, "done": done, "skipped": skipped}
+
+
 def trigger(c, run_id: str, shot: str, by: str = "owner") -> list[int]:
     """项目方触发成人镜（L-128）：记 triggers 表；本镜排队中的出图 / 出片行放行（owner_trigger=0 + payload.owner_triggered）"""
     c.execute("INSERT OR IGNORE INTO triggers(run_id, shot, at, by) VALUES (?,?,?,?)", (run_id, shot, now_iso(), by))

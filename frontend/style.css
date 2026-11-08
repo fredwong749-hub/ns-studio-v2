@@ -172,3 +172,12 @@ table.shots tr:hover td { background: #1a1917; }
 }
 .candidate .file { word-break: break-all; color: var(--muted); }
 .back-link { display: inline-block; margin: 12px 20px 0; }
+
+/* 11-09：密钥一次保存 + 一键用这版 */
+.keybar, .bulkbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding: 8px 16px; }
+.keybar input { font-family: monospace; }
+.bulkbar .primary { font-size: 1.1em; padding: 6px 16px; font-weight: bold; cursor: pointer; }
+button.link { background: none; border: none; color: #2563eb; text-decoration: underline; cursor: pointer; padding: 0; }
+button.use-btn { cursor: pointer; }
+.ok-msg { color: #15803d; }
+.err-msg { color: #b91c1c; }

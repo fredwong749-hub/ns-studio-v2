@@ -20,6 +20,22 @@
   </div>
 </header>
 
+<section id="keybar" class="keybar" aria-label="密钥">
+  <span id="key-saved" hidden>🔑 密钥已保存，这台电脑以后不用再填 <button id="key-change" type="button" class="link">更换</button></span>
+  <span id="key-form" hidden>
+    🔑 第一次用：把那一长串密钥（64 位字母数字）粘到这里，点保存——只要粘一次，以后永远记住
+    <input id="key-input" type="password" size="40" autocomplete="off" placeholder="粘贴密钥">
+    <button id="key-save" type="button">保存</button>
+  </span>
+  <span id="key-msg" class="muted"></span>
+</section>
+
+<section class="bulkbar" aria-label="一键用这版">
+  <button id="bulk-all" type="button" class="primary">✅ 全部用这版</button>
+  <span id="bulk-hint" class="muted"></span>
+  <span id="bulk-msg"></span>
+</section>
+
 <div id="error" class="error" hidden></div>
 
 <section id="totals" class="totals" aria-label="总计">

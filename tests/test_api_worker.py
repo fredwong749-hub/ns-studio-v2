@@ -184,3 +184,31 @@ def test_frontend_same_origin(tmp_path, monkeypatch):
         assert c.get(f"/ui/{f}").status_code == 200
     js = (Path(A.ROOT) / "frontend/review.js").read_text(encoding="utf-8")
     assert "X-NS2-Key" in js and "/trigger" in js and "8800" not in js
+
+
+def test_review_bulk(tmp_path, api_mod):
+    """11-09 项目方：一键用这版。要密钥；只定有片的镜；重复点不重写；和逐镜同一张 reviews 表"""
+    from conftest import write_script
+    from fastapi.testclient import TestClient
+    from ns2 import db as D
+    write_script(tmp_path, "r")
+    A = api_mod
+    anon = TestClient(A.app)
+    assert anon.post("/api/reviews/bulk", json={"run_id": "r", "shots": ["ep01-S1"]}).status_code == 401
+    assert anon.post("/api/auth/check").status_code == 401
+    c = TestClient(A.app, headers={"X-NS2-Key": "test-key"})
+    assert c.post("/api/auth/check").json() == {"ok": True}
+    k = A.conn()
+    D.enqueue(k, run_id="r", ep=1, shot="ep01-S1", step="video", state="done", result={"has_output": True})
+    D.enqueue(k, run_id="r", ep=1, shot="ep01-S2", step="video", state="best_effort", result={"has_output": True})
+    D.enqueue(k, run_id="r", ep=1, shot="ep01-S3", step="video")
+    r = c.post("/api/reviews/bulk", json={"run_id": "r", "shots": ["ep01-S1", "ep01-S2", "ep01-S3", "ep01-S9"]}).json()
+    assert r["done"] == ["ep01-S1", "ep01-S2"]
+    assert set(r["skipped"]) == {"ep01-S3", "ep01-S9"}
+    assert {s: v["state"] for s, v in D.reviews(k, "r").items()} == {"ep01-S1": "passed", "ep01-S2": "passed"}
+    again = c.post("/api/reviews/bulk", json={"run_id": "r", "shots": ["ep01-S1"]}).json()
+    assert again["done"] == [] and "ep01-S1" in again["skipped"]
+    assert c.post("/api/reviews/bulk", json={"run_id": "r", "shots": ["ep01-S1"], "state": "rejected"}).status_code == 400
+    ov = c.get("/api/overview?run=r").json()
+    st = {s["id"]: s["video"]["state"] for e in ov["episodes"] for s in e["shots"]}
+    assert st["ep01-S1"] == "final" and st["ep01-S2"] == "final"

@@ -16,6 +16,111 @@
   var videosSummaryEl = document.getElementById('videos-summary');
 
   var cached = null;      // 最近一次 /api/overview 的完整返回
+
+  // ---- 密钥：页面顶上粘一次，存本浏览器 localStorage（和审片页同一个名字），以后不再问 ----
+  var KEY_NAME = 'ns2_key';
+  function savedKey() { try { return window.localStorage.getItem(KEY_NAME); } catch (e) { return null; } }
+  function setKeyMsg(text, ok) {
+    var el = document.getElementById('key-msg');
+    el.textContent = text || '';
+    el.className = ok === undefined ? 'muted' : (ok ? 'ok-msg' : 'err-msg');
+  }
+  function renderKeybar() {
+    var has = !!savedKey();
+    document.getElementById('key-saved').hidden = !has;
+    document.getElementById('key-form').hidden = has;
+  }
+  function saveKey() {
+    var k = (document.getElementById('key-input').value || '').trim();
+    if (!k) { setKeyMsg('先把密钥粘进框里', false); return; }
+    setKeyMsg('正在核对……');
+    fetch('/api/auth/check', { method: 'POST', headers: { 'X-NS2-Key': k } })
+      .then(function (resp) {
+        if (resp.status === 401) { setKeyMsg('密钥不对：要整串复制，前后不要多空格', false); return; }
+        if (!resp.ok) { setKeyMsg('核对失败（' + resp.status + '），稍后再试', false); return; }
+        try { window.localStorage.setItem(KEY_NAME, k); } catch (e) { setKeyMsg('浏览器不让存，只能这次用', false); }
+        document.getElementById('key-input').value = '';
+        renderKeybar();
+        setKeyMsg('密钥正确，已记住 ✓', true);
+      })
+      .catch(function (err) { setKeyMsg('连不上服务器：' + err.message, false); });
+  }
+  document.getElementById('key-save').addEventListener('click', saveKey);
+  document.getElementById('key-input').addEventListener('keydown', function (e) { if (e.key === 'Enter') saveKey(); });
+  document.getElementById('key-change').addEventListener('click', function () {
+    try { window.localStorage.removeItem(KEY_NAME); } catch (e) { /* ignore */ }
+    renderKeybar(); setKeyMsg('');
+  });
+
+  // ---- 一键用这版：有片（待审片 / 尽力版）且还没定稿的镜 ----
+  function usable(shot) {
+    var vs = (shot.video && shot.video.state) || '';
+    return (vs === 'pending_review' || vs === 'best_effort') && shot.review !== 'passed';
+  }
+  function epUsable(ep) { return (ep.shots || []).filter(usable).map(function (s) { return s.id; }); }
+  function visibleUsable() {
+    var out = [];
+    var epFilter = epFilterEl.value;
+    ((cached && cached.episodes) || []).forEach(function (ep) {
+      if (epFilter && String(ep.ep) !== epFilter) return;
+      out = out.concat(epUsable(ep));
+    });
+    return out;
+  }
+  function setBulkMsg(text, ok) {
+    var el = document.getElementById('bulk-msg');
+    el.textContent = text || '';
+    el.className = ok ? 'ok-msg' : (ok === false ? 'err-msg' : '');
+  }
+  function useThese(shots, label) {
+    if (!shots.length) { setBulkMsg('没有可以“用这版”的镜', false); return; }
+    var k = savedKey();
+    if (!k) { setBulkMsg('先在上面粘一次密钥再点', false); document.getElementById('key-input').focus(); return; }
+    if (!window.confirm(label + '：共 ' + shots.length + ' 镜都定为“用这版”？\n（只定有片子的镜；以后想改，单镜点进去点“修改”）')) return;
+    setBulkMsg('正在提交 ' + shots.length + ' 镜……');
+    fetch('/api/reviews/bulk', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-NS2-Key': k },
+      body: JSON.stringify({ run_id: currentRun(), shots: shots, state: 'passed', by: 'owner' })
+    }).then(function (resp) {
+      if (resp.status === 401) {
+        try { window.localStorage.removeItem(KEY_NAME); } catch (e) { /* ignore */ }
+        renderKeybar(); setBulkMsg('密钥失效了，请在上面重新粘一次', false); return null;
+      }
+      if (!resp.ok) return resp.text().then(function (t) { throw new Error(resp.status + ' ' + t); });
+      return resp.json();
+    }).then(function (r) {
+      if (!r) return;
+      var sk = Object.keys(r.skipped || {});
+      setBulkMsg('已定稿 ' + r.done.length + ' 镜' + (sk.length ? '，跳过 ' + sk.length + ' 镜（' +
+        sk.slice(0, 5).map(function (x) { return x + '：' + r.skipped[x]; }).join('；') + (sk.length > 5 ? '…' : '') + '）' : '') + ' ✓', true);
+      loadOverview();
+    }).catch(function (err) { setBulkMsg('提交失败：' + err.message, false); });
+  }
+  function renderBulkHint() {
+    var n = visibleUsable().length;
+    var btn = document.getElementById('bulk-all');
+    btn.disabled = n === 0;
+    btn.textContent = '✅ 全部用这版（' + n + ' 镜）';
+    document.getElementById('bulk-hint').textContent = epFilterEl.value
+      ? '只算当前筛选的第 ' + epFilterEl.value + ' 集里有片子、还没定稿的镜'
+      : '所有集里有片子（待审片 + 尽力版）、还没定稿的镜；只想定某一集，先在下面“按集筛选”选那一集，或点那一集标题旁的按钮';
+  }
+  document.getElementById('bulk-all').addEventListener('click', function () {
+    useThese(visibleUsable(), epFilterEl.value ? '第 ' + epFilterEl.value + ' 集全部用这版' : '全部集用这版');
+  });
+  document.getElementById('episodes').addEventListener('click', function (e) {
+    if (!e.target.closest) return;
+    var b = e.target.closest('button[data-use]');
+    if (b) { useThese([b.getAttribute('data-use')], b.getAttribute('data-use') + ' 用这版'); return; }
+    var be = e.target.closest('button[data-use-ep]');
+    if (be) {
+      var epn = be.getAttribute('data-use-ep');
+      var ids = [];
+      ((cached && cached.episodes) || []).forEach(function (ep) { if (String(ep.ep) === epn) ids = epUsable(ep); });
+      useThese(ids, '第 ' + epn + ' 集全部用这版');
+    }
+  });
   var timer = null;
 
   function currentRun() {
@@ -159,7 +264,7 @@
       '<td class="shot-id"><a href="review.html?shot=' + encodeURIComponent(shot.id) +
         '&amp;run=' + encodeURIComponent(currentRun()) + '">' + esc(shot.id) + '</a></td>' +
       stageCell(shot.first) + stageCell(shot.last) + stageCell(shot.video) +
-      '<td>' + review + '</td>' +
+      '<td>' + review + (usable(shot) ? ' <button type="button" class="use-btn" data-use="' + esc(shot.id) + '">用这版</button>' : '') + '</td>' +
       '<td>' + stale + staleGlobal + missing + note + '</td>' +
       '<td>' + ((shot.candidates === null || shot.candidates === undefined)
         ? '–' : esc(shot.candidates)) + '</td>' +
@@ -197,7 +302,10 @@
           '<span class="phase">阶段：' + esc(ep.phase || '–') + '</span>' +
           '<span class="counts">首帧 ' + esc(ep.first_done) + ' / 尾帧 ' + esc(ep.last_done) +
           ' / 视频已定 ' + esc(ep.video_done) + ' / 共 ' + esc(ep.total) + ' 镜</span>' +
-          '<span class="counts">成片：' + (ep.assembled ? '已拼好' : '未拼') + '</span></div>' +
+          '<span class="counts">成片：' + (ep.assembled ? '已拼好' : '未拼') + '</span>' +
+          (epUsable(ep).length
+            ? '<button type="button" data-use-ep="' + esc(ep.ep) + '">✅ 本集全部用这版（' + epUsable(ep).length + ' 镜）</button>' : '') +
+          '</div>' +
         filmHtml +
         (rows
           ? '<table class="shots"><thead><tr><th>镜</th><th>首帧</th><th>尾帧</th>' +
@@ -226,6 +334,7 @@
     renderVideosSummary(cached);
     renderEpFilter(cached);
     renderEpisodes(cached);
+    renderBulkHint();
   }
 
   function startPolling() {
@@ -242,10 +351,11 @@
   });
   statusFilterEl.addEventListener('change', function () { renderEpisodes(cached); });
   // 筛选变化时用缓存重渲染，不重新请求。
-  epFilterEl.addEventListener('change', function () { if (cached) renderEpisodes(cached); });
+  epFilterEl.addEventListener('change', function () { if (cached) { renderEpisodes(cached); renderBulkHint(); } });
 
   var initParams = new URLSearchParams(window.location.search);
   if (initParams.get('run')) runInput.value = initParams.get('run');
+  renderKeybar();
   loadOverview();
   startPolling();
 })();
