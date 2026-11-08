@@ -21,7 +21,7 @@
   打开方式：笔记本浏览器 http://127.0.0.1:18900/ （写操作第一次会要密钥：服务器 /root/work/fredw/ns2/secret.key）
 - P3 r14：smoke_v2 ep01 全程新系统跑通（script→board→first→last→video→film，无人工派单；墙钟 23 分钟；同输入 0 新行）；
   **真机抓到首尾帧跨机交接缺失**（视频机用了旧首帧）→ ns2/handoff.py 修好并重跑验证（236 用 v14/v4，film v2）。证据 reports/p3/r14_smoke_full_chain.md
-- 待项目方：ep03-S4（成人，首帧待复核 + 触发）；series10 ep01 是否要用新系统重出一镜（会产生新版本、可能换当前版）
+- 待项目方：ep03-S4（成人，首帧待复核 + 触发）（series10 ep01 不重出：项目方 11-09 定 smoke 证明已够）
 - P3 r15：总览 need_frames 判定修正、ETA 不计等人的镜。证据 reports/p3/r15_overview_need_frames.md
 - 收尾报告：reports/closing_20261109.md（验收逐条 + 10 项遗留）（ep03-S4 首个真活、ep01 整集、同输入 0 新版本）→ minor 余项 → 收尾报告（重试保 created_at 插队）→ minor；然后 P2 前端（ns2 同源新页）、P3
 
@@ -40,7 +40,7 @@
 - ① ep01 16/16 视频落定：S3 尽力版等项目方点“用这版 / 修改”（系统不代定）
 
 ## 坏点队列 / 遗留
-- 待项目方：series10 尽力版视频 24 镜定 / 改；ep03-S4 首帧（成人）复核 + 触发；series10 ep01 是否用新系统重出一镜
+- 待项目方：series10 尽力版视频 24 镜定 / 改；ep03-S4 首帧（成人）复核 + 触发
 - models.lock：6 个 LoRA sha 未登记、purelens 重复登记（未安装）、两台各 10+ 未登记 LoRA——是否渲染前强制校验由项目方定（reports/models_lock_check.md）
 - 仓库保持 PUBLIC（项目方 11-09 定）；git 历史里仍有旧拓扑文件
 - tunnel_supervisor.py plan 子命令对现配置 KeyError 'hosts'（旧仓库工具，未修）
