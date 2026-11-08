@@ -14,7 +14,8 @@ import urllib.request
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException, Request
-from fastapi.responses import StreamingResponse
+from fastapi.responses import RedirectResponse, StreamingResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 from fastapi.responses import JSONResponse
@@ -332,3 +333,14 @@ def trigger(shot_id: str, t: TriggerReq):
     """L-128：项目方触发成人镜（只由项目方在前端点；放行本镜排队中的出图 / 出片行，之后新起的行直接带触发）"""
     with _lock:
         return {"released": D.trigger(conn(), t.run_id, shot_id, t.by)}
+
+
+# P2：前端与 API 同源（任务书：端口 8900，不用参考包的 8800）。总览 /ui/index.html（15 s 轮询）、审片 /ui/review.html?shot=
+_FRONT = ROOT / "frontend"
+if _FRONT.is_dir():
+    app.mount("/ui", StaticFiles(directory=str(_FRONT), html=True), name="ui")
+
+
+@app.get("/")
+def _home():
+    return RedirectResponse("/ui/index.html")

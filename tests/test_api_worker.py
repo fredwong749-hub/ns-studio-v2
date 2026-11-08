@@ -167,3 +167,20 @@ def test_rollback_script_syntax():
         pytest.skip("no bash")
     r = subprocess.run([b, "-n", "ns2/rollback.sh"], capture_output=True, text=True)
     assert r.returncode == 0, r.stderr
+
+
+def test_frontend_same_origin(tmp_path, monkeypatch):
+    """P2：前端与 API 同源；只读页不要密钥；写操作页面发 X-NS2-Key"""
+    import importlib
+    from pathlib import Path
+    from fastapi.testclient import TestClient
+    monkeypatch.setenv("NS2_DB", str(tmp_path / "q.db"))
+    monkeypatch.delenv("NS2_ROOT", raising=False)                  # 用仓库根：frontend/ 在这里
+    import ns2.api as A
+    importlib.reload(A)
+    c = TestClient(A.app)
+    assert c.get("/", follow_redirects=False).headers["location"] == "/ui/index.html"
+    for f in ("index.html", "review.html", "app.js", "review.js", "style.css"):
+        assert c.get(f"/ui/{f}").status_code == 200
+    js = (Path(A.ROOT) / "frontend/review.js").read_text(encoding="utf-8")
+    assert "X-NS2-Key" in js and "/trigger" in js and "8800" not in js

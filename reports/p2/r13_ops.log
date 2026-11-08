@@ -1,0 +1,12 @@
+runs 200
+S2 video 入队（无剧本 → 当成人 → 挡住） 200 queued owner_trigger 1
+匿名定稿 401
+定稿通过 200
+  → final 1 final
+驳回 200
+  → todo 已驳回，等重出
+成人触发 S2 {'released': [212]}
+取消 S2 排队 {'cancelled': []}
+触发成片 200 214 queued
+  → film 行 [(213, 'blocked', '整集一条视频都没有，不出全占位片'), (214, 'blocked', '整集一条视频都没有，不出全占位片')]
+  → S2 video [(212, 'blocked', 0, '视频变体编译不过 / 与当前首尾帧对不上（build_jobs rc=1）：n / NS_RUN / 当前剧，必须登记且有视频政策\n            ^^^^^^^^^^^^\n  File "/root/work/fredw/offline_20261101/repo/tools/series10_video/run_ctx.py", line 120, in resolve\n    raise VideoRunError(f"{run} 不在 config/pipeline/runs.json 登记表里（失败关闭）")\nrun_ctx.VideoRunError: test-ui 不在 config/pipeline/runs.json 登记表里（失败关闭）')]

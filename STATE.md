@@ -17,7 +17,9 @@
 - P1 r10：M11 ✅ PLAN 与“QC 不过挡本镜下一步”对齐；gates 看图模块问题报 infra 不冒充 Q9 没过。证据 reports/p0/r10_M11.md
 - P1 r11：M5 ✅ 视频提交前 preflight（输入 / LoRA / 首尾帧仍当前 / 尾帧不老于首帧，M7 主体）。证据 reports/p0/r11_M5_M7.md
 - P1 r12：M13 ✅ infra 回队退避（30 s 起倍增、上限 10 分钟），人工重派立即可领。证据 reports/p0/r12_M13.md
-- 待：P2 前端（ns2 同源新页：总览 15 s 轮询 + 审片页 定稿 / 驳回 / 取消 / 成片 / 成人触发）→ P3（ep03-S4 首个真活、ep01 整集、同输入 0 新版本）→ minor 余项 → 收尾报告（重试保 created_at 插队）→ minor；然后 P2 前端（ns2 同源新页）、P3
+- P2 r13：前端 ✅ ns2 同源 /ui（总览 15 s 轮询 + 审片页五操作，接口层真机验过；浏览器真点未做——Chrome 扩展未连）。证据 reports/p2/r13_frontend.md
+  打开方式：笔记本浏览器 http://127.0.0.1:18900/ （写操作第一次会要密钥：服务器 /root/work/fredw/ns2/secret.key）
+- 待：P3（ep03-S4 首个真活、ep01 整集、同输入 0 新版本）→ minor 余项 → 收尾报告（重试保 created_at 插队）→ minor；然后 P2 前端（ns2 同源新页）、P3
 
 ## 线上（gpu33 / gpu36，/root/work/fredw/ns2/）
 - API：gpu33 10.0.0.33:8900（pid 见 api.pid），db data/queue.db；worker：gpu33 道 0,1（GPU3 专审图）、gpu36 道 0,1,2；各机 worker.pid

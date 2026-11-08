@@ -21,11 +21,31 @@ def test_overview_metrics(tmp_path):
     ep = d["episodes"][0]
     assert ep["total"] == 4 and ep["first_done"] == 3 and ep["phase"] == "frames"
     s1 = ep["shots"][0]
-    assert s1["first"]["url"] == "/files/gpu36/renders/r/ep01/S1/takes/i.png" and s1["video"]["state"] == "ready"
+    assert s1["first"]["url"] == "/files/gpu36/renders/r/ep01/S1/takes/i.png" and s1["video"]["state"] == "pending_review"
+    assert s1["first"]["state"] == "ready" and s1["last"]["state"] == "fallback" and s1["last"]["url"] == s1["first"]["url"]
     assert ep["shots"][2]["video"]["queue_pos"] == 1
     D.set_review(c, "r", "ep01-S2", "passed")                                            # 尽力版人工定 → final
     d = OV.build("r", D.jobs(c, "r", limit=10**6), D.reviews(c, "r"), script, "now")
-    assert d["videos"]["final"] == 1 and d["videos"]["best_effort"] == 0 and d["episodes"][0]["shots"][1]["video"]["state"] == "passed"
+    assert d["videos"]["final"] == 1 and d["videos"]["best_effort"] == 0 and d["episodes"][0]["shots"][1]["video"]["state"] == "final"
+    D.set_review(c, "r", "ep01-S1", "rejected")                                          # 驳回 → todo + 说明
+    d = OV.build("r", D.jobs(c, "r", limit=10**6), D.reviews(c, "r"), script, "now")
+    s1 = d["episodes"][0]["shots"][0]
+    assert s1["video"]["state"] == "todo" and s1["note"] == "已驳回，等重出"
+
+
+def test_overview_need_frames_and_adult_hold(tmp_path):
+    """首帧尽力版等人 → need_frames；成人镜排队视频 → blocked + “等项目方触发”，不算 queued"""
+    c = D.connect(tmp_path / "q.db")
+    c.execute("INSERT INTO runs(run_id) VALUES ('r')")
+    D.enqueue(c, run_id="r", ep=1, shot="ep01-S1", step="first", state="best_effort")
+    D.enqueue(c, run_id="r", ep=1, shot="ep01-S1", step="video")
+    D.enqueue(c, run_id="r", ep=1, shot="ep01-S2", step="first", state="done"); D.enqueue(c, run_id="r", ep=1, shot="ep01-S2", step="last", state="na")
+    D.enqueue(c, run_id="r", ep=1, shot="ep01-S2", step="video", adult=True)
+    d = OV.build("r", D.jobs(c, "r", limit=10**6), {}, {1: {"title": "", "shots": ["ep01-S1", "ep01-S2"]}}, "now")
+    a, b = d["episodes"][0]["shots"]
+    assert a["video"]["state"] == "need_frames" and a["first"]["state"] == "best_effort"
+    assert b["video"]["state"] == "blocked" and "触发" in b["note"] and b["owner_trigger"]
+    assert d["videos"]["queued"] == 0 and d["videos"]["blocked"] == 1 and d["videos"]["need_frames"] == 1
 
 
 def test_trigger_releases_and_cancel(tmp_path):

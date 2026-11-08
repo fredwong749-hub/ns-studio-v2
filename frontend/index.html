@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>NS2 总览</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="topbar">
+  <h1>NS2 全剧总览</h1>
+  <div class="topbar-controls">
+    <label>剧集
+      <input id="run-input" type="text" value="series10_v2" size="16">
+    </label>
+    <button id="run-apply" type="button">切换</button>
+    <button id="refresh-btn" type="button">刷新</button>
+    <span id="updated-at" class="muted"></span>
+    <span class="muted">每 15 秒自动刷新</span>
+  </div>
+</header>
+
+<div id="error" class="error" hidden></div>
+
+<section id="totals" class="totals" aria-label="总计">
+  <div class="stat"><span class="stat-label">剧本</span><span class="stat-value" id="total-script">–</span></div>
+  <div class="stat"><span class="stat-label">首帧</span><span class="stat-value" id="total-first">–</span></div>
+  <div class="stat"><span class="stat-label">尾帧</span><span class="stat-value" id="total-last">–</span></div>
+  <div class="stat"><span class="stat-label">视频</span><span class="stat-value" id="total-video">–</span></div>
+  <div class="stat"><span class="stat-label">成片</span><span class="stat-value" id="total-cut">–</span></div>
+</section>
+
+<section id="videos-summary" class="videos-summary" aria-label="视频汇总"></section>
+
+<section class="filters">
+  <label>按集筛选
+    <select id="ep-filter">
+      <option value="">全部集</option>
+    </select>
+  </label>
+  <label>按状态筛选
+    <select id="status-filter">
+      <option value="">全部状态</option>
+      <option value="passed">已定稿</option>
+      <option value="pending_review">待审片</option>
+      <option value="best_effort">尽力版</option>
+      <option value="failed">失败</option>
+      <option value="blocked">卡住等人</option>
+      <option value="need_frames">缺首尾帧</option>
+      <option value="todo">待出片</option>
+      <option value="stale">已过期</option>
+      <option value="running">进行中</option>
+    </select>
+  </label>
+</section>
+
+<main id="episodes" aria-label="各集"></main>
+
+<script src="app.js"></script>
+</body>
+</html>

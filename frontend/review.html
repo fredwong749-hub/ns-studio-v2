@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>NS2 审片定稿</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<a class="back-link" id="back-link" href="index.html">← 返回总览</a>
+
+<div id="error" class="error" hidden></div>
+<div id="message" class="message" hidden></div>
+
+<main class="detail">
+  <h2 id="shot-title">审片定稿</h2>
+
+  <section id="shot-detail" aria-label="镜详情">
+    <p class="muted">加载中……</p>
+  </section>
+
+  <h3>当前版</h3>
+  <section id="current" aria-label="当前版"></section>
+
+  <h3>候选版本</h3>
+  <section id="candidates" aria-label="候选版本"></section>
+
+  <div class="actions">
+    <button id="btn-pass" class="primary" type="button">定稿通过</button>
+    <button id="btn-reject" class="danger" type="button">驳回</button>
+    <button id="btn-cancel" type="button">取消排队任务</button>
+    <button id="btn-assemble" type="button">触发成片</button>
+    <button id="btn-adult" type="button">触发成人镜</button>
+  </div>
+  <p class="muted">“触发成人镜”会清掉该镜的 owner_trigger 标记，之后 worker 才可认领成人镜任务。</p>
+</main>
+
+<script src="review.js"></script>
+</body>
+</html>
