@@ -75,8 +75,15 @@ def main(argv=None) -> int:
     ap.add_argument("--trial", action="store_true", help="验收试跑：只记 take 不动当前版、换新种子；视频行不做幂等去重")
     a = ap.parse_args(argv)
     host = {"gpu6": "gpu36"}.get(a.host, a.host)
+    bad = []
     for sid in a.shots.split(","):
-        for r in build(a.run, sid, host):
+        try:                                # M8：一镜坏（jobs.json / takes.json 缺、镜不在表里）只跳过这一镜，不连坐后面的
+            rows = build(a.run, sid, host)
+        except (OSError, ValueError, KeyError, SystemExit) as e:
+            bad.append(sid)
+            print(sid, "SKIP", f"{type(e).__name__}: {e}"[:300])
+            continue
+        for r in rows:
             if a.trial and r["step"] == "video":
                 r["payload"].update(trial=True, fresh_seed=True)
                 r["sig"] = {**r["sig"], "trial": __import__("time").time()}
@@ -85,7 +92,9 @@ def main(argv=None) -> int:
                 continue
             out = post(a.api, "/api/jobs", r)
             print(r["shot"], r["step"], out["job"]["state"], "id", out["job"]["id"], "new" if out["created"] else "existing")
-    return 0
+    if bad:
+        print("跳过的镜：", ",".join(bad))
+    return 1 if bad else 0
 
 
 if __name__ == "__main__":
