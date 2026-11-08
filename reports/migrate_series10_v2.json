@@ -1097,7 +1097,8 @@
     "rule_fp": "3d4e8e7e0b4f1426",
     "v": 1
    },
-   "state": "done"
+   "state": "needs_review",
+   "why": "Q9 看图未过（尽力版待复核）"
   },
   "last": {
    "n": 2,

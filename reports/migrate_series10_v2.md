@@ -2,7 +2,7 @@
 
 | 步 | done | best_effort | na | needs_review | missing_file | queued |
 |---|---|---|---|---|---|---|
-| first | 55 | 0 | 0 | 0 | 0 | 0 |
+| first | 54 | 0 | 0 | 1 | 0 | 0 |
 | last | 50 | 0 | 5 | 0 | 0 | 0 |
 | video | 30 | 24 | 0 | 0 | 0 | 1 |
 
@@ -12,7 +12,7 @@
 |---|---|---|---|---|---|---|
 | ep01 | 16 | 16 | 15/1 | 15/1 | gpu33 | gpu36 |
 | ep02 | 16 | 16 | 15/1 | 1/15 | gpu36 | gpu36 |
-| ep03 | 11 | 11 | 8/3 | 7/3 | gpu33 | gpu33 |
+| ep03 | 11 | 10 | 8/3 | 7/3 | gpu33 | gpu33 |
 | ep04 | 12 | 12 | 12/0 | 7/5 | gpu36 | gpu36 |
 
 ## 非 done 明细
@@ -33,7 +33,7 @@
 - ep02-S14：video=best_effort
 - ep02-S15：video=best_effort
 - ep02-S16：video=best_effort
-- ep03-S4：video=queued
+- ep03-S4：first=needs_review，video=queued
 - ep03-S6：video=best_effort
 - ep03-S10：video=best_effort
 - ep03-S11：video=best_effort

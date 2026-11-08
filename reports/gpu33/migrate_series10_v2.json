@@ -93,7 +93,8 @@
    "state": "done"
   },
   "last": {
-   "state": "queued"
+   "state": "na",
+   "note": "视频已出、无尾帧：不用尾帧的镜（L-204 D8 / i2va）"
   },
   "video": {
    "n": 2,
@@ -515,7 +516,8 @@
    "state": "done"
   },
   "last": {
-   "state": "queued"
+   "state": "na",
+   "note": "视频已出、无尾帧：不用尾帧的镜（L-204 D8 / i2va）"
   },
   "video": {
    "n": 1,
@@ -543,7 +545,8 @@
     "rule_fp": "3d4e8e7e0b4f1426",
     "v": 1
    },
-   "state": "done"
+   "state": "needs_review",
+   "why": "Q9 看图未过（尽力版待复核）"
   },
   "last": {
    "n": 2,
@@ -577,7 +580,8 @@
    "state": "done"
   },
   "last": {
-   "state": "queued"
+   "state": "na",
+   "note": "视频已出、无尾帧：不用尾帧的镜（L-204 D8 / i2va）"
   },
   "video": {
    "n": 1,
@@ -642,7 +646,8 @@
    "state": "done"
   },
   "last": {
-   "state": "queued"
+   "state": "na",
+   "note": "视频已出、无尾帧：不用尾帧的镜（L-204 D8 / i2va）"
   },
   "video": {
    "n": 1,

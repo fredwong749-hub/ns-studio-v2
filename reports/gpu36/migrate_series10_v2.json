@@ -98,7 +98,8 @@
    "state": "done"
   },
   "last": {
-   "state": "queued"
+   "state": "na",
+   "note": "视频已出、无尾帧：不用尾帧的镜（L-204 D8 / i2va）"
   },
   "video": {
    "n": 4,
@@ -692,7 +693,8 @@
    "state": "done"
   },
   "last": {
-   "state": "queued"
+   "state": "na",
+   "note": "视频已出、无尾帧：不用尾帧的镜（L-204 D8 / i2va）"
   },
   "video": {
    "n": 1,
