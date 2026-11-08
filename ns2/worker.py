@@ -4,11 +4,14 @@
 
 每道循环：claim → 跑步函数（ns2.steps.STEP_FNS[step]）→ finish；跑的时候每 30 s 心跳。
 步函数签名：fn(job: dict, lane: str) -> (state, result, error)；state ∈ done|retry|blocked|failed|best_effort|na。
-步函数抛异常 = infra 错误 → retry（error 带异常文本）。不写 queue.db（只有 API 写）。
+步函数抛异常 = infra（回队不计次，连续 5 次转 blocked；与 retry“计次”不同）。不写 queue.db（只有 API 写）。
+B3：结果先落盘（pending/<job>.json）再上报，上报一直重试到 API 接受（退避到 60 s），期间本道不领新活；
+409（已被回收 / 不是本机的活）/ 400 / 404 = 不该再报 → 放弃并移到 pending/rejected/；进程重启先补报 pending 里的。
 """
 from __future__ import annotations
 
 import argparse
+import os
 import json
 import threading
 import time
@@ -16,6 +19,7 @@ import traceback
 import urllib.request
 
 STOP = threading.Event()
+PENDING = None          # main() 里设：<worker 根>/pending
 
 
 def post(api: str, path: str, body: dict, timeout: float = 60) -> dict:
@@ -37,6 +41,51 @@ def run_job(job: dict, lane: str, fns: dict) -> tuple[str, dict | None, str | No
         return fn(job, lane)
     except Exception as e:  # noqa: BLE001 — 步函数崩 = infra：回队不计次（连续 5 次转 blocked）
         return "infra", None, f"{type(e).__name__}: {e}\n{traceback.format_exc()[-1500:]}"
+
+
+def finish_durable(api: str, lane: str, body: dict, max_wait_s: float = 12 * 3600, sleep=time.sleep) -> str:
+    """B3：结果不能静默丢。先落盘，再上报；transient（连不上 / 5xx）退避重试到接受；409 / 400 / 404 → 放弃（移进 rejected/）。
+    → "accepted" | "rejected" | "gave_up"（超 max_wait_s，文件留在 pending/ 等重启补报）"""
+    import urllib.error
+    f = None
+    if PENDING is not None:
+        PENDING.mkdir(parents=True, exist_ok=True)
+        f = PENDING / f"{body['job_id']}.json"
+        f.write_text(json.dumps(body, ensure_ascii=False), encoding="utf-8")
+    t0, k = time.time(), 0
+    while time.time() - t0 < max_wait_s:
+        try:
+            post(api, "/api/worker/finish", body)
+            if f:
+                f.unlink(missing_ok=True)
+            return "accepted"
+        except urllib.error.HTTPError as e:
+            if e.code in (400, 404, 409):
+                log(lane, "FINISH_REJECTED", body["job_id"], e.code, e.read()[:200])
+                if f:
+                    (PENDING / "rejected").mkdir(exist_ok=True)
+                    f.replace(PENDING / "rejected" / f.name)
+                return "rejected"
+            err = f"HTTP {e.code}"
+        except Exception as e:  # noqa: BLE001
+            err = repr(e)[:200]
+        k += 1
+        log(lane, "FINISH_RETRY", body["job_id"], k, err)
+        sleep(min(60, 5 * k))
+    log(lane, "FINISH_GAVE_UP", body["job_id"])
+    return "gave_up"
+
+
+def resend_pending(api: str) -> list:
+    """重启时补报上次没报出去的结果（API 已回收的会 409 → rejected/）"""
+    out = []
+    for f in sorted(PENDING.glob("*.json")) if PENDING and PENDING.is_dir() else []:
+        try:
+            body = json.loads(f.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            continue
+        out.append((body.get("job_id"), finish_durable(api, "resend", body, max_wait_s=600)))
+    return out
 
 
 def lane_loop(api: str, host: str, lane: str, steps: list[str], fns: dict, idle_s: float = 5):
@@ -61,12 +110,7 @@ def lane_loop(api: str, host: str, lane: str, steps: list[str], fns: dict, idle_
         state, result, error = run_job(job, lane, fns)
         done.set()
         result = {**(result or {}), "secs": round(time.time() - t0, 1)}
-        for _ in range(10):
-            try:
-                post(api, "/api/worker/finish", {"host": host, "job_id": job["id"], "state": state, "result": result, "error": error})
-                break
-            except Exception as e:  # noqa: BLE001
-                log(lane, "FINISH_ERR", repr(e)[:200]); time.sleep(10)
+        finish_durable(api, lane, {"host": host, "job_id": job["id"], "state": state, "result": result, "error": error})
         log(lane, "END", job["id"], state, (error or "")[:160])
 
 
@@ -134,7 +178,7 @@ def main(argv=None) -> int:
     ap.add_argument("--api", required=True)
     ap.add_argument("--host", required=True)
     ap.add_argument("--lanes", required=True)
-    ap.add_argument("--steps", default="first,last,video,film")
+    ap.add_argument("--steps", default="script,board,first,last,video,film")
     ap.add_argument("--files", default="", help="只读文件口 bind:port（如 10.0.0.36:8901）；空 = 不开")
     a = ap.parse_args(argv)
     import os
@@ -142,6 +186,12 @@ def main(argv=None) -> int:
     from ns2.steps import STEP_FNS
     lanes = [x for x in a.lanes.split(",") if x]
     assert "gpu33:2" not in lanes, "gpu33:2 是坏卡，永不派"
+    assert len(set(lanes)) == len(lanes), "--lanes 有重复道（每道并发 1）"
+    global PENDING
+    from pathlib import Path
+    PENDING = Path(os.environ.get("NS2_PENDING") or Path(__file__).resolve().parents[2] / "pending")
+    for jid, st in resend_pending(a.api):
+        log("RESEND", jid, st)
     steps = a.steps.split(",")
     log("WORKER", a.host, lanes, steps, a.api)
     if a.files:
@@ -154,6 +204,9 @@ def main(argv=None) -> int:
         t.start()
     try:
         while any(t.is_alive() for t in ts):
+            dead = [t.name for t in ts if not t.is_alive()]
+            if dead:
+                log("LANE_DEAD", dead)          # 少一条道要喊出来（不静默少干活）
             try:
                 post(a.api, "/api/worker/heartbeat", {"host": a.host, "lanes": lanes})
             except Exception:  # noqa: BLE001

@@ -97,7 +97,7 @@ def test_soft_prereq_script_board(tmp_path):
     D.enqueue(c, run_id="r", ep=1, shot="ep01-S2", step="first", want_host="g")          # 没有 board 行（迁移镜）→ 不挡
     assert D.claim(c, "g", "g:0", ["board", "first"])["shot"] == "ep01-S2"
     assert D.claim(c, "g", "g:1", ["board", "first"]) is None                             # 剧本没导入 → board 不领；board 没过 → first 不领
-    D.claim(c, "g", "g:0", ["script"]); D.finish(c, sc["id"], "g", "done")
+    D.claim(c, "g", "g:2", ["script"]); D.finish(c, sc["id"], "g", "done")      # g:0 还占着（每道并发 1）
     assert D.claim(c, "g", "g:1", ["board", "first"])["id"] == b["id"]
     D.finish(c, b["id"], "g", "done")
     assert D.claim(c, "g", "g:1", ["first"])["id"] == f["id"]
@@ -109,3 +109,15 @@ def test_shot_rows_partition():
     assert [(r["shot"], r["step"], r["want_host"]) for r in rows[:4]] == [
         ("ep05-S1", "board", "gpu33"), ("ep05-S1", "first", "gpu33"), ("ep05-S1", "last", "gpu33"), ("ep05-S1", "video", "gpu33")]
     assert rows[3]["max_tries"] == 4 and len(rows) == 8
+
+
+def test_lane_guard_one_running_per_lane(tmp_path):
+    """B3d / M1：同一道上有在跑的（含没回收的旧活）就不领新活，库强制，不靠约定"""
+    c = mk(tmp_path)
+    a = enq(c, "ep01-S1", "first"); enq(c, "ep01-S2", "first")
+    assert D.claim(c, "g", "g:0", ["first"])["id"] == a["id"]
+    assert D.claim(c, "g", "g:0", ["first"]) is None                     # 同道第二个线程 / 进程
+    assert D.claim(c, "g", "g:1", ["first"])["shot"] == "ep01-S2"        # 别的道照领
+    D.finish(c, a["id"], "g", "done")
+    enq(c, "ep01-S3", "first")
+    assert D.claim(c, "g", "g:0", ["first"])["shot"] == "ep01-S3"

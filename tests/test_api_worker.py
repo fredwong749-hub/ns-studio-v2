@@ -110,3 +110,33 @@ def test_adult_gate_server_side(tmp_path, api_mod):
     assert c.post("/api/jobs", json={"run_id": "r", "ep": 3, "shot": "ep03-S2", "step": "first", "key": "x"}).status_code == 400
     assert c.post("/api/jobs", json={"run_id": "r", "ep": 3, "shot": "ep03-S2", "step": "first", "state": "running"}).status_code == 400
     assert c.put("/api/runs", json={"run_id": "r", "status": "whatever"}).status_code == 400
+
+
+def test_finish_durable(tmp_path, monkeypatch):
+    """B3a：先落盘；transient 重试到接受；409 放弃进 rejected/；重启补报"""
+    import io
+    import urllib.error
+    from ns2 import worker as W
+    monkeypatch.setattr(W, "PENDING", tmp_path / "pending")
+    calls = []
+
+    def flaky(api, path, body, timeout=60):
+        calls.append(body["job_id"])
+        if len(calls) < 3:
+            raise urllib.error.URLError("down")
+        return {}
+    monkeypatch.setattr(W, "post", flaky)
+    assert W.finish_durable("x", "l", {"job_id": 7, "state": "done"}, sleep=lambda s: None) == "accepted"
+    assert calls == [7, 7, 7] and not (tmp_path / "pending/7.json").exists()
+
+    def gone(api, path, body, timeout=60):
+        raise urllib.error.HTTPError("u", 409, "回收了", {}, io.BytesIO(b"x"))
+    monkeypatch.setattr(W, "post", gone)
+    assert W.finish_durable("x", "l", {"job_id": 8, "state": "done"}, sleep=lambda s: None) == "rejected"
+    assert (tmp_path / "pending/rejected/8.json").exists()
+
+    monkeypatch.setattr(W, "post", lambda *a, **k: (_ for _ in ()).throw(urllib.error.URLError("down")))
+    assert W.finish_durable("x", "l", {"job_id": 9, "state": "done"}, max_wait_s=0, sleep=lambda s: None) == "gave_up"
+    assert (tmp_path / "pending/9.json").exists()                          # 留着等重启补报
+    monkeypatch.setattr(W, "post", lambda *a, **k: {})
+    assert W.resend_pending("x") == [(9, "accepted")] and not (tmp_path / "pending/9.json").exists()

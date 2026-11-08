@@ -168,10 +168,16 @@ def claim(c, host: str, lane: str, steps: list[str]) -> dict | None:
         return None
     c.execute("BEGIN IMMEDIATE")
     try:
+        if c.execute("SELECT 1 FROM jobs WHERE state='running' AND lane=?", (lane,)).fetchone():
+            c.execute("COMMIT")          # B3d / M1：每道并发 1 由库强制——这道上还有在跑的（含没回收的旧活）就不领
+            return None
         cands = [r for s in steps if (r := c.execute(_claim_sql(s), (host, s)).fetchone()) is not None]
         for r in sorted(cands, key=lambda r: (r["created_at"], r["id"]))[:1]:
-            c.execute("UPDATE jobs SET state='running', host=?, lane=?, started_at=?, beat_at=?, error=NULL WHERE id=? AND state='queued'",
-                      (host, lane, now_iso(), time.time(), r["id"]))
+            cur = c.execute("UPDATE jobs SET state='running', host=?, lane=?, started_at=?, beat_at=?, error=NULL WHERE id=? AND state='queued'",
+                            (host, lane, now_iso(), time.time(), r["id"]))
+            if cur.rowcount != 1:
+                c.execute("COMMIT")
+                return None
             _event(c, r["id"], "claim", {"host": host, "lane": lane})
             c.execute("COMMIT")
             return row(c.execute("SELECT * FROM jobs WHERE id=?", (r["id"],)).fetchone())

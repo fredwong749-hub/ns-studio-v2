@@ -4,7 +4,8 @@
 
 ## 任务书迭代进度（证据 reports/p0/ …）
 - P0 r1（11-09 01:5x）：B1 ✅ · B2 ✅ · B4 ✅；B3 部分（op_id / cancel）；顺带 M4、M5 部分、M13 部分。证据 reports/p0/r1_B1_B2_B4.md
-- 待：B3 余项（finish 不丢 + lane 守卫）→ M2 reaper → M3 谓词更新 → M6 长镜头道 / 前置失败 → …
+- P0 r2（11-09 01:55）：B3 ✅（结果落盘 + 重试到接受、409 停；每道并发 1 库强制）。证据 reports/p0/r2_B3.md → **P0 B1–B4 全部关闭**
+- 待（P1，按审查 §8）：M2 reaper → M3 谓词更新 → M6 长镜头道 / 前置失败 → M8 → M9 review.json / models.lock → M10 ROLLBACK → M12/M13 余项 → netfix 移出公开仓库
 
 ## 线上（gpu33 / gpu36，/root/work/fredw/ns2/）
 - API：gpu33 10.0.0.33:8900（pid 见 api.pid），db data/queue.db；worker：gpu33 道 0,1（GPU3 专审图）、gpu36 道 0,1,2；各机 worker.pid
