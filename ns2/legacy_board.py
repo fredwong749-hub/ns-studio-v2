@@ -25,6 +25,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 def main(a: dict) -> dict:
     import os
     os.environ.setdefault("NS_RUN", a["run"])
+    import legacy_rules
+    legacy_rules.apply()                                        # P6：旧规则统一修正（K-REN-708 口径对齐）
     import producer as PR
     from ns_render import pipeline as P
     from ns_render import unified_frame as UF

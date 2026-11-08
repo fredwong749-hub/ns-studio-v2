@@ -123,6 +123,8 @@ def main(a: dict) -> dict:
     sys.path.insert(0, str(Path(__file__).resolve().parent))
     run, ep, lane = a["run"], int(a["ep"]), a["lane"]
     AJ, AW, AR = patch(a["host"])
+    import legacy_rules
+    legacy_rules.apply()                                        # P6：旧规则统一修正（与 board 预检同口径）
     check = AJ._checker()
     log: list = []
     passes = []
