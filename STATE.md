@@ -40,3 +40,9 @@
 - S1 / S3 首帧：G1“排排站”3 次不过 → best_effort（冒烟剧本构图问题，与旧系统一致）；S1 视频变体 needs_writer（冒烟剧本缺动作描述，A14 坏点）
 - gpu33 手放（均 = 笔记本已入库内容，带 .bak_P5_1108）：video_policy.json（71271f28，sha 1f12abb4）、run_style.json（95ddb0f9，sha c459da68：smoke 尾帧 compose，#6）
 - 笔记本后台看守被系统内存回收（20:0x，非故障）→ 改用服务器侧轮询，不在笔记本挂常驻
+
+## 旧派单全停（M1 后，PLAN 决策 6A）
+- gpu36：20:19 JST STOP + 停 producer 2894126 / night 2894128 / vidgen 2895944 / 回魂冒烟 producer 1273897（gpu36 自 00:16 起三卡全闲；日志 gpu36 /root/work/fredw/ns2/logs/P5_stop_old_gpu36.log）
+- **坑（已堵）**：笔记本 resident_sync 的 W18 lifecycle 见旧 producer 心跳过期就 request_restart → resident_restart.sh / start.sh **rm STOP** → 旧派单复活。gpu33 实测 19:05、19:44 两次复活（期间 0 派单 0 出图，旧日志核过，无双写）。
+  处置：笔记本 config/pipeline/sop_gate.json lifecycle.apply=false（备份 .bak_P5_1108；旧仓库已封存，此改动只在笔记本工作区，不入旧库）；gpu33 20:22 再停
+- 仍在笔记本跑的旧常驻：resident_sync / autoflow / sentinel / scorecard / tunnel_supervisor（各 2 份，非本会话所起，未动）。STOP 与 lifecycle 关之后它们不再能拉起服务器旧派单；M3 后按计划全停
