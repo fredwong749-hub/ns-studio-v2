@@ -20,6 +20,11 @@ for p in ("", "tools/autopilot", "services/agent", "services/render_router", "pa
         sys.path.insert(0, str(ROOT / p))
 
 
+def UF_project(script, run):
+    from ns_render import unified_frame as UF
+    return UF.project_for(script) or run
+
+
 class _Stub:
     """借用 Producer 的阶梯方法（rung / rung_ab / seed_pick / two_person）——只给它们用到的属性"""
 
@@ -54,9 +59,28 @@ def main(a: dict) -> dict:
     from ns_render import pipeline as P
     from ns_render.comfy_client import ComfyError
     paths = PR.Paths(ROOT, run_id=a["run"])
+    if a.get("edit"):                 # 项目方“修改”意见：旧 FrameExec 从 paths.rejects 读 {kind:sid: {edit}} 套进作业（apply_owner_edit）
+        import tempfile
+        tf = Path(tempfile.mkdtemp(prefix="ns2edit_")) / "rejects.json"
+        tf.write_text(json.dumps({f"{a['kind']}:{a['sid']}": {"edit": a["edit"]}}, ensure_ascii=False), encoding="utf-8")
+        paths.__class__ = type("NS2EditPaths", (PR.Paths,), {"rejects": property(lambda self, _f=tf: _f)})   # rejects 是只读属性
     script = P.load_script()
     st = _Stub(PR, paths, script, a.get("prev_blocking") or [])
     o = {"id": f"{a['kind']}:{a['sid']}", "shot": a["sid"], "kind": a["kind"]}
+    if a.get("rescore_take"):        # M2：上次图已出、只是打分 infra 出错 → 只重打分，不重出图（同旧 Producer._rescore_one）
+        from ns_agent import frame_job as FJ
+        stage = "image" if a["kind"] == "first" else "last"
+        n = int(a["rescore_take"])
+        ep, shot = P.find_shot(script, a["sid"])
+        fj = FJ.build_first(UF_project(script, a["run"]), ep, shot, script.globals)
+        t = next(x for x in P.load_takes(a["sid"])["takes"] if x["stage"] == stage and x["n"] == n)
+        pf = PR.FrameExec(paths, script, post_workers=1)._postflight(a["sid"], stage, n, t["file"],
+                                                                    {"cast": fj.get("cast"), "asset_refs": fj.get("asset_refs")}, "gpu33", None)
+        out = {"take": n, "file": t["file"], "rescored": True, "ok": bool(pf.get("ok")), "blocking": pf.get("blocking"),
+               "reasons": (pf.get("reasons") or [])[:6], "current": pf.get("current")}
+        if pf.get("score_infra") or pf.get("ok") is None:
+            return {**out, "outcome": "infra", "error": "只重打分仍 infra：" + str(pf.get("error") or "score_infra")[:300]}
+        return {**out, "outcome": "pass" if pf.get("ok") else "fail"}
     attempt = int(a.get("attempt") or 1)
     rung = st.rung_ab(o, attempt) or st.rung(o, attempt)
     fx = PR.FrameExec(paths, script, post_workers=1)

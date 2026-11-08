@@ -210,9 +210,43 @@ def record_take(job: dict, var_name: str, var: dict, clip_rel: str, s: dict, *, 
     return {**out, "passed": passed}
 
 
+def compile_payload(job: dict, host: str) -> tuple[dict | None, str | None]:
+    """M2：整集开工时视频行先入队、没有变体 → 到这一步（首尾帧都过了）才在本机编译。
+    本机 video/jobs.json 里这镜的 first/last_frame_take 与 takes.json 当前版一致 → 直接用；否则跑旧 build_jobs（纯编译，不提交）"""
+    from ns2 import enqueue_video as EV
+    from ns2.step_frame import OFF, legacy_env
+    run_id, sid = job["run_id"], job["shot"]
+    def current():
+        try:
+            jobs = json.loads((ROOT / "data/pipeline/runs" / run_id / "video/jobs.json").read_text(encoding="utf-8"))
+            sh = next((x for x in jobs.get("shots") or [] if x.get("shot") == sid), None)
+            tj = json.loads((ROOT / "data/renders" / run_id / sid.split("-")[0] / sid.split("-")[1] / "takes.json").read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            return False
+        act = tj.get("active") or {}
+        return bool(sh) and sh.get("first_frame_take") == act.get("image") and (sh.get("last_frame") is None or sh.get("last_frame_take") == act.get("last"))
+    log = ""
+    if not current():
+        r = subprocess.run([str(OFF / "venv/bin/python"), "tools/series10_video/build_jobs.py", "--run", run_id], cwd=str(OFF / "repo"),
+                           env=legacy_env(host, run_id), capture_output=True, text=True, timeout=1800)
+        log = ((r.stdout or "")[-300:] + (r.stderr or "")[-300:]).strip()
+        if r.returncode or not current():
+            return None, f"视频变体编译不过 / 与当前首尾帧对不上（build_jobs rc={r.returncode}）：{log[-400:]}"
+    try:
+        return EV.build(run_id, sid, host)[2]["payload"], None
+    except SystemExit as e:
+        return None, f"视频变体编译后仍找不到本镜：{e}"
+
+
 def run(job: dict, lane: str):
     p = job.get("payload") or {}
     host = lane.split(":")[0]
+    if not p.get("variants") and not p.get("echo"):
+        cp, why = compile_payload(job, host)
+        if cp is None:
+            return "blocked", None, why
+        p = {**cp, **{k: v for k, v in p.items() if k in ("trial", "fresh_seed")}}
+        job = {**job, "payload": p}
     re_ = rescore_pending(job, p.get("score_meta") or {}, host)          # 先补打分（M1：打分崩过的片不重渲）
     if any(r["passed"] for r in re_):
         best = next(r for r in re_ if r["passed"])

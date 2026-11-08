@@ -20,6 +20,8 @@ from pathlib import Path
 STEPS = ("script", "board", "first", "last", "video", "film")
 STATES = ("queued", "running", "done", "failed", "blocked", "best_effort", "na")
 PREREQ = {"last": ("first",), "video": ("first", "last")}
+# 有就必须过、没有不挡（迁移来的镜没有 script / board 行）：first ← 本镜 board；board ← 本集本机 script（shot = epNN）
+SOFT_PREREQ = {"first": "board", "board": "script"}
 PASSED = ("done", "na")
 LEASE_S = 45 * 60
 INFRA_MAX = 5
@@ -110,8 +112,12 @@ def enqueue(c, *, run_id: str, ep: int, shot: str, step: str, payload: dict | No
 FILM_SQL = (" AND j.id = (SELECT MAX(f.id) FROM jobs f WHERE f.run_id=j.run_id AND f.shot=j.shot AND f.step='film')"
             " AND EXISTS (SELECT 1 FROM jobs v WHERE v.run_id=j.run_id AND v.ep=j.ep AND v.step='video')"
             " AND NOT EXISTS (SELECT 1 FROM jobs v WHERE v.run_id=j.run_id AND v.ep=j.ep AND v.step='video'"
-            "   AND v.state IN ('queued','running')"
-            "   AND v.id = (SELECT MAX(x.id) FROM jobs x WHERE x.run_id=v.run_id AND x.shot=v.shot AND x.step='video'))")
+            "   AND v.id = (SELECT MAX(x.id) FROM jobs x WHERE x.run_id=v.run_id AND x.shot=v.shot AND x.step='video')"
+            "   AND (v.state='running' OR (v.state='queued' AND v.owner_trigger=0"
+            # 排队的视频只有在前置还“有望”时才算在途；首 / 尾帧最新行已是 failed / blocked / best_effort（等人）→ 不挡整集合成（占位）
+            "     AND NOT EXISTS (SELECT 1 FROM jobs f WHERE f.run_id=v.run_id AND f.shot=v.shot AND f.step IN ('first','last')"
+            "       AND f.id = (SELECT MAX(y.id) FROM jobs y WHERE y.run_id=f.run_id AND y.shot=f.shot AND y.step=f.step)"
+            "       AND f.state IN ('failed','blocked','best_effort')))))")
 
 
 def _claim_sql(step: str) -> str:
@@ -126,6 +132,13 @@ def _claim_sql(step: str) -> str:
     pre = "".join(
         f" AND (SELECT p.state FROM jobs p WHERE p.run_id=j.run_id AND p.shot=j.shot AND p.step='{p}'"
         f" ORDER BY p.id DESC LIMIT 1) IN ('done','na')" for p in PREREQ.get(step, ()))
+    soft = SOFT_PREREQ.get(step)
+    if soft == "board":
+        pre += (" AND COALESCE((SELECT p.state FROM jobs p WHERE p.run_id=j.run_id AND p.shot=j.shot AND p.step='board'"
+                " ORDER BY p.id DESC LIMIT 1), 'done') IN ('done','na')")
+    elif soft == "script":       # 本集剧本行（shot = epNN）在本机（want_host 相同）导入过
+        pre += (" AND COALESCE((SELECT p.state FROM jobs p WHERE p.run_id=j.run_id AND p.ep=j.ep AND p.step='script'"
+                " AND COALESCE(p.want_host,'')=COALESCE(j.want_host,'') ORDER BY p.id DESC LIMIT 1), 'done') IN ('done','na')")
     return ("SELECT j.* FROM jobs j JOIN runs r ON r.run_id = j.run_id"
             " WHERE j.state='queued' AND j.owner_trigger=0 AND r.status='producing'"
             " AND (j.want_host IS NULL OR j.want_host=?) AND j.step=?" + pre +
@@ -187,7 +200,15 @@ def finish(c, job_id: int, host: str, state: str, result: dict | None = None, er
               " lane=CASE WHEN ?='queued' THEN NULL ELSE lane END WHERE id=?",
               (new, tries, json.dumps(result, ensure_ascii=False) if result is not None else j.get("result") and json.dumps(j["result"], ensure_ascii=False),
                error, None if new == "queued" else now_iso(), new, new, job_id))
-    _event(c, job_id, "finish", {"asked": state, "state": new, "tries": tries, "error": (error or "")[:300]})
+    r_ = result or {}
+    _event(c, job_id, "finish", {"asked": state, "state": new, "tries": tries, "error": (error or "")[:300],
+                                 "secs": r_.get("secs"), "gpu_s": r_.get("gpu_s"), "lane": j.get("lane"), "started_at": j.get("started_at")})
+    if j["step"] == "board" and new == "done" and (result or {}).get("adult"):    # L-128：成人镜只由项目方触发
+        c.execute("UPDATE jobs SET owner_trigger=1 WHERE run_id=? AND shot=? AND step IN ('first','last','video') AND state='queued'",
+                  (j["run_id"], j["shot"]))
+        _event(c, job_id, "adult_hold", {"shot": j["shot"]})
+    if j["step"] in ("first", "last") and new in ("failed", "blocked", "best_effort") and not (j.get("payload") or {}).get("echo")             and c.execute("SELECT 1 FROM jobs WHERE run_id=? AND ep=? AND step='video' AND state IN ('done','best_effort')", (j["run_id"], j["ep"])).fetchone():
+        enqueue_film(c, j["run_id"], j["ep"], want_host=None)
     if j["step"] == "video" and new != "queued" and not ((j.get("payload") or {}).get("trial") or (j.get("payload") or {}).get("echo")):
         enqueue_film(c, j["run_id"], j["ep"], want_host=j["host"])
     return row(c.execute("SELECT * FROM jobs WHERE id=?", (job_id,)).fetchone())
@@ -252,6 +273,17 @@ def cancel(c, run_id: str, shot: str) -> list[int]:
         c.execute("UPDATE jobs SET state='na', error='人工取消', finished_at=? WHERE id=?", (now_iso(), i))
         _event(c, i, "cancel")
     return ids
+
+
+def finish_events(c, run_id: str) -> list[dict]:
+    """每次尝试一条（耗时归因用）：{job_id, ep, step, at, asked, state, secs, gpu_s, lane, started_at}"""
+    q = ("SELECT e.job_id, e.at, e.detail, j.ep, j.step, j.created_at FROM events e JOIN jobs j ON j.id = e.job_id"
+         " WHERE e.kind='finish' AND j.run_id=? ORDER BY e.id")
+    out = []
+    for r in c.execute(q, (run_id,)):
+        d = json.loads(r["detail"] or "{}")
+        out.append({"job_id": r["job_id"], "ep": r["ep"], "step": r["step"], "at": r["at"], "created_at": r["created_at"], **d})
+    return out
 
 
 def jobs(c, run_id: str | None = None, shot: str | None = None, state: str | None = None, limit: int = 500) -> list[dict]:

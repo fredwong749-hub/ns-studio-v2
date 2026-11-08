@@ -180,7 +180,8 @@ def overview(run: str = "series10_v2"):
     with _lock:
         rows = D.jobs(conn(), run, limit=1_000_000)
         rv = D.reviews(conn(), run)
-    return OV.build(run, rows, rv, OV.script_eps(ROOT, run), D.now_iso())
+        ev = D.finish_events(conn(), run)
+    return OV.build(run, rows, rv, OV.script_eps(ROOT, run), D.now_iso(), ev)
 
 
 class ReviewReq(BaseModel):
@@ -227,3 +228,36 @@ def files(host: str, rel: str, request: Request):
     keep = ("Content-Type", "Content-Length", "Content-Range", "Accept-Ranges")
     return StreamingResponse(iter(lambda: up.read(1 << 16), b""), status_code=up.status,
                              headers={k: up.headers[k] for k in keep if up.headers.get(k)})
+
+
+class DispatchReq(BaseModel):
+    run_id: str = "series10_v2"
+    stage: str                    # first | last | video
+    mode: str = "regen"           # regen（重出）| edit（按修改意见重出，首 / 尾帧）
+    edit: str | None = None
+    by: str = "manual"
+
+
+@app.post("/api/shots/{shot_id}/jobs")
+def dispatch(shot_id: str, r: DispatchReq):
+    """PLAN §2.4 派单：给本镜某一步新起一行（人工重出 / 按意见修改）。机器按出图 / 视频分区；前置（首帧过 → 尾帧 → 视频）照队列规则等。
+    成人镜（本镜 board 判成人或已有行带 owner_trigger）新行同样等项目方触发。"""
+    from ns2.migrate import host_for
+    if r.stage not in ("first", "last", "video") or r.mode not in ("regen", "edit"):
+        raise HTTPException(400, "stage = first / last / video；mode = regen / edit")
+    if r.mode == "edit" and (r.stage == "video" or not (r.edit or "").strip()):
+        raise HTTPException(400, "修改只对首 / 尾帧，且要写修改意见")
+    try:
+        ep = int(shot_id.split("-")[0][2:])
+    except ValueError:
+        raise HTTPException(400, "镜号格式 epNN-SN")
+    host = host_for("video" if r.stage == "video" else "images", ep)
+    with _lock:
+        c = conn()
+        adult = c.execute("SELECT 1 FROM jobs WHERE run_id=? AND shot=? AND (owner_trigger=1 OR (step='board' AND result LIKE '%\"adult\": true%'))",
+                          (r.run_id, shot_id)).fetchone() is not None
+        j, created = D.enqueue(c, run_id=r.run_id, ep=ep, shot=shot_id, step=r.stage, want_host=host,
+                               payload={"edit": r.edit.strip()} if r.mode == "edit" else {},
+                               sig={"manual": D.now_iso(), "by": r.by, "mode": r.mode}, owner_trigger=adult,
+                               max_tries=4 if r.stage == "video" else 3)
+    return {"job": j, "created": created, "adult_hold": adult}

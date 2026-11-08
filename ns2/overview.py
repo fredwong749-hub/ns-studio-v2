@@ -16,6 +16,8 @@ import statistics
 from datetime import datetime
 from pathlib import Path
 
+from ns2 import timing as TM
+
 ETA_DEFAULT_S = 840.0
 FRAME_STATE = {"done": "passed", "na": "na", "running": "running", "queued": "pending", "failed": "failed",
                "best_effort": "best_effort", "blocked": "blocked"}
@@ -61,7 +63,7 @@ def _t(s: str | None) -> float:
         return 0.0
 
 
-def build(run: str, rows: list[dict], reviews: dict, script: dict, now_iso: str) -> dict:
+def build(run: str, rows: list[dict], reviews: dict, script: dict, now_iso: str, events: list[dict] | None = None) -> dict:
     """rows = 该 run 全部 jobs 行；reviews = {shot: {"state", "reason", "at"}}；script = script_eps()"""
     latest: dict = {}
     for j in sorted(rows, key=lambda j: j["id"]):
@@ -149,6 +151,7 @@ def build(run: str, rows: list[dict], reviews: dict, script: dict, now_iso: str)
         episodes.append({
             "ep": ep, "title": (script.get(ep) or {}).get("title") or "", "total": n, "phase": phase,
             "start": min(starts, key=_t) if starts else None, "last_at": max(ends, key=_t) if ends else None,
+            "timing": TM.episode(events or [], ep),
             "first_done": cnt["first"], "last_done": cnt["last"], "fallback_n": cnt["fallback"], "video_done": cnt["video"],
             "assembled": assembled,
             "film": ({"name": Path(fr["file"]).name, "version": fr.get("version"), "url": file_url(fd), "kind": "preview",

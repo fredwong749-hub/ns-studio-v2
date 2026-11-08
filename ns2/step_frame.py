@@ -41,10 +41,16 @@ def run(job: dict, lane: str):
     prev = list(res.get("prev_blocking") or [])
     args = {"kind": kind, "sid": job["shot"], "run": job["run_id"], "lane": lane, "port": PORTS[lane],
             "attempt": int(job.get("tries") or 0) + 1, "prev_blocking": prev}
+    if p.get("edit"):
+        args["edit"] = p["edit"]
+    if res.get("infra_take"):                       # 上次图已出、打分 infra → 这次只重打分（不占新版本号、不耗 GPU 出图）
+        args["rescore_take"] = res["infra_take"]
     out = call_legacy(args, lane.split(":")[0], float(p.get("timeout_s") or 3600))
     o = out.pop("outcome", "infra")
     keep = {**out, "prev_blocking": prev + ([out.get("blocking") or []] if o in ("pass", "fail") else []),
             "has_output": out.get("take") is not None}
+    if o == "infra" and out.get("take") is not None:
+        keep["infra_take"] = out["take"]
     if o == "pass":
         return "done", keep, None
     if o == "na":

@@ -87,3 +87,25 @@ def test_infra_requeues_without_counting_then_blocks(tmp_path):
     D.claim(c, "h", "h:0", ["first"])
     j = D.finish(c, f["id"], "h", "infra", error="gpu33 OOM")
     assert j["state"] == "blocked" and "连续" in j["error"]
+
+
+def test_soft_prereq_script_board(tmp_path):
+    c = mk(tmp_path)
+    sc = D.enqueue(c, run_id="r", ep=1, shot="ep01", step="script", want_host="g")[0]
+    b = D.enqueue(c, run_id="r", ep=1, shot="ep01-S1", step="board", want_host="g")[0]
+    f = D.enqueue(c, run_id="r", ep=1, shot="ep01-S1", step="first", want_host="g")[0]
+    D.enqueue(c, run_id="r", ep=1, shot="ep01-S2", step="first", want_host="g")          # 没有 board 行（迁移镜）→ 不挡
+    assert D.claim(c, "g", "g:0", ["board", "first"])["shot"] == "ep01-S2"
+    assert D.claim(c, "g", "g:1", ["board", "first"]) is None                             # 剧本没导入 → board 不领；board 没过 → first 不领
+    D.claim(c, "g", "g:0", ["script"]); D.finish(c, sc["id"], "g", "done")
+    assert D.claim(c, "g", "g:1", ["board", "first"])["id"] == b["id"]
+    D.finish(c, b["id"], "g", "done")
+    assert D.claim(c, "g", "g:1", ["first"])["id"] == f["id"]
+
+
+def test_shot_rows_partition():
+    from ns2.step_script import shot_rows
+    rows = shot_rows("r", 5, [1, 2], "abc")
+    assert [(r["shot"], r["step"], r["want_host"]) for r in rows[:4]] == [
+        ("ep05-S1", "board", "gpu33"), ("ep05-S1", "first", "gpu33"), ("ep05-S1", "last", "gpu33"), ("ep05-S1", "video", "gpu33")]
+    assert rows[3]["max_tries"] == 4 and len(rows) == 8

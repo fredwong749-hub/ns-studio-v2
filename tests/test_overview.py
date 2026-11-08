@@ -37,3 +37,15 @@ def test_review_clears_owner_trigger_and_cancel(tmp_path):
     D.enqueue(c, run_id="r", ep=1, shot="t", step="first")
     assert len(D.cancel(c, "r", "t")) == 1 and D.jobs(c, shot="t")[0]["state"] == "na"
     assert D.claim(c, "h", "h:0", ["first"])["shot"] == "s"
+
+
+def test_timing_attribution(tmp_path):
+    c = D.connect(tmp_path / "q.db")
+    c.execute("INSERT INTO runs(run_id) VALUES ('r')")
+    f = D.enqueue(c, run_id="r", ep=1, shot="ep01-S1", step="first", max_tries=3)[0]
+    D.claim(c, "h", "h:0", ["first"]); D.finish(c, f["id"], "h", "retry", {"secs": 120, "gpu_s": 50, "has_output": True})
+    D.claim(c, "h", "h:0", ["first"]); D.finish(c, f["id"], "h", "infra", {"secs": 30})
+    D.claim(c, "h", "h:0", ["first"]); D.finish(c, f["id"], "h", "done", {"secs": 90, "gpu_s": 40})
+    t = OV.TM.episode(D.finish_events(c, "r"), 1)
+    assert t["attempts"] == 3 and t["logic_min"] == 2.0 and t["code_min"] == 0.5 and round(t["detect_min"], 1) == 0.8
+    assert t["steps"]["first"] == {"tries": 3, "min": 4.0, "retry": 1, "infra": 1}

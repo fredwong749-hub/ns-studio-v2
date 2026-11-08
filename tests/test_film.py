@@ -94,3 +94,14 @@ def test_run_end_to_end_ffmpeg(tmp_path):
     assert res["file"] == "data/episodes/r/ns2/ep01_v1.mp4" and res["placeholders"] == ["ep01-S3"]
     assert abs(res["dur_s"] - 11) < 0.3 and abs(res["delta_s"]) < 0.3                      # 黑场占位按剧本 2 秒
     assert F.run({"id": 10, "run_id": "r", "ep": 1}, "local:0", rows=rows, root=root)[1]["version"] == 2   # 不覆盖
+
+
+def test_film_not_blocked_by_video_waiting_on_human(tmp_path):
+    c = mk(tmp_path)
+    D.enqueue(c, run_id="r", ep=1, shot="ep01-S1", step="first", state="best_effort")     # 首帧尽力版等人 → 视频卡住
+    vid(c, "ep01-S1")
+    for s in ("ep01-S2",):
+        D.enqueue(c, run_id="r", ep=1, shot=s, step="first", state="done"); D.enqueue(c, run_id="r", ep=1, shot=s, step="last", state="na")
+    v2 = vid(c, "ep01-S2")
+    D.claim(c, "h", "h:0", ["video"]); D.finish(c, v2["id"], "h", "done")
+    assert D.claim(c, "h", "h:1", ["film"])["shot"] == "ep01"

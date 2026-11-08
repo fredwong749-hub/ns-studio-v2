@@ -59,3 +59,17 @@ def test_worker_file_server_range(tmp_path):
     with pytest.raises(urllib.error.HTTPError):
         urllib.request.urlopen(f"http://127.0.0.1:{port}/files/../../etc/passwd")
     srv.shutdown()
+
+
+def test_dispatch_endpoint(tmp_path, monkeypatch):
+    monkeypatch.setenv("NS2_DB", str(tmp_path / "q.db"))
+    import importlib
+    from fastapi.testclient import TestClient
+    import ns2.api as A
+    importlib.reload(A)
+    c = TestClient(A.app)
+    c.put("/api/runs", json={"run_id": "r"})
+    j = c.post("/api/shots/ep02-S3/jobs", json={"run_id": "r", "stage": "first", "mode": "edit", "edit": "她的手放下"}).json()
+    assert j["created"] and j["job"]["want_host"] == "gpu36" and j["job"]["payload"] == {"edit": "她的手放下"} and not j["adult_hold"]
+    assert c.post("/api/shots/ep03-S1/jobs", json={"run_id": "r", "stage": "video"}).json()["job"]["want_host"] == "gpu33"
+    assert c.post("/api/shots/ep03-S1/jobs", json={"run_id": "r", "stage": "video", "mode": "edit", "edit": "x"}).status_code == 400
