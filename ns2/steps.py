@@ -18,6 +18,7 @@ if True:  # M1a：测试 run 用 echo 顶所有步；真步函数注册后按 pa
                 return "blocked", None, f"{step} 步函数还没上线（M1b/M1c）"
             return real(job, lane)
         return fn
+    from ns2 import step_frame as _SF
     from ns2 import step_video as _SV
-    REAL: dict = {"video": _SV.run}
+    REAL: dict = {"video": _SV.run, "first": _SF.run, "last": _SF.run}
     STEP_FNS = {s: _dispatch(s) for s in ("script", "board", "first", "last", "video", "film")}

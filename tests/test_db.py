@@ -75,3 +75,15 @@ def test_reap_and_finish_after_reap_rejected(tmp_path):
     assert D.reap(c, lease_s=0, now=1e12) == [f["id"]]
     j = D.jobs(c)[0]; assert (j["state"], j["tries"]) == ("queued", 1)
     assert D.finish(c, f["id"], "h", "done") is None                               # 被回收后旧 worker 上报无效
+
+
+def test_infra_requeues_without_counting_then_blocks(tmp_path):
+    c = mk(tmp_path)
+    f = enq(c, "s", "first")
+    for i in range(D.INFRA_MAX - 1):
+        D.claim(c, "h", "h:0", ["first"])
+        j = D.finish(c, f["id"], "h", "infra", error="gpu33 OOM")
+        assert (j["state"], j["tries"]) == ("queued", 0)
+    D.claim(c, "h", "h:0", ["first"])
+    j = D.finish(c, f["id"], "h", "infra", error="gpu33 OOM")
+    assert j["state"] == "blocked" and "连续" in j["error"]

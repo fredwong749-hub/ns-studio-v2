@@ -34,8 +34,8 @@ def run_job(job: dict, lane: str, fns: dict) -> tuple[str, dict | None, str | No
         return "blocked", None, f"本 worker 没有 {job['step']} 步函数"
     try:
         return fn(job, lane)
-    except Exception as e:  # noqa: BLE001 — 步函数崩 = infra，退回重试
-        return "retry", None, f"{type(e).__name__}: {e}\n{traceback.format_exc()[-1500:]}"
+    except Exception as e:  # noqa: BLE001 — 步函数崩 = infra：回队不计次（连续 5 次转 blocked）
+        return "infra", None, f"{type(e).__name__}: {e}\n{traceback.format_exc()[-1500:]}"
 
 
 def lane_loop(api: str, host: str, lane: str, steps: list[str], fns: dict, idle_s: float = 5):

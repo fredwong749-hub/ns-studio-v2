@@ -22,6 +22,7 @@ STATES = ("queued", "running", "done", "failed", "blocked", "best_effort", "na")
 PREREQ = {"last": ("first",), "video": ("first", "last")}
 PASSED = ("done", "na")
 LEASE_S = 45 * 60
+INFRA_MAX = 5
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS jobs (
@@ -137,12 +138,22 @@ def heartbeat(c, job_id: int, host: str) -> bool:
 
 
 def finish(c, job_id: int, host: str, state: str, result: dict | None = None, error: str | None = None) -> dict | None:
-    """state ∈ done|failed|blocked|best_effort|na|retry。retry：tries+1，没用完回 queued；用完 → 有产物 best_effort / 无产物 failed"""
+    """state ∈ done|failed|blocked|best_effort|na|retry|infra。retry：tries+1，没用完回 queued；用完 → 有产物 best_effort / 无产物 failed。
+    infra（打分 / 连接 / 执行器出错，不是内容不过）：回 queued 不计次；连续 INFRA_MAX 次 → blocked（人工看）"""
     j = row(c.execute("SELECT * FROM jobs WHERE id=?", (job_id,)).fetchone())
     if j is None or j["state"] != "running" or j["host"] != host:
         return None
     tries = j["tries"]
-    if state == "retry":
+    if state == "infra":
+        n = 1
+        for ev in c.execute("SELECT detail FROM events WHERE job_id=? AND kind='finish' ORDER BY id DESC", (job_id,)):
+            if json.loads(ev["detail"] or "{}").get("asked") != "infra":
+                break
+            n += 1
+        new = "blocked" if n >= INFRA_MAX else "queued"
+        if new == "blocked":
+            error = f"连续 {n} 次 infra 出错：{error}"
+    elif state == "retry":
         tries += 1
         if tries < j["max_tries"]:
             new = "queued"
