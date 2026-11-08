@@ -43,10 +43,27 @@ def step_state(d: dict, stage: str, data: Path) -> dict:
         return {**out, "state": "missing_file"}
     if stage == "video":
         ok, why = bool((t.get("postflight") or {}).get("ok")), ""
+        if t.get("master_reject"):                     # M9：视频也认 master_reject（原来只有帧查）
+            ok, why = False, "master_reject"
+        rv = review_of(data, d.get("_shot_dir"))
+        if rv == "passed" and n is not None:           # M9：旧 review.json 项目方已定 → done（postflight 过期也算）
+            ok, why = True, ""
+        elif rv == "rejected":
+            ok, why = False, "review.json rejected"
     else:
         from ns2.gates import frame_passed
         ok, why = frame_passed(stage, t, locked=(d.get("locked") or {}).get(stage) == n)
     return {**out, "state": "done" if ok else "needs_review", **({"why": why} if not ok else {})}
+
+
+def review_of(data: Path, shot_dir) -> str | None:
+    """旧系统 review.json（{state: passed|rejected|unreviewed}）；没有 / 读不了 → None"""
+    if not shot_dir:
+        return None
+    try:
+        return (json.loads((Path(shot_dir) / "review.json").read_text(encoding="utf-8")) or {}).get("state")
+    except (OSError, ValueError):
+        return None
 
 
 def video_states(data: Path, run: str) -> dict:
@@ -68,7 +85,12 @@ def scan(data: Path, run: str) -> list[dict]:
     for tj in sorted((data / "renders" / run).glob("ep*/S*/takes.json"),
                      key=lambda p: (int(p.parts[-3][2:]), int(p.parts[-2][1:]))):
         ep, s = int(tj.parts[-3][2:]), tj.parts[-2]
-        d = json.loads(tj.read_text(encoding="utf-8"))
+        try:                                           # 一个坏 takes.json 不 abort 整份报告（审查 §3）
+            d = {**json.loads(tj.read_text(encoding="utf-8")), "_shot_dir": str(tj.parent)}
+        except (OSError, ValueError) as e:
+            rows.append({"shot": f"ep{ep:02d}-{s}", "ep": ep, "lane_images": host_for("images", ep), "lane_video": host_for("video", ep),
+                         **{k: {"state": "missing_file", "note": f"takes.json 读不了：{e}"[:200]} for k in STEPS}})
+            continue
         row = {"shot": f"ep{ep:02d}-{s}", "ep": ep,
                "lane_images": host_for("images", ep), "lane_video": host_for("video", ep)}
         for step, stage in STEPS.items():
