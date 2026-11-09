@@ -13,6 +13,8 @@ M0 ✅ · M1 ✅ 11-08 20:18 · M2a/M2b 11-08 22:05 · P6（整体重构）R0 �
 - promote_best ↔ auto_current 对账（规则 4 + 成人拒绝 + promote_only 接上线）→ reports/p7/promote_best_reconcile.md
 - N7 / N8：批量定稿不覆盖已驳回、成人显式拒、撤销定稿按钮 → reports/p7/n7n8_bulk_review.md
 - 审片史每日导出（项目方 11-09 批）→ reports/p7/review_export.md（gpu33 定时任务安装**待 SSH**）
+- P1 / P2 / P3（本机）：M3 事务 + 谓词、M4 真 HTTP 假 Comfy、M5 preflight fail-closed、M6 锁长道 + 前置失败挡视频、M7 种子账本、M8、M10 set -eu、M13 force 围栏；前端 N1 / N2 / N5 / N6 + 总览口径；P3 提交前复核出图机帧 + handoff N2–N4、0 变体原因、film v1 标注；文档更正
+- 收尾：reports/p7/closing_brief2.md（逐项结论、SSH 后要做的事、要项目方定的 4 件：M9 冲突、ep06 整集成人不适合做全自动验收、ep03-S4 / 真点 / gpu36 演练、API 双绑）；全新 venv 92 passed
 - **SSH 跳板 11-09 约 11:00 JST 起不通**（两台都连不上，隧道 18900 的只读接口仍通）：以上全部只在本机测过，**未部署**；部署 + live 证据待恢复后补
 
 ## 任务书迭代进度（证据 reports/p0/ …）
