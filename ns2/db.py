@@ -395,6 +395,18 @@ def requeue(c, job_id: int, reason: str, force: bool = False, adult_of=None) -> 
     return row(c.execute("SELECT * FROM jobs WHERE id=?", (job_id,)).fetchone())
 
 
+def retarget(c, run_id: str, ep: int, step: str, want_host: str | None, by: str = "manual") -> list[int]:
+    """排队中（queued / blocked）的行改目标机器（P6 11-09 两台都出视频）。只动没在跑的行；每行记事件，可再改回"""
+    with tx(c):
+        ids = [r["id"] for r in c.execute("SELECT id FROM jobs WHERE run_id=? AND ep=? AND step=? AND state IN ('queued','blocked')"
+                                          " AND COALESCE(want_host,'')<>COALESCE(?,'')", (run_id, ep, step, want_host))]
+        for i in ids:
+            old = c.execute("SELECT want_host FROM jobs WHERE id=?", (i,)).fetchone()["want_host"]
+            c.execute("UPDATE jobs SET want_host=? WHERE id=? AND state IN ('queued','blocked')", (want_host, i))
+            _event(c, i, "retarget", {"from": old, "to": want_host, "by": by})
+    return ids
+
+
 def set_review(c, run_id: str, shot: str, state: str, reason: str | None = None) -> dict:
     """项目方定稿 / 驳回（PLAN §2.4 PUT /api/shots/{id}/review）。passed 才算 final。
     成人镜触发是另一件事（POST /api/shots/{id}/trigger → db.trigger），定稿不再顺带放行"""

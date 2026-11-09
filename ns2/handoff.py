@@ -96,6 +96,22 @@ def sync_frames(run: str, sid: str, src_host: str, root: Path, base: str | None 
                 raise HandoffConflict(f"{sid} {stage} v{t['n']}：本机同号是 {mine.get('file')}，出图机是 {t.get('file')}（编号分叉，要人工对齐）")
             if act.get(stage) != t["n"]:
                 act[stage] = t["n"]; out["changed"] = True
+        # P6 11-09（两台分着出同一集视频）：尽力版标记 / 尾帧 I2VA 兜底也要跟着过来，否则视频机按“没过契约”判、编 0 个变体
+        rbe, mbe = remote.get("best_effort") or {}, doc.get("best_effort") or {}
+        for stage, t in want.items():
+            mark = rbe.get(stage)
+            if t is not None and isinstance(mark, dict) and mark.get("n") == t["n"]:
+                if mbe.get(stage) != mark:
+                    doc.setdefault("best_effort", {})[stage] = mark; out["changed"] = True
+            elif stage in mbe:
+                doc["best_effort"].pop(stage); out["changed"] = True
+        fb = remote.get("last_frame_fallback")
+        if fb != doc.get("last_frame_fallback"):
+            if fb is None:
+                doc.pop("last_frame_fallback", None)
+            else:
+                doc["last_frame_fallback"] = fb
+            out["changed"] = True
         return doc
 
     op = f"ns2-handoff-{src_host}-{out['image']}-{out['last']}-{uuid.uuid4().hex[:8]}"   # 审查 3 §4 N4：14→13→14 回摆不被重放保护吞掉

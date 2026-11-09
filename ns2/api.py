@@ -225,6 +225,23 @@ def put_run(r: RunReq):
     return r
 
 
+class RetargetReq(BaseModel):
+    run_id: str
+    ep: int
+    step: str = "video"
+    want_host: str | None = None       # None = 任一台
+    by: str = "manual"
+
+
+@app.post("/api/retarget")
+def retarget(r: RetargetReq):
+    """排队中的行改目标机器（P6 11-09 项目方“把 gpu36 也用起来”：已入队的视频行改成任一台可领）"""
+    if r.step not in D.STEPS or (r.want_host is not None and r.want_host not in FILE_PORTS):
+        raise HTTPException(400, "step 不认识或机器不认识")
+    with _lock:
+        return {"retargeted": D.retarget(conn(), r.run_id, r.ep, r.step, r.want_host, r.by)}
+
+
 @app.post("/api/worker/claim")
 def claim(c: Claim):
     _workers.setdefault(c.host, {"at": time.time()})["at"] = time.time()
@@ -415,7 +432,8 @@ def dispatch(shot_id: str, r: DispatchReq):
         ep = int(shot_id.split("-")[0][2:])
     except ValueError:
         raise HTTPException(400, "镜号格式 epNN-SN")
-    host = host_for("video" if r.stage == "video" else "images", ep)
+    from ns2.migrate import video_host
+    host = video_host(ep) if r.stage == "video" else host_for("images", ep)
     with _lock:
         c = conn()
         j, created = D.enqueue(c, run_id=r.run_id, ep=ep, shot=shot_id, step=r.stage, want_host=host,

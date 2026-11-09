@@ -30,6 +30,16 @@ def host_for(kind: str, ep: int) -> str | None:
     return next((h for h, eps in PARTITION[kind].items() if ep in eps), None)
 
 
+# P6 11-09 项目方“把 gpu36 也用起来”：视频行不再按集钉死一台，两台谁空谁领（出图机 ≠ 视频机时 step_video 先交接首尾帧，
+# 拼片机缺的片经文件口取，见 handoff.sync_frames / step_film.fetch_remote）。出图仍按集分区（takes 在出图机上）。
+VIDEO_ANY_HOST = True
+
+
+def video_host(ep: int) -> str | None:
+    """新入队视频行的 want_host：任一台 = None"""
+    return None if VIDEO_ANY_HOST else host_for("video", ep)
+
+
 def step_state(d: dict, stage: str, data: Path) -> dict:
     n = (d.get("active") or {}).get(stage)
     if n is None:

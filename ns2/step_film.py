@@ -1,6 +1,6 @@
 """M2 整集合成步 film v1（PLAN 决策：v1 不带配音 / BGM，只把各镜原片按镜号顺序接成一条可看的整集）。
 
-在本集视频机上跑（片子都在本机）。每镜取片顺序（与旧 night.finalize / assemble.find_source 同口径，L-204 D8 不挡整集）：
+在本集视频机上跑；片在另一台的经对方只读文件口取（P6 11-09 两台分着出同一集视频）。每镜取片顺序（与旧 night.finalize / assemble.find_source 同口径，L-204 D8 不挡整集）：
   1. takes.json 当前视频版（done；视频步最终失败时也已把罚分最低的一版设为当前）
   2. 队列结果里记的片（迁移来的尽力版只在 state_<host>.json：result.file / result.clip）
   3. 首帧已过门 → 首帧静帧 STILL_S 秒占位；首帧没过门（含待项目方看的成人镜）→ 黑场占位（不拿未过门的图进片）
@@ -71,7 +71,38 @@ def _exists(rel: str | None, root: Path) -> str | None:
     return None
 
 
-def pick_sources(run: str, ep: int, rows: list[dict], root: Path = ROOT) -> list[dict]:
+def _data_rel(f: str | None) -> str | None:
+    from ns2.overview import data_rel
+    return data_rel(f)
+
+
+def fetch_remote(src_host: str | None, rel: str | None, root: Path, get=None) -> str | None:
+    """P6 11-09（项目方“把 gpu36 也用起来”）：同一集的视频可能分在两台出 → 拼片机上没有的片经对方只读文件口取一份到
+    data/episodes/_remote/<host>/<rel>（只读缓存，不改对方、不进 takes.json）。取不到 = None（照旧占位，不挡整集）"""
+    rel = _data_rel(rel)
+    if not src_host or not rel:
+        return None
+    dst = root / "data/episodes/_remote" / src_host / rel
+    if dst.is_file() and dst.stat().st_size > 0:
+        return str(dst.relative_to(root)).replace("\\", "/")
+    from ns2 import handoff as HO
+    base = HO.FILE_PORTS.get(src_host)
+    if not base:
+        return None
+    try:
+        b = (get or HO._get)(base, rel, 600)
+    except OSError:
+        return None
+    if not b:
+        return None
+    dst.parent.mkdir(parents=True, exist_ok=True)
+    tmp = dst.with_suffix(dst.suffix + ".part")
+    tmp.write_bytes(b)
+    tmp.replace(dst)
+    return str(dst.relative_to(root)).replace("\\", "/")
+
+
+def pick_sources(run: str, ep: int, rows: list[dict], root: Path = ROOT, host: str | None = None, get=None) -> list[dict]:
     out = []
     for sid, st in latest(rows, ep).items():
         v, f = st.get("video") or {}, st.get("first") or {}
@@ -79,6 +110,8 @@ def pick_sources(run: str, ep: int, rows: list[dict], root: Path = ROOT) -> list
         src = None
         if v.get("state") in ("done", "best_effort"):
             src = _exists(_active(run, sid, "video", root), root) or _exists(res.get("file"), root) or _exists(res.get("clip"), root)
+            if not src and host and v.get("host") and v["host"] != host:     # 片在另一台 → 经文件口取
+                src = fetch_remote(v["host"], res.get("file") or res.get("clip"), root, get)
         if src:
             out.append({"shot": sid, "kind": "video", "path": src, "video_state": v["state"]})
             continue
@@ -132,7 +165,7 @@ def render_segment(ff: str, src: dict, out: Path, root: Path) -> None:
 def run(job: dict, lane: str, rows: list[dict] | None = None, root: Path = ROOT):
     run_id, ep = job["run_id"], int(job["ep"])
     host = lane.split(":")[0]
-    srcs = pick_sources(run_id, ep, rows if rows is not None else api_jobs(run_id), root)
+    srcs = pick_sources(run_id, ep, rows if rows is not None else api_jobs(run_id), root, host=host)
     if not srcs:
         return "blocked", None, f"ep{ep:02d} 队列里没有镜"
     if not any(s["kind"] == "video" for s in srcs):

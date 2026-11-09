@@ -115,7 +115,7 @@ def test_shot_rows_partition():
     rows = shot_rows("r", 5, [1, 2], "abc")
     assert (rows[0]["shot"], rows[0]["step"], rows[0]["want_host"]) == ("ep05", "assets", "gpu33")      # P6 R1a
     assert [(r["shot"], r["step"], r["want_host"]) for r in rows[1:5]] == [
-        ("ep05-S1", "board", "gpu33"), ("ep05-S1", "first", "gpu33"), ("ep05-S1", "last", "gpu33"), ("ep05-S1", "video", "gpu33")]
+        ("ep05-S1", "board", "gpu33"), ("ep05-S1", "first", "gpu33"), ("ep05-S1", "last", "gpu33"), ("ep05-S1", "video", None)]   # P6 11-09：视频任一台
     assert rows[4]["max_tries"] == 4 and len(rows) == 9
 
 

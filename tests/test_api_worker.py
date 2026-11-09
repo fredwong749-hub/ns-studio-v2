@@ -81,7 +81,7 @@ def test_dispatch_endpoint(tmp_path, api_mod):
     c.put("/api/runs", json={"run_id": "r"})
     j = c.post("/api/shots/ep02-S3/jobs", json={"run_id": "r", "stage": "first", "mode": "edit", "edit": "她的手放下"}).json()
     assert j["created"] and j["job"]["want_host"] == "gpu36" and j["job"]["payload"] == {"edit": "她的手放下"} and not j["adult_hold"]
-    assert c.post("/api/shots/ep03-S1/jobs", json={"run_id": "r", "stage": "video"}).json()["job"]["want_host"] == "gpu33"
+    assert c.post("/api/shots/ep03-S1/jobs", json={"run_id": "r", "stage": "video"}).json()["job"]["want_host"] is None   # P6 11-09：视频任一台
     assert c.post("/api/shots/ep03-S1/jobs", json={"run_id": "r", "stage": "video", "mode": "edit", "edit": "x"}).status_code == 400
 
 
