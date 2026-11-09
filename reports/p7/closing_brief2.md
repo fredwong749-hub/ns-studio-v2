@@ -13,7 +13,7 @@
 | B3 回收 interrupt | 视频步代码关闭（落盘登记、回收撤销、重启撤残留、wait 三个分支也撤、回收退避）。**帧步旧执行器未覆盖**（R2）；**真机演练待 SSH** | b3_reap_interrupt.md |
 | 堵点 3 成人触发 | 代码关闭（is_adult 校验、撤销、按钮 gating） | b_adult_trigger.md |
 | 堵点 4 成片 force | 代码关闭 | b4_assemble_no_force.md |
-| 堵点 5 同输入 0 新版本 | 假 ✅ 已更正为 ⚠️；本机证据齐。**live 重跑 + takes seq 对照待 SSH** | p3/r17_idempotent_local.md |
+| 堵点 5 同输入 0 新版本 | 假 ✅ 已更正为 ⚠️；本机证据齐；**live 11-09 21:0x 关闭**（ep05 重入队 2 existing、行数 66→66、13 个 takes.json 字节不变） | p3/r17_idempotent_local.md、p3/r17_idempotent_live.txt |
 | promote_best ↔ auto_current | 代码关闭（规则 4、成人拒绝、promote_only 接上线、4 个测试）；范围 = 全部集（项目方 11-09） | promote_best_reconcile.md |
 | N7 / N8 批量定稿 | 代码关闭 | n7n8_bulk_review.md |
 | 审片史导出 | 代码关闭；**gpu33 定时任务安装待 SSH**（项目方已批） | review_export.md |

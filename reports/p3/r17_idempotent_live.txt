@@ -1,0 +1,245 @@
+takes identical: True
+S1/takes.json 3 3 be121beacdc7
+S10/takes.json 3 3 2c27c18b9f45
+S11/takes.json 3 3 33a25dda8541
+S12/takes.json 3 2 e84fbda8e4ff
+S13/takes.json 3 2 d569bb4f1e0e
+S2/takes.json 5 3 4af8d5d00e43
+S3/takes.json 4 3 8bf43b9fa80f
+S4/takes.json 3 3 f9555f257b1a
+S5/takes.json 3 3 1e166e1e9e5e
+S6/takes.json 4 3 8736a280e39d
+S7/takes.json 3 3 91036263f6b3
+S8/takes.json 3 3 8b57cc3db3d8
+S9/takes.json 4 3 39942305e908
+{
+ "label": "before",
+ "ep5_rows": 66,
+ "ep5_max_id": 304,
+ "all_max_id": 304,
+ "all_rows": 299,
+ "takes_files": 13,
+ "takes": {
+  "S1/takes.json": {
+   "n_takes": 3,
+   "max_n": 3,
+   "active": {},
+   "sha": "be121beacdc7",
+   "mtime": 1794186637.1126254
+  },
+  "S10/takes.json": {
+   "n_takes": 3,
+   "max_n": 3,
+   "active": {},
+   "sha": "2c27c18b9f45",
+   "mtime": 1794189348.6925368
+  },
+  "S11/takes.json": {
+   "n_takes": 3,
+   "max_n": 3,
+   "active": {},
+   "sha": "33a25dda8541",
+   "mtime": 1794189688.4887996
+  },
+  "S12/takes.json": {
+   "n_takes": 3,
+   "max_n": 2,
+   "active": {
+    "image": 1,
+    "last": 2
+   },
+   "sha": "e84fbda8e4ff",
+   "mtime": 1794189856.453902
+  },
+  "S13/takes.json": {
+   "n_takes": 3,
+   "max_n": 2,
+   "active": {
+    "image": 1,
+    "last": 2
+   },
+   "sha": "d569bb4f1e0e",
+   "mtime": 1794190187.9779923
+  },
+  "S2/takes.json": {
+   "n_takes": 5,
+   "max_n": 3,
+   "active": {
+    "image": 2,
+    "last": 3
+   },
+   "sha": "4af8d5d00e43",
+   "mtime": 1794187320.012591
+  },
+  "S3/takes.json": {
+   "n_takes": 4,
+   "max_n": 3,
+   "active": {
+    "image": 1
+   },
+   "sha": "8bf43b9fa80f",
+   "mtime": 1794187548.6217968
+  },
+  "S4/takes.json": {
+   "n_takes": 3,
+   "max_n": 3,
+   "active": {},
+   "sha": "f9555f257b1a",
+   "mtime": 1794187542.0135314
+  },
+  "S5/takes.json": {
+   "n_takes": 3,
+   "max_n": 3,
+   "active": {},
+   "sha": "1e166e1e9e5e",
+   "mtime": 1794188222.0576084
+  },
+  "S6/takes.json": {
+   "n_takes": 4,
+   "max_n": 3,
+   "active": {
+    "image": 1
+   },
+   "sha": "8736a280e39d",
+   "mtime": 1794188407.2642388
+  },
+  "S7/takes.json": {
+   "n_takes": 3,
+   "max_n": 3,
+   "active": {},
+   "sha": "91036263f6b3",
+   "mtime": 1794188627.6893919
+  },
+  "S8/takes.json": {
+   "n_takes": 3,
+   "max_n": 3,
+   "active": {},
+   "sha": "8b57cc3db3d8",
+   "mtime": 1794188876.266845
+  },
+  "S9/takes.json": {
+   "n_takes": 4,
+   "max_n": 3,
+   "active": {
+    "image": 1
+   },
+   "sha": "39942305e908",
+   "mtime": 1794189197.3801303
+  }
+ }
+}{
+ "label": "after",
+ "ep5_rows": 66,
+ "ep5_max_id": 304,
+ "all_max_id": 304,
+ "all_rows": 299,
+ "takes_files": 13,
+ "takes": {
+  "S1/takes.json": {
+   "n_takes": 3,
+   "max_n": 3,
+   "active": {},
+   "sha": "be121beacdc7",
+   "mtime": 1794186637.1126254
+  },
+  "S10/takes.json": {
+   "n_takes": 3,
+   "max_n": 3,
+   "active": {},
+   "sha": "2c27c18b9f45",
+   "mtime": 1794189348.6925368
+  },
+  "S11/takes.json": {
+   "n_takes": 3,
+   "max_n": 3,
+   "active": {},
+   "sha": "33a25dda8541",
+   "mtime": 1794189688.4887996
+  },
+  "S12/takes.json": {
+   "n_takes": 3,
+   "max_n": 2,
+   "active": {
+    "image": 1,
+    "last": 2
+   },
+   "sha": "e84fbda8e4ff",
+   "mtime": 1794189856.453902
+  },
+  "S13/takes.json": {
+   "n_takes": 3,
+   "max_n": 2,
+   "active": {
+    "image": 1,
+    "last": 2
+   },
+   "sha": "d569bb4f1e0e",
+   "mtime": 1794190187.9779923
+  },
+  "S2/takes.json": {
+   "n_takes": 5,
+   "max_n": 3,
+   "active": {
+    "image": 2,
+    "last": 3
+   },
+   "sha": "4af8d5d00e43",
+   "mtime": 1794187320.012591
+  },
+  "S3/takes.json": {
+   "n_takes": 4,
+   "max_n": 3,
+   "active": {
+    "image": 1
+   },
+   "sha": "8bf43b9fa80f",
+   "mtime": 1794187548.6217968
+  },
+  "S4/takes.json": {
+   "n_takes": 3,
+   "max_n": 3,
+   "active": {},
+   "sha": "f9555f257b1a",
+   "mtime": 1794187542.0135314
+  },
+  "S5/takes.json": {
+   "n_takes": 3,
+   "max_n": 3,
+   "active": {},
+   "sha": "1e166e1e9e5e",
+   "mtime": 1794188222.0576084
+  },
+  "S6/takes.json": {
+   "n_takes": 4,
+   "max_n": 3,
+   "active": {
+    "image": 1
+   },
+   "sha": "8736a280e39d",
+   "mtime": 1794188407.2642388
+  },
+  "S7/takes.json": {
+   "n_takes": 3,
+   "max_n": 3,
+   "active": {},
+   "sha": "91036263f6b3",
+   "mtime": 1794188627.6893919
+  },
+  "S8/takes.json": {
+   "n_takes": 3,
+   "max_n": 3,
+   "active": {},
+   "sha": "8b57cc3db3d8",
+   "mtime": 1794188876.266845
+  },
+  "S9/takes.json": {
+   "n_takes": 4,
+   "max_n": 3,
+   "active": {
+    "image": 1
+   },
+   "sha": "39942305e908",
+   "mtime": 1794189197.3801303
+  }
+ }
+}
