@@ -83,24 +83,32 @@ def main(argv=None) -> int:
     host = {"gpu6": "gpu36"}.get(a.host, a.host)
     bad = []
     for sid in a.shots.split(","):
-        try:                                # M8：一镜坏（jobs.json / takes.json 缺、镜不在表里）只跳过这一镜，不连坐后面的
+        try:                                # M8：一镜坏（jobs.json / takes.json 缺或畸形、镜不在表里）只跳过这一镜，不连坐后面的
             rows = build(a.run, sid, host)
-        except (OSError, ValueError, KeyError, SystemExit) as e:
+        except (OSError, ValueError, KeyError, SystemExit, AttributeError, TypeError) as e:   # 审查 3 M8：畸形 JSON 也算
             bad.append(sid)
             print(sid, "SKIP", f"{type(e).__name__}: {e}"[:300])
             continue
-        for r in rows:
-            if a.trial and r["step"] == "video":
-                r["payload"].update(trial=True, fresh_seed=True)
-                r["sig"] = {**r["sig"], "trial": __import__("time").time()}
-            if a.dry:
-                print(r["shot"], r["step"], r.get("state", "queued"), "variants=" + ",".join((r.get("payload") or {}).get("variants") or []))
-                continue
-            out = post(a.api, job_path(r), r)
-            print(r["shot"], r["step"], out["job"]["state"], "id", out["job"]["id"], "new" if out["created"] else "existing")
+        try:                                # 审查 3 M8：入队（HTTP）失败也只记这一镜，API 中途断了后面的镜照试
+            post_rows(a, rows)
+        except Exception as e:  # noqa: BLE001
+            bad.append(sid)
+            print(sid, "POST_FAIL", f"{type(e).__name__}: {e}"[:300])
     if bad:
         print("跳过的镜：", ",".join(bad))
     return 1 if bad else 0
+
+
+def post_rows(a, rows: list[dict]) -> None:
+    for r in rows:
+        if a.trial and r["step"] == "video":
+            r["payload"].update(trial=True, fresh_seed=True)
+            r["sig"] = {**r["sig"], "trial": __import__("time").time()}
+        if a.dry:
+            print(r["shot"], r["step"], r.get("state", "queued"), "variants=" + ",".join((r.get("payload") or {}).get("variants") or []))
+            continue
+        out = post(a.api, job_path(r), r)
+        print(r["shot"], r["step"], out["job"]["state"], "id", out["job"]["id"], "new" if out["created"] else "existing")
 
 
 if __name__ == "__main__":

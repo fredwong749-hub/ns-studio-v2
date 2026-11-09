@@ -29,3 +29,24 @@ def test_per_shot_isolation_and_blocked_reason(tmp_path, monkeypatch, capsys):
     assert rc == 1 and "ep01-S2 SKIP" in out and "ep01-S3 video queued" in out          # S2 不在表里，S3 照样出
     v = [r for r in EV.build("r", "ep01-S1", "gpu36") if r["step"] == "video"][0]
     assert v["state"] == "blocked" and "缺动作描述" in v["error"]
+
+
+def test_m8_post_failure_and_malformed_json_only_skip_that_shot(monkeypatch, capsys):
+    """审查 3 M8：一镜 jobs.json 畸形（AttributeError / TypeError）或入队 HTTP 失败，只跳过这一镜，后面的镜照入"""
+    from ns2 import enqueue_video as EV
+    def build(run, sid, host):
+        if sid == "ep01-S1":
+            raise AttributeError("'list' object has no attribute 'get'")
+        return [{"run_id": run, "ep": 1, "shot": sid, "step": "video", "sig": {}, "payload": {}}]
+    sent = []
+    def post(api, path, body):
+        if body["shot"] == "ep01-S2":
+            raise OSError("API 断了")
+        sent.append(body["shot"])
+        return {"job": {"state": "queued", "id": 1}, "created": True}
+    monkeypatch.setattr(EV, "build", build)
+    monkeypatch.setattr(EV, "post", post)
+    rc = EV.main(["--api", "http://x", "--shots", "ep01-S1,ep01-S2,ep01-S3", "--host", "gpu33"])
+    assert rc == 1 and sent == ["ep01-S3"]
+    out = capsys.readouterr().out
+    assert "ep01-S1 SKIP AttributeError" in out and "ep01-S2 POST_FAIL" in out
