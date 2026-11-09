@@ -209,3 +209,17 @@ def test_no_variant_reason_never_empty():
     assert "v1=needs_writer（缺动作描述）" in r and "s2=无状态" in r and "ready 的：无" in r
     long_ = V.no_variant_reason({"variants": {"v1": {"status": "ready", "frames": V.LONG_FRAMES + 1}}}, "gpu33:0")
     assert f"只能 {V.LONG_LANE}" in long_
+
+
+def test_m7_seed_ledger_never_reuses(tmp_path, monkeypatch):
+    """审查 3 M7：同镜用过的种子不再用——第一次用变体自带种子，之后（含 infra 重试）换新；不同镜互不影响；没有种子节点不记账"""
+    monkeypatch.setattr(V, "ROOT", tmp_path)
+    var = {"seed": 42, "graph": {"1": {"class_type": "RandomNoise", "inputs": {"noise_seed": 42}}}}
+    a = V.pick_seed("r", "ep01-S1", var, None)
+    b = V.pick_seed("r", "ep01-S1", var, None)
+    c = V.pick_seed("r", "ep01-S1", var, a)                    # fresh 撞上用过的 → 也换
+    assert a == 42 and b != 42 and c not in (a, b)
+    assert V.pick_seed("r", "ep01-S2", var, None) == 42
+    led = json.loads(V.seed_ledger_path("r").read_text(encoding="utf-8"))
+    assert led["ep01-S1"] == [a, b, c] and led["ep01-S2"] == [42]
+    assert V.pick_seed("r", "ep01-S3", {"seed": 5, "graph": {}}, None) is None and "ep01-S3" not in json.loads(V.seed_ledger_path("r").read_text(encoding="utf-8"))

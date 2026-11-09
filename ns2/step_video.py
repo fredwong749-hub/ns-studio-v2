@@ -252,6 +252,33 @@ def pick_variant(payload: dict, tries: int, lane: str) -> tuple[str, dict] | Non
     return name, vs[name]
 
 
+def seed_ledger_path(run: str):
+    return ROOT / "data/pipeline/runs" / run / "video/ns2_seed_ledger.json"
+
+
+def pick_seed(run: str, sid: str, var: dict, seed: int | None) -> int | None:
+    """审查 3 M7（PLAN §1.4 #6 种子永不复用）：本镜用过的种子记账（提交前写）。想用的种子（变体自带 / fresh）已用过 → 换一个新的。
+    返回要写进图的种子（图里没 RandomNoise → 原样返回、不记账）"""
+    want = seed if seed is not None else var.get("seed")
+    if not any(n.get("class_type") == "RandomNoise" for n in (var.get("graph") or {}).values()):
+        return seed                     # 图里没有可换的种子节点（submit 也换不了）：原样，不记账
+    f = seed_ledger_path(run)
+    try:
+        led = json.loads(f.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        led = {}
+    used = set(led.get(sid) or [])
+    s = want if want is not None and want not in used else None
+    while s is None or s in used:
+        s = int.from_bytes(os.urandom(4), "big")
+    led.setdefault(sid, []).append(s)
+    f.parent.mkdir(parents=True, exist_ok=True)
+    tmp = f.with_suffix(".part")
+    tmp.write_text(json.dumps(led, ensure_ascii=False), encoding="utf-8")
+    tmp.replace(f)
+    return s
+
+
 def no_variant_reason(payload: dict, lane: str) -> str:
     """审查 3 §4（ep05-S2/S12/S13 线上报“没有可派的变体：”后面是空的）：pick_variant 为 None 时一律写出为什么——
     0 个变体 / 各变体状态与原因 / 阶梯里没有 ready 的 / 全是超长只能长道"""
@@ -423,6 +450,7 @@ def run(job: dict, lane: str):
     prefix = f"ns2/{sid}__{name}"
     tag = {"agent": "NS2", "kind": "video", "shot": sid, "job": job["id"], "label": name}
     seed = int.from_bytes(os.urandom(4), "big") if p.get("fresh_seed") else None
+    seed = pick_seed(job["run_id"], sid, var, seed)            # 审查 3 M7：种子账本——同镜用过的种子不再用（infra 重试也换新）
     pid = submit(lane, var, prefix, tag, seed)
     from ns2.worker import comfy_mark
     comfy_mark(job, lane, pid, live=True)          # 审查 3 B3：wait 之前落盘 + 登记，回收时才撤得掉
