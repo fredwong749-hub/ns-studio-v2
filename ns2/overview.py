@@ -4,8 +4,9 @@
   final / video_done  = 该镜最新视频行有片（done 或 best_effort）且项目方 review = passed。best_effort 不算 done，单独计数
   pending_review      = 最新视频行 done（过视频门）且还没 review
   total 分母          = 剧本镜数（script_v2.json），不是“有目录的镜”
-  stale               = v1 不算（输入签名比对在 board 步上线后接）；stale_global 只作独立字段，不进 stale、不上卡片
-  assembled           = 本集最新 film 行 done 且晚于本集所有视频行的落定时间
+  stale               = 明确延期（审查 3 §3）：输入签名比对要 R1 takes 进库后才有可靠来源；现在恒为空，前端不据此显示“过期”
+  assembled           = 本集最新 film 行 done、晚于本集所有视频行落定与最近一次审片，且 mp4 在本机存在（API 核；别的机器的片不核）
+  film.kind           = final（本集每镜都 final、无占位）/ preview
   eta                 = 分道（lane）中位数（视频行 result.secs）；无样本默认 840 秒
 文件 url = /files/<host>/<相对 data 的路径>：由 API 转到产出那台机器的 worker 文件口（不依赖笔记本同步）。
 """
@@ -25,6 +26,10 @@ ETA_DEFAULT_S = 840.0
 FRAME_STATE = {"done": "ready", "na": "na", "running": "running", "queued": "pending", "failed": "failed",
                "best_effort": "best_effort", "blocked": "blocked"}
 FRAME_OK = ("ready", "passed", "fallback", "na", "best_effort")   # 项目方 11-09：尽力版一律自动用
+
+
+# 审查 3 §4：已知有问题的成片版本（不删文件，只在总览上标）
+FILM_WARN = {("smoke_v2", 1, 1): "v1 用了交接前的旧首帧（视频 job 226），以 v2 为准（reports/p3/r14）"}
 
 
 def _iso_in(sec: float) -> str:
@@ -161,7 +166,9 @@ def build(run: str, rows: list[dict], reviews: dict, script: dict, now_iso: str,
         film = (latest.get(f"ep{ep:02d}") or {}).get("film")
         films_done = sorted((j for j in rows if j["shot"] == f"ep{ep:02d}" and j["step"] == "film" and j["state"] == "done"), key=lambda j: j["id"])
         fd = films_done[-1] if films_done else None
-        assembled = bool(fd and _t(fd.get("finished_at")) >= last_video_t)
+        last_review_t = max([_t((reviews.get(x) or {}).get("at")) for x in sids] or [0.0])
+        # 审查 3 §3：成片 = 最新 film done 且晚于本集所有视频行落定、也晚于本集最近一次审片（定稿 / 驳回之后要重合）；mp4 存在由 API 按本机核
+        assembled = bool(fd and _t(fd.get("finished_at")) >= last_video_t and _t(fd.get("finished_at")) >= last_review_t)
         n = len(sids)
         phase = ("frames" if cnt["first"] < n or cnt["last"] < n else
                  "videos" if sum(1 for s in shots if s["video"]["state"] in ("final", "best_effort", "pending_review")) < n else
@@ -176,7 +183,9 @@ def build(run: str, rows: list[dict], reviews: dict, script: dict, now_iso: str,
             "timing": TM.episode(events or [], ep),
             "first_done": cnt["first"], "last_done": cnt["last"], "fallback_n": cnt["fallback"], "video_done": cnt["video"],
             "assembled": assembled,
-            "film": ({"name": Path(fr["file"]).name, "version": fr.get("version"), "url": file_url(fd), "kind": "preview",
+            "film": ({"name": Path(fr["file"]).name, "version": fr.get("version"), "url": file_url(fd),
+                      "kind": "final" if (not fr.get("placeholders") and n and all(x["video"]["state"] == "final" for x in shots)) else "preview",
+                      "warning": FILM_WARN.get((run, ep, fr.get("version"))),
                       "dur_s": fr.get("dur_s"), "script_s": fr.get("script_s"),
                       "missing_n": len(fr.get("placeholders") or []), "missing": fr.get("placeholders") or [],
                       "best_effort": fr.get("best_effort") or []} if fd and fr.get("file") else None),

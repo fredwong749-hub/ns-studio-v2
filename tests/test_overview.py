@@ -93,3 +93,37 @@ def test_n1_n2_n6_frontend_fields():
     assert out["totals"]["script"] == [1, 2]
     js = (Path(__file__).resolve().parents[1] / "frontend/review.js").read_text(encoding="utf-8")
     assert "r.clip ||" in js and "r.score" in js and "setInterval(" in js
+
+
+def test_overview_rows_assembled_kind_warning_and_missing(tmp_path, api_mod):
+    """审查 3 §3 口径四行：成片要晚于最近一次审片；film.kind 按全片定稿；已知坏版本带 warning；本机丢了的片不显示 final"""
+    from fastapi.testclient import TestClient
+    from ns2 import db as D
+    from ns2 import overview as OV
+    from conftest import write_script
+    write_script(tmp_path, "smoke_v2", eps=((1, 1),))
+    k = api_mod.conn()
+    D.enqueue(k, run_id="smoke_v2", ep=1, shot="ep01-S1", step="video", want_host="gpu33", state="done",
+              result={"clip": "data/clips/a.mp4", "has_output": True})
+    D.enqueue(k, run_id="smoke_v2", ep=1, shot="ep01", step="film", want_host="gpu33", state="done", sig={"v": 1},
+              result={"file": "data/episodes/smoke_v2/ns2/ep01_v1.mp4", "version": 1, "has_output": True})
+    D.set_review(k, "smoke_v2", "ep01-S1", "passed")
+    k.execute("UPDATE reviews SET at='2000-01-01T00:00:00+00:00'")            # 审片早于成片
+    (tmp_path / "data/clips").mkdir(parents=True)
+    (tmp_path / "data/clips/a.mp4").write_bytes(b"x")
+    (tmp_path / "data/episodes/smoke_v2/ns2").mkdir(parents=True)
+    (tmp_path / "data/episodes/smoke_v2/ns2/ep01_v1.mp4").write_bytes(b"x")
+    c = TestClient(api_mod.app)
+    e = c.get("/api/overview?run=smoke_v2").json()["episodes"][0]
+    assert e["assembled"] is True and e["film"]["kind"] == "final" and "旧首帧" in e["film"]["warning"]
+    assert e["shots"][0]["video"]["state"] == "final"
+    (tmp_path / "data/clips/a.mp4").unlink()
+    (tmp_path / "data/episodes/smoke_v2/ns2/ep01_v1.mp4").unlink()
+    o = c.get("/api/overview?run=smoke_v2").json()
+    e = o["episodes"][0]
+    assert e["shots"][0]["video"]["state"] == "missing_file" and e["assembled"] is False and e["film"]["file_missing"]
+    assert o["videos"]["final"] == 0 and o["videos"]["missing_file"] == 1
+    D.set_review(k, "smoke_v2", "ep01-S1", "passed")                          # 审片晚于成片 → 不算已拼好（要重合）
+    k.execute("UPDATE reviews SET at='2999-01-01T00:00:00+00:00'")
+    rows = D.jobs(k, "smoke_v2", limit=1000)
+    assert OV.build("smoke_v2", rows, D.reviews(k, "smoke_v2"), OV.script_eps(tmp_path, "smoke_v2"), D.now_iso(), [])["episodes"][0]["assembled"] is False

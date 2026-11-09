@@ -287,7 +287,35 @@ def overview(run: str = "series10_v2"):
         for sh in e.get("shots") or []:
             sh["adult"] = is_adult(run, sh["id"])
             sh["triggered"] = sh["id"] in trig
+    check_local_files(out)
     return out
+
+
+def _local_missing(url: str | None) -> bool:
+    """url = /files/<host>/<rel>：host 是本机（API 所在机）→ 看文件在不在；别的机器 → 不核（False）"""
+    if not url or not url.startswith(f"/files/{SELF}/"):
+        return False
+    return not (ROOT / "data" / url[len(f"/files/{SELF}/"):]).is_file()
+
+
+def check_local_files(out: dict) -> None:
+    """审查 3 §3：丢了的片不显示 final（本机文件存在检查）；成片 mp4 不在 → 不算已拼好"""
+    V = out.get("videos") or {}
+    for e in out.get("episodes") or []:
+        for sh in e.get("shots") or []:
+            v = sh.get("video") or {}
+            if v.get("state") == "final" and _local_missing(v.get("url")):
+                v["state"], v["file_missing"] = "missing_file", True
+                sh["note"] = "片子文件在本机找不到（丢了），不算定稿"
+                V["final"] = V.get("final", 0) - 1
+                V["missing_file"] = V.get("missing_file", 0) + 1
+                e["video_done"] = max(0, (e.get("video_done") or 0) - 1)
+        f = e.get("film") or {}
+        if f and _local_missing(f.get("url")):
+            f["file_missing"] = True
+            if e.get("assembled"):
+                e["assembled"] = False
+                out["totals"]["cut"][0] -= 1
 
 
 class ReviewReq(BaseModel):

@@ -196,6 +196,7 @@
       '<span>渲染中 <b>' + n('rendering') + '</b></span>' +
       '<span>排队中 <b>' + n('queued') + '</b></span>' +
       '<span>待审片 <b>' + n('pending_review') + '</b></span>' +
+      (n('missing_file') ? '<span>文件丢了 <b>' + n('missing_file') + '</b></span>' : '') +
       '<span class="be">尽力版 <b>' + n('best_effort') + '</b>（不计入已定稿）</span>' +
       '<span>缺首尾帧 <b>' + n('need_frames') + '</b></span>' +
       '<span>待出片 <b>' + n('todo') + '</b></span>' +
@@ -288,6 +289,8 @@
           ' v' + esc(ep.film.version) +
           (ep.film.kind ? '（' + esc(ep.film.kind) + '）' : '') +
           (ep.film.missing_n ? ' 缺 ' + esc(ep.film.missing_n) + ' 镜' : '') +
+          (ep.film.warning ? ' <span class="err-msg">⚠ ' + esc(ep.film.warning) + '</span>' : '') +
+          (ep.film.file_missing ? ' <span class="err-msg">⚠ 成片文件在本机找不到</span>' : '') +
           ((ep.film.missing && ep.film.missing.length)
             ? '：' + esc(ep.film.missing.join('、')) : '') +
           (ep.film.url ? ' <a href="' + esc(ep.film.url) + '">打开</a>' : '') +
