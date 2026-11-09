@@ -32,3 +32,15 @@ def test_infra_after_render_rescores_only(monkeypatch):
     assert st == "infra" and res["infra_take"] == 7 and "rescore_take" not in seen[0]
     st, res, _ = F.run(job(0, res), "gpu33:0")
     assert seen[1]["rescore_take"] == 7 and st == "done" and "infra_take" not in res      # 第二次只重打分
+
+
+def test_p6_last_all_too_similar_falls_back_to_i2va():
+    """尾帧用完次数、候选全“与首帧太像”→ 不选雷同尾帧，写 last_frame_fallback=i2va（绑定当前首帧）"""
+    import types
+    from ns2 import legacy_frame as LF
+    d = {"active": {"image": 4}, "takes": []}
+    P = types.SimpleNamespace(mutate_takes=lambda sid, fn, **k: fn(d))
+    r = LF.i2va_fallback(P, "ep05-S3", d)
+    assert r["fallback"] == "i2va" and d["last_frame_fallback"]["first_n"] == 4
+    assert LF.i2va_fallback(P, "ep05-S3", d)["why"] == "已有尾帧兜底标记"
+    assert LF.i2va_fallback(P, "x", {"active": {}})["promoted"] is None

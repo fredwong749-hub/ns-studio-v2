@@ -56,6 +56,21 @@ class _Stub:
 BEST_EFFORT_REASON = "P6 尽力版一律自动用（项目方 11-09）：用完次数仍没过契约，按不过项最少、同等取最新设为当前"
 
 
+def i2va_fallback(P, sid: str, d: dict) -> dict:
+    """同 producer.last_capped_fallback / gaze_fallback：takes.json 顶层写 last_frame_fallback（绑定当前首帧），视频侧 build_jobs 编成 I2VA"""
+    import time
+    if d.get("last_frame_fallback"):
+        return {"promoted": None, "fallback": "i2va", "why": "已有尾帧兜底标记"}
+    first_n = (d.get("active") or {}).get("image")
+    if first_n is None:
+        return {"promoted": None, "why": "没有当前首帧，不能退回只给首帧"}
+    why = (f"尾帧用完次数，候选全部与首帧太像（L-203 不采用）→ 本镜视频只给首帧（I2VA），运镜交给视频模型；绑定首帧 v{first_n}"
+           "（P6 尽力版一律自动用，同旧 L-204 D8 兜底）")
+    flag = {"mode": "i2va", "first_n": first_n, "at": time.strftime("%Y-%m-%dT%H:%M:%S%z"), "by": "ns2-best-effort", "rule": "L-204 D8", "why": why}
+    P.mutate_takes(sid, lambda x: x.__setitem__("last_frame_fallback", flag), op="last_frame_fallback", by="ns2-best-effort")
+    return {"promoted": None, "fallback": "i2va", "first_n": first_n, "why": why}
+
+
 def promote_best(P, sid: str, stage: str) -> dict:
     """项目方 11-09“尽力版一律自动用”：这一镜这一阶段没有合格的当前版时，从不是坏图 / 没被驳回的版本里选不过项最少的一版设为当前。
     项目方本人定稿锁过的不动；已有合格当前版的不动。返回 {promoted: n | None, why}"""
@@ -71,6 +86,12 @@ def promote_best(P, sid: str, stage: str) -> dict:
     cands = [t for t in takes if not P.ineligible_reason(t) and AC.take_pf(t)]
     if not cands:
         return {"promoted": None, "why": "没有可用版本（全是坏图 / 被驳回 / 没打过分）"}
+    if stage == "last":
+        from ns_agent.gen_contract import first_last as FL
+        ok_cands = [t for t in cands if not FL.too_similar(AC.take_pf(t))]
+        if not ok_cands:              # 尾帧全都“与首帧太像”（L-203 硬规：不采用）→ 旧系统同款兜底：视频只给首帧（I2VA），运镜交给视频模型
+            return i2va_fallback(P, sid, d)
+        cands = ok_cands
     best = min(cands, key=lambda t: (len(AC.take_pf(t).get("blocking") or []), -int(t["n"])))
     if best["n"] != act:
         P.set_active(sid, stage, int(best["n"]), reason=BEST_EFFORT_REASON, actor="ns2-best-effort")
