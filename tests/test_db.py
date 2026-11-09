@@ -347,3 +347,24 @@ def test_m3_finish_is_atomic_and_cancel_predicate(tmp_path, monkeypatch):
     D.claim(c, "h", "h:0", ["first"])                                        # 被领走了
     assert D.cancel(c, "r", "ep01-S2") == []
     assert c.execute("SELECT state FROM jobs WHERE id=?", (q["id"],)).fetchone()[0] == "running"
+
+
+def test_m6_long_only_locks_lane_and_prereq_blocks_video(tmp_path):
+    """审查 3 M6：全是超长变体 → 入队就锁 gpu36:2；前置帧 failed / blocked → 视频行 blocked 写原因；前置恢复 → 放回"""
+    from ns2 import step_video as SV
+    assert (D.LONG_LANE, D.LONG_FRAMES) == (SV.LONG_LANE, SV.LONG_FRAMES)
+    c = mk(tmp_path)
+    v, _ = D.enqueue(c, run_id="r", ep=1, shot="ep01-S9", step="video",
+                     payload={"variants": {"v1": {"status": "ready", "frames": 300}, "x": {"status": "bad", "frames": 100}}})
+    assert v["want_lane"] == "gpu36:2"
+    v2, _ = D.enqueue(c, run_id="r", ep=1, shot="ep01-S8", step="video", payload={"variants": {"v1": {"status": "ready", "frames": 120}}})
+    assert v2["want_lane"] is None
+    f, _ = D.enqueue(c, run_id="r", ep=1, shot="ep01-S8", step="first")
+    D.claim(c, "h", "h:0", ["first"])
+    D.finish(c, f["id"], "h", "blocked", error="preflight 不通过：缺场景")
+    row = c.execute("SELECT state, error FROM jobs WHERE id=?", (v2["id"],)).fetchone()
+    assert row["state"] == "blocked" and row["error"].startswith(D.PREREQ_BLOCK + "first blocked") and "缺场景" in row["error"]
+    c.execute("UPDATE jobs SET state='queued', error=NULL WHERE id=?", (f["id"],))      # 人工修好重派
+    D.claim(c, "h", "h:0", ["first"])
+    D.finish(c, f["id"], "h", "done")
+    assert c.execute("SELECT state FROM jobs WHERE id=?", (v2["id"],)).fetchone()["state"] == "queued"

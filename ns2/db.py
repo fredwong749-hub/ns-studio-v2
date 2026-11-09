@@ -73,6 +73,9 @@ def connect(path: str | Path) -> sqlite3.Connection:
     return c
 
 
+PREREQ_BLOCK = "前置不过："
+
+
 @contextmanager
 def tx(c):
     """审查 3 M3：多语句写一个事务（连接是 autocommit）。已在事务里 → 直接并入外层"""
@@ -114,6 +117,15 @@ def _event(c, job_id, kind, detail=None):
 ADULT_STEPS = ("first", "last", "video")
 
 
+LONG_LANE, LONG_FRAMES = "gpu36:2", 260          # 与 step_video 同值（那边 import 这里会循环，测试里断言两边一致）
+
+
+def long_only(payload: dict) -> bool:
+    vs = payload.get("variants") or {}
+    ready = [v for k, v in vs.items() if (v or {}).get("status") == "ready" and k in (payload.get("ladder") or list(vs))]
+    return bool(ready) and all(int((v or {}).get("frames") or 0) > LONG_FRAMES for v in ready)
+
+
 def triggered(c, run_id: str, shot: str) -> bool:
     return c.execute("SELECT 1 FROM triggers WHERE run_id=? AND shot=?", (run_id, shot)).fetchone() is not None
 
@@ -141,6 +153,8 @@ def enqueue(c, *, run_id: str, ep: int, shot: str, step: str, payload: dict | No
     if cur.rowcount == 0:
         return row(c.execute("SELECT * FROM jobs WHERE idem_key=?", (k,)).fetchone()), False
     _event(c, cur.lastrowid, "enqueue", {"state": state})
+    if step == "video" and long_only(payload or {}):        # 审查 3 M6：可派变体全是超长 → 入队就锁长道（不再被别的道白领一次）
+        c.execute("UPDATE jobs SET want_lane=? WHERE id=?", (LONG_LANE, cur.lastrowid))
     if step == "film" and state == "queued":     # 新一版整集输入 → 本集更早的排队 film 行作废（不删，记 na + 原因）
         for r in c.execute("SELECT id FROM jobs WHERE run_id=? AND shot=? AND step='film' AND state='queued' AND id<?",
                            (run_id, shot, cur.lastrowid)).fetchall():
@@ -282,6 +296,16 @@ def _finish(c, job_id: int, host: str, state: str, result: dict | None = None, e
         c.execute("UPDATE jobs SET owner_trigger=1 WHERE run_id=? AND shot=? AND step IN ('first','last','video') AND state='queued'",
                   (j["run_id"], j["shot"]))
         _event(c, job_id, "adult_hold", {"shot": j["shot"]})
+    if j["step"] in ("first", "last") and new in ("failed", "blocked"):     # 审查 3 M6：前置帧失败 / 挡住 → 本镜排队的视频行改 blocked 写原因
+        for v in c.execute("SELECT id FROM jobs WHERE run_id=? AND shot=? AND step='video' AND state='queued'", (j["run_id"], j["shot"])).fetchall():
+            if c.execute("UPDATE jobs SET state='blocked', error=?, finished_at=? WHERE id=? AND state='queued'",
+                         (f"{PREREQ_BLOCK}{j['step']} {new}：{(error or '')[:300]}", now_iso(), v["id"])).rowcount == 1:
+                _event(c, v["id"], "prereq_blocked", {"by": job_id})
+    if j["step"] in ("first", "last") and new in ("done", "na", "best_effort"):   # 前置恢复 → 因它挡住的视频行放回队列
+        for v in c.execute("SELECT id FROM jobs WHERE run_id=? AND shot=? AND step='video' AND state='blocked' AND error LIKE ?",
+                           (j["run_id"], j["shot"], f"{PREREQ_BLOCK}{j['step']} %")).fetchall():
+            c.execute("UPDATE jobs SET state='queued', error=NULL, finished_at=NULL WHERE id=? AND state='blocked'", (v["id"],))
+            _event(c, v["id"], "requeue", {"by": "prereq_recovered", "prereq_job": job_id})
     if j["step"] == "assets" and new == "done":         # P6 R1a：资产补齐 → 本集因预检卡住的分镜行放回队列（立即可领）
         for b in c.execute("SELECT id FROM jobs WHERE run_id=? AND ep=? AND step='board' AND state='blocked'", (j["run_id"], j["ep"])).fetchall():
             c.execute("UPDATE jobs SET state='queued', tries=0, host=NULL, lane=NULL, error=NULL, finished_at=NULL, result=NULL, beat_at=NULL,"

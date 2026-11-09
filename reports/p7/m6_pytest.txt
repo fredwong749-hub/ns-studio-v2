@@ -1,0 +1,25 @@
+........................................................................ [ 81%]
+................                                                         [100%]
+============================== warnings summary ===============================
+tests/test_api_worker.py: 10 warnings
+tests/test_review_bulk_n7.py: 2 warnings
+  D:\ns-studio-v2\ns2\api.py:97: DeprecationWarning: 
+          on_event is deprecated, use lifespan event handlers instead.
+  
+          Read more about it in the
+          [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).
+          
+    @app.on_event("startup")
+
+tests/test_api_worker.py: 10 warnings
+tests/test_review_bulk_n7.py: 2 warnings
+  D:\NS-Final Studio\.venv\Lib\site-packages\fastapi\applications.py:4723: DeprecationWarning: 
+          on_event is deprecated, use lifespan event handlers instead.
+  
+          Read more about it in the
+          [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).
+          
+    return self.router.on_event(event_type)  # ty: ignore[deprecated]
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+88 passed, 24 warnings in 23.50s
