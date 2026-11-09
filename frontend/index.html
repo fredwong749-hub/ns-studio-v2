@@ -3,76 +3,66 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>NS2 总览</title>
+<title>NS2 全剧总览</title>
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
 <header class="topbar">
-  <h1>NS2 全剧总览</h1>
-  <div class="topbar-controls">
-    <label>剧集
-      <input id="run-input" type="text" value="series10_v2" size="16">
-    </label>
-    <button id="run-apply" type="button">切换</button>
-    <button id="refresh-btn" type="button">刷新</button>
-    <span id="updated-at" class="muted"></span>
-    <span class="muted">每 15 秒自动刷新</span>
+  <div class="brand">NS<b>2</b> · 全剧总览</div>
+  <div class="run-pick" title="剧集（run）">
+    <input id="run-input" type="text" value="series10_v2" aria-label="剧集">
+    <button id="run-apply" type="button" class="sm">切换</button>
   </div>
+  <nav class="stages" id="stages" aria-label="五个阶段"></nav>
+  <div class="live" id="live" title="每 15 秒自动刷新"><span class="dot"></span><span id="updated-at">连接中…</span></div>
+  <button id="refresh-btn" type="button" class="ghost sm" title="立即刷新（R）">⟳ 刷新</button>
+  <button id="key-chip" type="button" class="chip">🔑</button>
+  <button id="theme-btn" type="button" class="ghost sm" title="深色 / 浅色">◐</button>
 </header>
 
-<section id="keybar" class="keybar" aria-label="密钥">
-  <span id="key-saved" hidden>🔑 密钥已保存，这台电脑 90 天内不用再填 <button id="key-change" type="button" class="link">更换</button></span>
-  <span id="key-form" hidden>
-    🔑 第一次用：把那一长串密钥（64 位字母数字）粘到这里，点保存——只要粘一次，以后永远记住
-    <input id="key-input" type="password" size="40" autocomplete="off" placeholder="粘贴密钥">
-    <button id="key-save" type="button">保存</button>
-  </span>
-  <span id="key-msg" class="muted"></span>
-</section>
+<div class="wrap">
+  <section class="banner" aria-label="要你处理">
+    <div>
+      <h2 id="banner-title">正在加载…</h2>
+      <div class="facts" id="banner-facts"></div>
+    </div>
+    <div class="cta">
+      <button id="bulk-all" type="button" class="primary big" disabled>✓ 全部用这版</button>
+      <span id="bulk-hint" class="hint"></span>
+    </div>
+  </section>
 
-<section class="bulkbar" aria-label="一键用这版">
-  <button id="bulk-all" type="button" class="primary">✅ 全部用这版</button>
-  <span id="bulk-hint" class="muted"></span>
-  <span id="bulk-msg"></span>
-</section>
+  <div id="error" class="error" hidden></div>
 
-<div id="error" class="error" hidden></div>
-
-<section id="totals" class="totals" aria-label="总计">
-  <div class="stat"><span class="stat-label">剧本</span><span class="stat-value" id="total-script">–</span></div>
-  <div class="stat"><span class="stat-label">首帧</span><span class="stat-value" id="total-first">–</span></div>
-  <div class="stat"><span class="stat-label">尾帧</span><span class="stat-value" id="total-last">–</span></div>
-  <div class="stat"><span class="stat-label">视频</span><span class="stat-value" id="total-video">–</span></div>
-  <div class="stat"><span class="stat-label">成片</span><span class="stat-value" id="total-cut">–</span></div>
-</section>
-
-<section id="videos-summary" class="videos-summary" aria-label="视频汇总"></section>
-
-<section class="filters">
-  <label>按集筛选
-    <select id="ep-filter">
-      <option value="">全部集</option>
-    </select>
-  </label>
-  <label>按状态筛选
+  <div class="toolbar">
+    <div class="group" id="ep-chips" aria-label="按集"></div>
+    <span class="spacer"></span>
+    <div class="group" id="status-chips" aria-label="按状态"></div>
+  </div>
+  <!-- 筛选的“真值”：芯片点了改它们，脚本统一从这里读（键盘 / 读屏也能直接用） -->
+  <div class="toolbar" hidden>
+    <select id="ep-filter"><option value="">全部集</option></select>
     <select id="status-filter">
       <option value="">全部状态</option>
-      <option value="passed">已定稿</option>
-      <option value="pending_review">待审片</option>
+      <option value="you">要你处理</option>
+      <option value="busy">在办</option>
+      <option value="bad">卡住 / 失败</option>
       <option value="best_effort">尽力版</option>
-      <option value="failed">失败</option>
-      <option value="blocked">卡住等人</option>
-      <option value="need_frames">缺首尾帧</option>
-      <option value="todo">待出片</option>
-      <option value="stale">已过期</option>
-      <option value="running">进行中</option>
+      <option value="final">已定稿</option>
     </select>
-  </label>
-</section>
+  </div>
 
-<main id="episodes" aria-label="各集"></main>
+  <main id="episodes" aria-label="各集"></main>
+</div>
+
+<footer class="dock" id="dock">
+  <div class="sum" id="videos-summary"></div>
+  <span class="spacer"></span>
+  <span class="muted small"><span class="kbd">R</span> 刷新 · <span class="kbd">1</span>–<span class="kbd">9</span> 跳到第几集 · 点图看大图</span>
+</footer>
 
 <script src="key.js"></script>
+<script src="common.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

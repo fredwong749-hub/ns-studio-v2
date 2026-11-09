@@ -3,48 +3,98 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>NS2 审片定稿</title>
+<title>NS2 审片</title>
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
-<a class="back-link" id="back-link" href="index.html">← 返回总览</a>
-
-<div id="error" class="error" hidden></div>
-<div id="message" class="message" hidden></div>
-
-<main class="detail">
-  <h2 id="shot-title">审片定稿</h2>
-
-  <section id="shot-detail" aria-label="镜详情">
-    <p class="muted">加载中……</p>
-  </section>
-
-  <h3>当前版</h3>
-  <section id="current" aria-label="当前版"></section>
-
-  <h3>候选版本</h3>
-  <section id="candidates" aria-label="候选版本"></section>
-
-  <div class="actions">
-    <button id="btn-pass" class="primary" type="button">定稿通过</button>
-    <button id="btn-reject" class="danger" type="button">驳回</button>
-    <button id="btn-unreview" type="button">撤销定稿</button>
-    <button id="btn-cancel" type="button">取消排队任务</button>
-    <span class="redo">重出：
-      <select id="redo-stage"><option value="first">首帧</option><option value="last">尾帧</option><option value="video">视频</option></select>
-      <input id="redo-edit" type="text" size="24" placeholder="修改意见（只对首 / 尾帧，可空）">
-      <button id="btn-redo" type="button">重出这一步</button>
-    </span>
-    <button id="btn-assemble" type="button">触发成片</button>
-    <button id="btn-assemble-force" type="button" class="danger">强制重出成片</button>
-    <button id="btn-adult" type="button" hidden>触发成人镜</button>
-    <button id="btn-untrigger" type="button" hidden>撤销成人镜触发</button>
-    <button id="btn-clear-key" type="button" class="link">清除本机密钥</button>
+<header class="topbar">
+  <a class="btn" id="back-link" href="index.html">← 总览</a>
+  <div class="brand">NS<b>2</b> · 审片</div>
+  <span class="spacer"></span>
+  <div class="row">
+    <button id="prev-shot" type="button" class="ghost sm" title="上一镜（←）">‹ 上一镜</button>
+    <span id="shot-pos" class="muted small"></span>
+    <button id="next-shot" type="button" class="ghost sm" title="下一镜（→）">下一镜 ›</button>
   </div>
-  <p class="muted">“触发成人镜”会清掉该镜的 owner_trigger 标记，之后 worker 才可认领成人镜任务。</p>
-</main>
+  <div class="live" id="live"><span class="dot"></span><span id="updated-at">加载中…</span></div>
+  <button id="key-chip" type="button" class="chip">🔑</button>
+  <button id="theme-btn" type="button" class="ghost sm" title="深色 / 浅色">◐</button>
+</header>
+
+<div class="wrap">
+  <div class="rv-head">
+    <h1 id="shot-title">审片</h1>
+    <span id="shot-ep" class="ep"></span>
+    <span id="shot-status"></span>
+  </div>
+  <div id="error" class="error" hidden></div>
+  <div id="message" hidden></div>
+  <div id="adult-alert" class="alert warn" hidden>
+    <b>成人镜</b><span>这一镜按剧本判成成人镜，触发前系统不会出图 / 出片（只由你操作）。</span><span class="spacer"></span>
+    <button id="btn-adult" type="button" class="primary" hidden>触发成人镜</button>
+    <button id="btn-untrigger" type="button" hidden>撤销成人镜触发</button>
+  </div>
+
+  <div class="rv-grid">
+    <div>
+      <section class="panels" id="panels" aria-label="首帧 / 尾帧 / 视频"></section>
+
+      <section class="edit-box" id="edit-box" hidden aria-label="修改">
+        <div class="row"><b>修改这一镜</b><span class="muted small">改哪一步：</span>
+          <div class="seg" id="redo-seg">
+            <button type="button" data-stage="first" class="on">首帧</button><button type="button" data-stage="last">尾帧</button><button type="button" data-stage="video">视频</button>
+          </div>
+          <select id="redo-stage" hidden><option value="first">首帧</option><option value="last">尾帧</option><option value="video">视频</option></select>
+        </div>
+        <textarea id="redo-edit" rows="3" placeholder="想怎么改，写清楚（例：祁念的视线看向卓琳的手，不要看镜头；唐瑶站到左后，不和另外两人排成一排）。不写 = 换个种子重出。视频不收修改意见，直接重出。"></textarea>
+        <div class="row end">
+          <span class="muted small" id="redo-hint">会新起一行排队，占一张卡；出好后这里会自动换成新版</span>
+          <button type="button" class="ghost" id="edit-cancel">取消</button>
+          <button id="btn-redo" type="button" class="primary">提交修改</button>
+        </div>
+      </section>
+
+      <div class="decide" id="decide">
+        <span class="state" id="decide-state"></span>
+        <span class="spacer"></span>
+        <button id="btn-pass" class="primary big" type="button">✓ 用这版</button>
+        <button id="btn-edit" class="big" type="button">✎ 修改</button>
+        <div class="menu">
+          <button id="more-btn" type="button" class="ghost big" aria-haspopup="true">更多 ▾</button>
+          <div class="items" id="more-items" hidden>
+            <button id="btn-reject" class="danger" type="button">驳回（写原因，不用这版）</button>
+            <button id="btn-unreview" type="button">撤销定稿 / 驳回，回到待审</button>
+            <button id="btn-cancel" type="button">取消这镜还在排队的任务</button>
+            <hr>
+            <button id="btn-assemble" type="button">拼本集成片（没变就不重拼）</button>
+            <button id="btn-assemble-force" type="button" class="danger">强制重出本集成片</button>
+            <hr>
+            <button id="btn-clear-key" type="button">清除本机密钥</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <aside class="side">
+      <div class="card">
+        <div class="tabs" id="tabs">
+          <button type="button" class="on" data-tab="script">剧本</button>
+          <button type="button" data-tab="versions">版本</button>
+          <button type="button" data-tab="jobs">任务记录</button>
+          <button type="button" data-tab="detail">状态明细</button>
+        </div>
+        <div class="in" id="tab-script"><p class="muted">加载中…</p></div>
+        <div class="in" id="tab-versions" hidden></div>
+        <div class="in" id="tab-jobs" hidden><section id="candidates" class="jobs" aria-label="候选版本"></section></div>
+        <div class="in" id="tab-detail" hidden><section id="shot-detail" aria-label="镜详情"></section><section id="current" aria-label="当前版"></section></div>
+      </div>
+      <p class="muted small">快捷键：<span class="kbd">←</span><span class="kbd">→</span> 上 / 下一镜 · <span class="kbd">E</span> 修改 · 点图看大图</p>
+    </aside>
+  </div>
+</div>
 
 <script src="key.js"></script>
+<script src="common.js"></script>
 <script src="review.js"></script>
 </body>
 </html>
