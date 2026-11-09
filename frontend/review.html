@@ -30,6 +30,11 @@
     <button id="btn-reject" class="danger" type="button">驳回</button>
     <button id="btn-unreview" type="button">撤销定稿</button>
     <button id="btn-cancel" type="button">取消排队任务</button>
+    <span class="redo">重出：
+      <select id="redo-stage"><option value="first">首帧</option><option value="last">尾帧</option><option value="video">视频</option></select>
+      <input id="redo-edit" type="text" size="24" placeholder="修改意见（只对首 / 尾帧，可空）">
+      <button id="btn-redo" type="button">重出这一步</button>
+    </span>
     <button id="btn-assemble" type="button">触发成片</button>
     <button id="btn-assemble-force" type="button" class="danger">强制重出成片</button>
     <button id="btn-adult" type="button" hidden>触发成人镜</button>

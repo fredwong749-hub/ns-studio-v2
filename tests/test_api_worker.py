@@ -325,3 +325,12 @@ def test_m10_rollback_set_e_and_status_survives_empty_queries():
     assert r.returncode == 0 and "旧 vidgen" in r.stdout
     assert subprocess.run([b, "ns2/rollback.sh", "bogus"], capture_output=True, text=True,
                           cwd=Path(__file__).resolve().parents[1]).returncode == 2
+
+
+def test_n5_redo_button_wired():
+    """审查 3 N5：审片页有重出按钮并调派单接口"""
+    from pathlib import Path
+    root = Path(__file__).resolve().parents[1] / "frontend"
+    assert 'id="btn-redo"' in (root / "review.html").read_text(encoding="utf-8")
+    js = (root / "review.js").read_text(encoding="utf-8")
+    assert "'/jobs'" in js and "mode: edit ? 'edit' : 'regen'" in js

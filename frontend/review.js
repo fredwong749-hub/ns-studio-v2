@@ -282,6 +282,22 @@
     });
   });
 
+  // 审查 3 N5：重渲 / 重派按钮（POST /api/shots/{id}/jobs；写了修改意见 = 按意见改，只对首 / 尾帧）
+  document.getElementById('btn-redo').addEventListener('click', function () {
+    var stage = document.getElementById('redo-stage').value;
+    var edit = (document.getElementById('redo-edit').value || '').trim();
+    if (edit && stage === 'video') { showMessage('修改意见只对首 / 尾帧；视频请直接重出。', true); return; }
+    var label = { first: '首帧', last: '尾帧', video: '视频' }[stage];
+    if (!window.confirm('给 ' + shotId + ' 重出' + label + (edit ? '（按意见：' + edit + '）' : '') + '？会新起一行排队（占 GPU）。')) return;
+    var body = { run_id: run, stage: stage, mode: edit ? 'edit' : 'regen', by: 'manual' };
+    if (edit) body.edit = edit;
+    writeOp('重出' + label, '/api/shots/' + encodeURIComponent(shotId) + '/jobs', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    });
+  });
+
   document.getElementById('btn-cancel').addEventListener('click', function () {
     if (!window.confirm('确定取消该镜的排队任务吗？在途任务不会被取消。')) return;
     writeOp('取消排队任务', '/api/shots/' + encodeURIComponent(shotId) + '/cancel?run=' + encodeURIComponent(run), {
