@@ -191,4 +191,5 @@ def build(run: str, rows: list[dict], reviews: dict, script: dict, now_iso: str,
     left = V["queued"] + V["rendering"] + V["todo"]          # need_frames / blocked 在等人，不进预计完成时间
     eta_all_s = round(left * all_med / max(1, len(lane_med) or 1))
     V.update(median_s=round(all_med, 1), eta_all_s=eta_all_s, eta_all=_iso_in(eta_all_s) if left else None)
+    T["script"] = [sum(1 for ep in eps if (script.get(ep) or {}).get("shots")), len(eps)]   # 审查 3 N1：剧本已导入的集 / 全部集
     return {"run": run, "at": now_iso, "totals": T, "videos": V, "episodes": episodes}

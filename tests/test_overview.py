@@ -83,3 +83,13 @@ def test_timing_attribution(tmp_path):
     t = OV.TM.episode(D.finish_events(c, "r"), 1)
     assert t["attempts"] == 3 and t["logic_min"] == 2.0 and t["code_min"] == 0.5 and round(t["detect_min"], 1) == 0.8
     assert t["steps"]["first"] == {"tries": 3, "min": 4.0, "retry": 1, "infra": 1}
+
+
+def test_n1_n2_n6_frontend_fields():
+    """审查 3 N1：totals 带 script；N2：审片候选读 clip / score；N6：审片页轮询"""
+    from pathlib import Path
+    from ns2 import overview as OV
+    out = OV.build("r", [], {}, {1: {"shots": ["ep01-S1"]}, 2: {"shots": []}}, "2026-11-09T00:00:00+09:00", [])
+    assert out["totals"]["script"] == [1, 2]
+    js = (Path(__file__).resolve().parents[1] / "frontend/review.js").read_text(encoding="utf-8")
+    assert "r.clip ||" in js and "r.score" in js and "setInterval(" in js

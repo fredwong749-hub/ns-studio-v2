@@ -117,8 +117,8 @@
     candidatesEl.innerHTML = jobRows.map(function (job) {
       var r = job.result || {};
       var takeN = (r.take_n !== undefined) ? r.take_n : (r.take !== undefined ? r.take : '–');
-      var file = r.file || r.path || r.output || '–';
-      var qc = r.qc;
+      var file = r.clip || r.file || r.path || r.output || '–';      // 审查 3 N2：视频步真实字段是 clip / score
+      var qc = (r.score !== undefined) ? r.score : r.qc;
       var qcText = (qc === null || qc === undefined) ? '–'
         : (typeof qc === 'object' ? JSON.stringify(qc) : String(qc));
       return '<div class="candidate">' +
@@ -328,6 +328,17 @@
       method: 'DELETE'
     });
   });
+
+  // 审查 3 N6：审片页也轮询（15 s，同总览页）；写操作进行中 / 页面在后台时跳过
+  var busy = false;
+  var _writeOp = writeOp;
+  writeOp = function () {
+    busy = true;
+    return _writeOp.apply(null, arguments).then(function (x) { busy = false; return x; }, function (e) { busy = false; throw e; });
+  };
+  setInterval(function () {
+    if (shotId && !busy && !document.hidden) loadShot();
+  }, 15000);
 
   if (!shotId) {
     showError('缺少 ?shot= 参数，无法加载镜详情。');
