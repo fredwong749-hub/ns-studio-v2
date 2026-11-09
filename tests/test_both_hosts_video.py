@@ -65,3 +65,19 @@ def test_retarget_queued_video_rows(tmp_path, api_mod):
     assert db.execute("SELECT count(*) FROM events WHERE job_id=? AND kind='retarget'", (q["id"],)).fetchone()[0] == 1
     assert c.post("/api/retarget", json={"run_id": "r", "ep": 5, "want_host": "gpu99"}).status_code == 400
     assert TestClient(api_mod.app).post("/api/retarget", json={"run_id": "r", "ep": 5}).status_code == 401
+
+
+def test_claim_prefers_work_only_this_host_can_do(tmp_path):
+    """出图机先领只能它出的尾帧，哪台都行的视频让给空着的那台；没有专属活时照常领共享的"""
+    from ns2 import db as D
+    c = D.connect(str(tmp_path / "q.db"))
+    c.execute("INSERT INTO runs(run_id, title, status) VALUES ('r','','producing')")
+    v, _ = D.enqueue(c, run_id="r", ep=5, shot="ep05-S1", step="video", want_host=None, sig={"a": 1})     # 先入队、谁都能领
+    l, _ = D.enqueue(c, run_id="r", ep=5, shot="ep05-S2", step="last", want_host="gpu33", sig={"a": 1})  # 后入队、只能 gpu33
+    for sid in ("ep05-S1", "ep05-S2"):
+        for st in ("first", "last") if sid == "ep05-S1" else ("first",):
+            D.enqueue(c, run_id="r", ep=5, shot=sid, step=st, want_host="gpu33", sig={"a": 1}, state="done")
+    got = D.claim(c, "gpu33", "gpu33:0", ["last", "video"])
+    assert got["id"] == l["id"]                                          # 专属的尾帧先
+    got2 = D.claim(c, "gpu36", "gpu36:0", ["last", "video"])
+    assert got2["id"] == v["id"]                                         # 视频给 gpu36

@@ -175,7 +175,7 @@ FILM_SQL = (" AND j.id = (SELECT MAX(f.id) FROM jobs f WHERE f.run_id=j.run_id A
             "       AND f.state IN ('failed','blocked','best_effort')))))")
 
 
-def _claim_sql(step: str) -> str:
+def _claim_sql(step: str, pinned: bool = False) -> str:
     """前置步 = 该镜该步“最新一行”（id 最大，重派会新起一行）必须 done/na；没入队 = 不领。
     film（shot = epNN，整集一行）：本集所有镜的最新视频行都不在 queued/running（尽力 / 阻断的镜用占位，L-204 D8 不挡整集），
     且只领本集最新的 film 行（视频每定一镜就新起一行 film，旧行被取代）"""
@@ -184,7 +184,7 @@ def _claim_sql(step: str) -> str:
                 " WHERE j.state='queued' AND j.owner_trigger=0 AND r.status='producing'"
                 " AND (j.want_host IS NULL OR j.want_host=?) AND (j.want_lane IS NULL OR j.want_lane=?) AND j.step=?"
                 " AND (j.ready_at IS NULL OR j.ready_at <= CAST(strftime('%s','now') AS REAL))" + FILM_SQL +
-                " ORDER BY j.created_at, j.id LIMIT 1")
+                " ORDER BY j.created_at, j.id LIMIT 1").replace("(j.want_host IS NULL OR j.want_host=?)", "j.want_host=?" if pinned else "(j.want_host IS NULL OR j.want_host=?)")
     pre = "".join(
         f" AND (SELECT p.state FROM jobs p WHERE p.run_id=j.run_id AND p.shot=j.shot AND p.step='{p}'"
         f" ORDER BY p.id DESC LIMIT 1) IN ('done','na','best_effort')" for p in PREREQ.get(step, ()))   # FRAME_PASSED
@@ -200,7 +200,7 @@ def _claim_sql(step: str) -> str:
             " WHERE j.state='queued' AND j.owner_trigger=0 AND r.status='producing'"
             " AND (j.want_host IS NULL OR j.want_host=?) AND (j.want_lane IS NULL OR j.want_lane=?) AND j.step=?"
             " AND (j.ready_at IS NULL OR j.ready_at <= CAST(strftime('%s','now') AS REAL))" + pre +
-            " ORDER BY j.created_at, j.id LIMIT 1")
+            " ORDER BY j.created_at, j.id LIMIT 1").replace("(j.want_host IS NULL OR j.want_host=?)", "j.want_host=?" if pinned else "(j.want_host IS NULL OR j.want_host=?)")
 
 
 def _soft_sql(soft: str) -> str:
@@ -215,7 +215,8 @@ def _soft_sql(soft: str) -> str:
 
 
 def claim(c, host: str, lane: str, steps: list[str]) -> dict | None:
-    """原子认领一条：FIFO（跨所给 steps 取最早的一条）、本机、前置步已过"""
+    """原子认领一条：本机、前置步已过；先领“只能本机做”的（want_host = 本机），再领“哪台都行”的（want_host 空），同类内 FIFO。
+    P6 11-09：视频行改成两台都能领后，出图机的道被视频占着、只能它出的尾帧排在后面（ep05 S10 / S11 尾帧等 gpu33 出完两条视频）"""
     steps = [s for s in steps if s in STEPS]
     if not steps:
         return None
@@ -225,7 +226,9 @@ def claim(c, host: str, lane: str, steps: list[str]) -> dict | None:
             c.execute("COMMIT")          # B3d / M1：每道并发 1 由库强制——这道上还有在跑的（含没回收的旧活）就不领
             return None
         cands = [r for s in steps if (r := c.execute(_claim_sql(s), (host, lane, s)).fetchone()) is not None]
-        for r in sorted(cands, key=lambda r: (r["created_at"], r["id"]))[:1]:
+        if any(r["want_host"] == host for r in cands):       # 每步 SQL 只回最早一条：有本机专属的步，再按“专属优先”重取一遍
+            cands += [r for s in steps if (r := c.execute(_claim_sql(s, pinned=True), (host, lane, s)).fetchone()) is not None]
+        for r in sorted(cands, key=lambda r: (r["want_host"] != host, r["created_at"], r["id"]))[:1]:
             cur = c.execute("UPDATE jobs SET state='running', host=?, lane=?, started_at=?, beat_at=?, error=NULL WHERE id=? AND state='queued'",
                             (host, lane, now_iso(), time.time(), r["id"]))
             if cur.rowcount != 1:
