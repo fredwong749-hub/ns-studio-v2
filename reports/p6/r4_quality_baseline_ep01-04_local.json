@@ -1,0 +1,500 @@
+{
+ "run": "series10_v2",
+ "eps": [
+  1,
+  2,
+  3,
+  4
+ ],
+ "shots": 55,
+ "frames": {
+  "image": {
+   "takes": 343,
+   "pass": 86,
+   "pass_rate": 0.251,
+   "shots": 55,
+   "first_try_pass": 27,
+   "first_try_rate": 0.491,
+   "first_try_by_shot": {
+    "ep01-S1": false,
+    "ep01-S10": false,
+    "ep01-S11": false,
+    "ep01-S12": true,
+    "ep01-S13": false,
+    "ep01-S14": true,
+    "ep01-S15": false,
+    "ep01-S16": false,
+    "ep01-S2": false,
+    "ep01-S3": true,
+    "ep01-S4": false,
+    "ep01-S5": false,
+    "ep01-S6": false,
+    "ep01-S7": true,
+    "ep01-S8": false,
+    "ep01-S9": false,
+    "ep02-S1": false,
+    "ep02-S10": true,
+    "ep02-S11": true,
+    "ep02-S12": false,
+    "ep02-S13": false,
+    "ep02-S14": false,
+    "ep02-S15": true,
+    "ep02-S16": true,
+    "ep02-S2": false,
+    "ep02-S3": false,
+    "ep02-S4": false,
+    "ep02-S5": false,
+    "ep02-S6": true,
+    "ep02-S7": false,
+    "ep02-S8": false,
+    "ep02-S9": true,
+    "ep03-S1": false,
+    "ep03-S10": true,
+    "ep03-S11": true,
+    "ep03-S2": true,
+    "ep03-S3": true,
+    "ep03-S4": false,
+    "ep03-S5": true,
+    "ep03-S6": true,
+    "ep03-S7": false,
+    "ep03-S8": true,
+    "ep03-S9": false,
+    "ep04-S1": true,
+    "ep04-S10": true,
+    "ep04-S11": true,
+    "ep04-S12": true,
+    "ep04-S2": true,
+    "ep04-S3": true,
+    "ep04-S4": false,
+    "ep04-S5": false,
+    "ep04-S6": true,
+    "ep04-S7": true,
+    "ep04-S8": true,
+    "ep04-S9": true
+   },
+   "fails": [
+    {
+     "id": "Q1",
+     "n": 122,
+     "share": 0.356,
+     "first_try": 9,
+     "title": "身份余弦（ArcFace）"
+    },
+    {
+     "id": "QB",
+     "n": 77,
+     "share": 0.224,
+     "first_try": 9,
+     "title": "共用验收（看图逐条 + 年龄 + OCR + 人数，PRODMERGE-O）"
+    },
+    {
+     "id": "Q10",
+     "n": 70,
+     "share": 0.204,
+     "first_try": 8,
+     "title": "出图后验收（身份 / 服装 / 提示词 / 人数，四项全过）"
+    },
+    {
+     "id": "Q9",
+     "n": 62,
+     "share": 0.181,
+     "first_try": 9,
+     "title": "本地看图复核（VLM，多手 / 鞋 / 造型 / 身份 / 多人 / 场景 / 文字 / 看镜头 / 塑料感 / 坏块 / 低清）"
+    },
+    {
+     "id": "G1",
+     "n": 36,
+     "share": 0.105,
+     "first_try": 8,
+     "title": "演员看镜头（只记录，ACTING R11-2）"
+    },
+    {
+     "id": "Q3",
+     "n": 15,
+     "share": 0.044,
+     "first_try": 1,
+     "title": "景别符合度（脸高档位）"
+    },
+    {
+     "id": "Q2",
+     "n": 13,
+     "share": 0.038,
+     "first_try": 1,
+     "title": "造型一致（服装 / 鞋 / 饰品区域相似度 + 颜色直方图）"
+    },
+    {
+     "id": "Q6",
+     "n": 5,
+     "share": 0.015,
+     "first_try": 1,
+     "title": "文字 / 水印"
+    },
+    {
+     "id": "Q5",
+     "n": 2,
+     "share": 0.006,
+     "first_try": 0,
+     "title": "坏手 / 多肢 / 多人"
+    },
+    {
+     "id": "Q1x",
+     "n": 1,
+     "share": 0.003,
+     "first_try": 0,
+     "title": "同场跨镜身份一致（对同场其他镜头当前首帧）"
+    }
+   ]
+  },
+  "last": {
+   "takes": 305,
+   "pass": 80,
+   "pass_rate": 0.262,
+   "shots": 52,
+   "first_try_pass": 16,
+   "first_try_rate": 0.308,
+   "first_try_by_shot": {
+    "ep01-S1": false,
+    "ep01-S10": true,
+    "ep01-S11": false,
+    "ep01-S12": true,
+    "ep01-S13": true,
+    "ep01-S14": true,
+    "ep01-S15": false,
+    "ep01-S16": true,
+    "ep01-S2": false,
+    "ep01-S3": false,
+    "ep01-S4": false,
+    "ep01-S5": false,
+    "ep01-S6": false,
+    "ep01-S7": false,
+    "ep01-S8": false,
+    "ep01-S9": false,
+    "ep02-S1": false,
+    "ep02-S10": false,
+    "ep02-S11": false,
+    "ep02-S12": true,
+    "ep02-S13": false,
+    "ep02-S14": false,
+    "ep02-S15": false,
+    "ep02-S16": true,
+    "ep02-S2": false,
+    "ep02-S3": false,
+    "ep02-S4": true,
+    "ep02-S5": false,
+    "ep02-S6": false,
+    "ep02-S7": true,
+    "ep02-S8": false,
+    "ep02-S9": false,
+    "ep03-S1": false,
+    "ep03-S10": false,
+    "ep03-S11": true,
+    "ep03-S2": false,
+    "ep03-S4": false,
+    "ep03-S6": true,
+    "ep03-S8": true,
+    "ep03-S9": false,
+    "ep04-S1": false,
+    "ep04-S10": false,
+    "ep04-S11": true,
+    "ep04-S12": true,
+    "ep04-S2": false,
+    "ep04-S3": false,
+    "ep04-S4": false,
+    "ep04-S5": true,
+    "ep04-S6": false,
+    "ep04-S7": false,
+    "ep04-S8": true,
+    "ep04-S9": false
+   },
+   "fails": [
+    {
+     "id": "Q1",
+     "n": 95,
+     "share": 0.311,
+     "first_try": 16,
+     "title": "身份余弦（ArcFace）"
+    },
+    {
+     "id": "FL",
+     "n": 80,
+     "share": 0.262,
+     "first_try": 16,
+     "title": "首尾帧差异（L-203：尾帧与首帧太像 = 重出）"
+    },
+    {
+     "id": "QB",
+     "n": 69,
+     "share": 0.226,
+     "first_try": 11,
+     "title": "共用验收（看图逐条 + 年龄 + OCR + 人数，PRODMERGE-O）"
+    },
+    {
+     "id": "Q9",
+     "n": 40,
+     "share": 0.131,
+     "first_try": 5,
+     "title": "本地看图复核（VLM，多手 / 鞋 / 造型 / 身份 / 多人 / 场景 / 文字 / 看镜头 / 塑料感 / 坏块 / 低清）"
+    },
+    {
+     "id": "Q10",
+     "n": 32,
+     "share": 0.105,
+     "first_try": 3,
+     "title": "出图后验收（身份 / 服装 / 提示词 / 人数，四项全过）"
+    },
+    {
+     "id": "G1",
+     "n": 30,
+     "share": 0.098,
+     "first_try": 6,
+     "title": "演员看镜头（只记录，ACTING R11-2）"
+    },
+    {
+     "id": "Q6",
+     "n": 7,
+     "share": 0.023,
+     "first_try": 2,
+     "title": "文字 / 水印"
+    }
+   ]
+  },
+  "q1": [
+   {
+    "who": "lead_f",
+    "verdict": "过",
+    "n": 212,
+    "min": 0.508,
+    "p25": 0.63,
+    "med": 0.69,
+    "p75": 0.751,
+    "max": 0.871
+   },
+   {
+    "who": "ch_zhuo_lin",
+    "verdict": "过",
+    "n": 146,
+    "min": 0.5,
+    "p25": 0.614,
+    "med": 0.683,
+    "p75": 0.767,
+    "max": 0.889
+   },
+   {
+    "who": "ch_jiang_yubai",
+    "verdict": "过",
+    "n": 126,
+    "min": 0.509,
+    "p25": 0.601,
+    "med": 0.664,
+    "p75": 0.721,
+    "max": 0.842
+   },
+   {
+    "who": "lead_f",
+    "verdict": "不像",
+    "n": 77,
+    "min": 0.089,
+    "p25": 0.215,
+    "med": 0.352,
+    "p75": 0.432,
+    "max": 0.498
+   },
+   {
+    "who": "lead_f",
+    "verdict": "复核带",
+    "n": 76,
+    "min": 0.407,
+    "p25": 0.471,
+    "med": 0.519,
+    "p75": 0.575,
+    "max": 0.599
+   },
+   {
+    "who": "ch_li_an",
+    "verdict": "过",
+    "n": 48,
+    "min": 0.604,
+    "p25": 0.678,
+    "med": 0.718,
+    "p75": 0.752,
+    "max": 0.829
+   },
+   {
+    "who": "ch_tang_yao",
+    "verdict": "复核带",
+    "n": 45,
+    "min": 0.435,
+    "p25": 0.505,
+    "med": 0.535,
+    "p75": 0.561,
+    "max": 0.599
+   },
+   {
+    "who": "ch_tang_yao",
+    "verdict": "不像",
+    "n": 40,
+    "min": 0.187,
+    "p25": 0.391,
+    "med": 0.44,
+    "p75": 0.48,
+    "max": 0.497
+   },
+   {
+    "who": "ch_zhou_xu",
+    "verdict": "过",
+    "n": 33,
+    "min": 0.54,
+    "p25": 0.636,
+    "med": 0.692,
+    "p75": 0.741,
+    "max": 0.826
+   },
+   {
+    "who": "ch_tang_yao",
+    "verdict": "过",
+    "n": 32,
+    "min": 0.53,
+    "p25": 0.607,
+    "med": 0.637,
+    "p75": 0.746,
+    "max": 0.88
+   },
+   {
+    "who": "ch_li_an",
+    "verdict": "不像",
+    "n": 27,
+    "min": 0.042,
+    "p25": 0.101,
+    "med": 0.111,
+    "p75": 0.126,
+    "max": 0.145
+   },
+   {
+    "who": "ch_jiang_yubai",
+    "verdict": "复核带",
+    "n": 26,
+    "min": 0.416,
+    "p25": 0.486,
+    "med": 0.538,
+    "p75": 0.568,
+    "max": 0.597
+   },
+   {
+    "who": "ch_zhuo_lin",
+    "verdict": "复核带",
+    "n": 23,
+    "min": 0.409,
+    "p25": 0.45,
+    "med": 0.506,
+    "p75": 0.566,
+    "max": 0.591
+   },
+   {
+    "who": "ch_zhuo_lin",
+    "verdict": "不像",
+    "n": 18,
+    "min": 0.127,
+    "p25": 0.269,
+    "med": 0.387,
+    "p75": 0.416,
+    "max": 0.476
+   },
+   {
+    "who": "ch_jiang_yubai",
+    "verdict": "不像",
+    "n": 13,
+    "min": 0.272,
+    "p25": 0.323,
+    "med": 0.364,
+    "p75": 0.449,
+    "max": 0.499
+   },
+   {
+    "who": "ch_zhou_xu",
+    "verdict": "复核带",
+    "n": 7,
+    "min": 0.461,
+    "p25": 0.496,
+    "med": 0.551,
+    "p75": 0.595,
+    "max": 0.595
+   },
+   {
+    "who": "ch_zhuo_lin",
+    "verdict": "同一角色第二张脸",
+    "n": 5,
+    "min": 0.458,
+    "p25": 0.458,
+    "med": 0.461,
+    "p75": 0.609,
+    "max": 0.609
+   },
+   {
+    "who": "ch_zhuo_lin",
+    "verdict": "可放行",
+    "n": 3,
+    "min": 0.655,
+    "p25": 0.655,
+    "med": 0.691,
+    "p75": 0.713,
+    "max": 0.713
+   },
+   {
+    "who": "ch_zhou_xu",
+    "verdict": "同一角色第二张脸",
+    "n": 2,
+    "min": 0.649,
+    "p25": 0.649,
+    "med": 0.705,
+    "p75": 0.761,
+    "max": 0.761
+   },
+   {
+    "who": "ch_tang_yao",
+    "verdict": "局部却露脸",
+    "n": 1,
+    "min": 0.52,
+    "p25": 0.52,
+    "med": 0.52,
+    "p75": 0.52,
+    "max": 0.52
+   },
+   {
+    "who": "ch_li_an",
+    "verdict": "复核带",
+    "n": 1,
+    "min": 0.568,
+    "p25": 0.568,
+    "med": 0.568,
+    "p75": 0.568,
+    "max": 0.568
+   }
+  ],
+  "fl": {
+   "struct": {
+    "n": 172,
+    "min": -0.133,
+    "p25": 0.509,
+    "med": 0.787,
+    "p75": 0.899,
+    "max": 0.998
+   },
+   "ssim": {
+    "n": 172,
+    "min": 0.226,
+    "p25": 0.38,
+    "med": 0.48,
+    "p75": 0.618,
+    "max": 0.964
+   }
+  }
+ },
+ "video": {
+  "clips": 0,
+  "gate_pass": 0,
+  "motion_mean": {},
+  "still_frac": {},
+  "low_motion_lt_1": 0,
+  "fails": {}
+ }
+}
