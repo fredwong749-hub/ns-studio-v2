@@ -60,11 +60,25 @@ def test_record_take_final_fail_picks_min_penalty(tmp_path, monkeypatch):
     assert r["best_effort_n"] == 4 and d["active"]["video"] == 4                              # penalty 最小的那条
 
 
+class _AllLoras(set):
+    def __contains__(self, x):
+        return True
+
+
+def _frames_takes(tmp_path, monkeypatch):
+    """审查 3 M5 之后 preflight 读不到 takes.json / 问不到 LoRA = infra：流程测试给一份本机首尾帧账本 + 假 LoRA 清单"""
+    d = tmp_path / "data/renders/r/ep01/S1"
+    d.mkdir(parents=True, exist_ok=True)
+    (d / "takes.json").write_text(json.dumps({"active": {}, "takes": []}), encoding="utf-8")
+    monkeypatch.setattr(V, "comfy_loras", lambda lane: _AllLoras())
+
+
 def test_run_flow_with_fake_comfy(tmp_path, monkeypatch):
     monkeypatch.setattr(V, "shot_adult", lambda run, sid: False)
     _patch_takes(tmp_path, monkeypatch)
     monkeypatch.setattr(V, "ROOT", tmp_path)
-    (tmp_path / "data").mkdir()
+    (tmp_path / "data").mkdir(exist_ok=True)
+    _frames_takes(tmp_path, monkeypatch)
     out = tmp_path / "out.mp4"; out.write_bytes(b"x")
     monkeypatch.setattr(V, "submit", lambda lane, var, prefix, tag, seed=None: "pid1")
     monkeypatch.setattr(V, "wait", lambda lane, pid, timeout_s: {"path": str(out), "gpu_s": 400})
@@ -87,6 +101,7 @@ def _fake_render(tmp_path, monkeypatch, score_fn):
     _patch_takes(tmp_path, monkeypatch)
     monkeypatch.setattr(V, "ROOT", tmp_path)
     (tmp_path / "data").mkdir(exist_ok=True)
+    _frames_takes(tmp_path, monkeypatch)
     out = tmp_path / "out.mp4"; out.write_bytes(b"x")
     calls = {"submit": 0}
 
@@ -145,9 +160,17 @@ def test_video_preflight(tmp_path, monkeypatch):
     assert any("不在本机" in x for x in bad) and any("首帧当前版已变" in x for x in bad)
     monkeypatch.setattr(V, "comfy_loras", lambda lane: set())
     assert any("没装 LoRA" in x for x in V.preflight(job, var, "gpu36:0", {}))
-    monkeypatch.setattr(V, "comfy_loras", lambda lane: None)                       # 问不到 ComfyUI → 不误拦
+    monkeypatch.setattr(V, "comfy_loras", lambda lane: {"x.safetensors"})
     takes(4, "2026-11-08T12:00", 2, "2026-11-08T11:00")                            # 首帧重出了、尾帧还是旧的
     assert any("比首帧" in x for x in V.preflight(job, var, "gpu36:0", {}))
+    import pytest
+    monkeypatch.setattr(V, "comfy_loras", lambda lane: None)                       # 审查 3 M5：问不到 ComfyUI → infra，不再跳过
+    with pytest.raises(V.PreflightInfra):
+        V.preflight(job, var, "gpu36:0", {})
+    assert not any("LoRA" in x for x in V.preflight(job, {**var, "graph": {}}, "gpu36:0", {}))   # 不用 LoRA 的变体不问、不报 infra
+    (d / "takes.json").unlink()                                                    # takes.json 读不到 → infra
+    with pytest.raises(V.PreflightInfra):
+        V.preflight(job, {**var, "graph": {}}, "gpu36:0", {})
 
 
 def test_handoff_pulls_image_host_frames(tmp_path, monkeypatch):

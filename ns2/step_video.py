@@ -9,6 +9,7 @@ payload（ns2.enqueue_video 从本机 build_jobs 产物 video/jobs.json 取，�
 """
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import shutil
@@ -40,8 +41,12 @@ def api(port: int, path: str, data: bytes | None = None, ctype: str = "applicati
 _loras: dict = {}
 
 
+class PreflightInfra(RuntimeError):
+    """审查 3 M5：preflight 自己查不了（LoRA 清单问不到 / takes.json 读不到）= infra（回队不计次），不再静默跳过那一项"""
+
+
 def comfy_loras(lane: str) -> set | None:
-    """本道 ComfyUI 装了哪些 LoRA（/object_info，按道缓存）；问不到 → None（preflight 不因查询失败误拦，提交时 node_errors 兜底）"""
+    """本道 ComfyUI 装了哪些 LoRA（/object_info，按道缓存）；问不到 → None（preflight 据此报 infra，不再跳过检查）"""
     if lane not in _loras:
         try:
             info = json.loads(api(PORTS[lane], "/object_info/LoraLoaderModelOnly", timeout=60))
@@ -52,10 +57,11 @@ def comfy_loras(lane: str) -> set | None:
 
 
 def _active_takes(run: str, sid: str) -> dict:
+    f = ROOT / "data/renders" / run / sid.split("-")[0] / sid.split("-")[1] / "takes.json"
     try:
-        d = json.loads((ROOT / "data/renders" / run / sid.split("-")[0] / sid.split("-")[1] / "takes.json").read_text(encoding="utf-8"))
-    except (OSError, ValueError):
-        return {}
+        d = json.loads(f.read_text(encoding="utf-8"))
+    except (OSError, ValueError) as e:
+        raise PreflightInfra(f"takes.json 读不到（{e!r}），首尾帧是否仍是当前版没法核"[:300]) from e
     act = d.get("active") or {}
     by = {(t.get("stage"), t.get("n")): t for t in d.get("takes") or []}
     return {st: by.get((st, act.get(st))) for st in ("image", "last") if act.get(st) is not None}
@@ -69,12 +75,13 @@ def preflight(job: dict, var: dict, lane: str, p: dict) -> list[str]:
     for k, rel in (var.get("inputs") or {}).items():
         if not (ROOT / str(rel)).is_file():
             out.append(f"输入 {k} 不在本机：{rel}")
-    have = comfy_loras(lane)
-    if have is not None:
-        for n in (var.get("graph") or {}).values():
-            name = (n.get("inputs") or {}).get("lora_name")
-            if n.get("class_type", "").startswith("Lora") and isinstance(name, str) and name not in have:
-                out.append(f"{lane} 没装 LoRA {name}")
+    used = [n["inputs"]["lora_name"] for n in (var.get("graph") or {}).values()
+            if n.get("class_type", "").startswith("Lora") and isinstance((n.get("inputs") or {}).get("lora_name"), str)]
+    if used:
+        have = comfy_loras(lane)
+        if have is None:
+            raise PreflightInfra(f"{lane} 的 LoRA 清单问不到（/object_info），没法核本变体用的 {len(used)} 个 LoRA")
+        out += [f"{lane} 没装 LoRA {name}" for name in used if name not in have]
     act = _active_takes(job["run_id"], job["shot"])
     ft, lt = act.get("image"), act.get("last")
     if p.get("first_take") is not None and (ft or {}).get("n") != p["first_take"]:
@@ -89,7 +96,7 @@ def preflight(job: dict, var: dict, lane: str, p: dict) -> list[str]:
 def upload(lane: str, rel: str) -> str:
     p = ROOT / rel
     st = p.stat()
-    key = (lane, rel, st.st_mtime_ns, st.st_size)          # M5：同路径重渲后指纹变 → 重传，不复用旧的 Comfy 文件
+    key = (lane, rel, st.st_mtime_ns, st.st_size, hashlib.sha256(p.read_bytes()).hexdigest())   # 审查 3 M5：键加内容 hash（同 mtime / 大小改内容也重传）
     if key in _uploads:
         return _uploads[key]
     b = "----ns2" + uuid.uuid4().hex
@@ -385,7 +392,10 @@ def run(job: dict, lane: str):
         return "blocked", None, f"没有可派的变体：{why}"[:900]     # B4：编译器给的缺什么原文带出来（A14 needs_writer）
     name, var = pv
     sid, ep = job["shot"], int(job["ep"])
-    bad = preflight(job, var, lane, p)
+    try:
+        bad = preflight(job, var, lane, p)
+    except PreflightInfra as e:       # 审查 3 M5：查不了 ≠ 查过了，回队不计次
+        return "infra", {"variant": name, "has_output": False}, f"视频 preflight 查不了：{e}"
     if bad:                           # M5：提交前查，缺什么写清，不白跑 GPU
         return "blocked", {"variant": name, "preflight": bad, "has_output": False}, "视频 preflight 不过：" + "；".join(bad)[:900]
     prefix = f"ns2/{sid}__{name}"
