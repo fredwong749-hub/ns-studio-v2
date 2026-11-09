@@ -1,6 +1,19 @@
 # STATE（ns-studio-v2，活文件）
 
-当前：**按任务书 ns2-auto-iterate-brief 迭代**（P0 堵点 → P1 主要项 → P2 前端 → P3 视频收尾）。M0 ✅ · M1 ✅ 11-08 20:18 · M2a/M2b 11-08 22:05
+当前（11-09）：**按任务书第二版 ns2-auto-iterate-brief-2 迭代**（第三次审查 HEAD 042dd21 结论 STILL FIX-FIRST）——P0 先关，**P0 关完之前不开新集、不再跑 ep05**。
+M0 ✅ · M1 ✅ 11-08 20:18 · M2a/M2b 11-08 22:05 · P6（整体重构）R0 ✅ / R1a 进行中（见下 P6 节）
+
+## 任务书第二版进度（证据 reports/p7/ …，每项一份报告 + pytest txt）
+- Pillow 进 requirements（全新 venv 62/62）→ reports/p7/p0_pillow.md
+- B1：文件口白名单（queue.db / 密钥 / 日志 403）、live 入队拒伪造终态、迁移走默认关的 /api/import/jobs、密钥多行轮换 + 到期、浏览器 90 天到期 + 两页可清除 → reports/p7/b1_files_import_key.md
+- B3：视频 prompt 在 wait 前落盘 + 登记，回收 → 本机心跳取走 /queue 删 + /interrupt，重启撤残留，wait 三个错误分支也撤，回收退避 120 s → reports/p7/b3_reap_interrupt.md（**帧步旧执行器未覆盖**，R2 做）
+- 堵点 3：触发先验 is_adult、撤销触发、总览带 adult / triggered、审片页只在成人镜给按钮 → reports/p7/b_adult_trigger.md
+- 堵点 4：成片默认不带 force，另设“强制重出成片” → reports/p7/b4_assemble_no_force.md
+- 堵点 5：收尾报告假 ✅ 已改 ⚠️；本机证据 reports/p3/r17（live 重跑 + takes seq 对照**待 SSH**）
+- promote_best ↔ auto_current 对账（规则 4 + 成人拒绝 + promote_only 接上线）→ reports/p7/promote_best_reconcile.md
+- N7 / N8：批量定稿不覆盖已驳回、成人显式拒、撤销定稿按钮 → reports/p7/n7n8_bulk_review.md
+- 审片史每日导出（项目方 11-09 批）→ reports/p7/review_export.md（gpu33 定时任务安装**待 SSH**）
+- **SSH 跳板 11-09 约 11:00 JST 起不通**（两台都连不上，隧道 18900 的只读接口仍通）：以上全部只在本机测过，**未部署**；部署 + live 证据待恢复后补
 
 ## 任务书迭代进度（证据 reports/p0/ …）
 - P0 r1（11-09 01:5x）：B1 ✅ · B2 ✅ · B4 ✅；B3 部分（op_id / cancel）；顺带 M4、M5 部分、M13 部分。证据 reports/p0/r1_B1_B2_B4.md
@@ -21,9 +34,20 @@
   打开方式：笔记本浏览器 http://127.0.0.1:18900/ （写操作第一次会要密钥：服务器 /root/work/fredw/ns2/secret.key）
 - P3 r14：smoke_v2 ep01 全程新系统跑通（script→board→first→last→video→film，无人工派单；墙钟 37 分钟（r14 标题 23 分钟有误，审查 3 更正）；同输入 0 新行：本机证据见 reports/p3/r17，live 待补）；
   **真机抓到首尾帧跨机交接缺失**（视频机用了旧首帧）→ ns2/handoff.py 修好并重跑验证（236 用 v14/v4，film v2）。证据 reports/p3/r14_smoke_full_chain.md
-- 待项目方：ep03-S4（成人，首帧待复核 + 触发）（series10 ep01 不重出：项目方 11-09 定 smoke 证明已够）
+- 待项目方：ep03-S4（成人，首帧 Q9 未过待复核 + 触发；视频行是 blocked，要先定首帧）（series10 ep01 不重出：项目方 11-09 定 smoke 证明已够）
 - P3 r15：总览 need_frames 判定修正、ETA 不计等人的镜。证据 reports/p3/r15_overview_need_frames.md
-- 收尾报告：reports/closing_20261109.md（验收逐条 + 10 项遗留）（ep03-S4 首个真活、ep01 整集、同输入 0 新版本）→ minor 余项 → 收尾报告（重试保 created_at 插队）→ minor；然后 P2 前端（ns2 同源新页）、P3
+- 收尾报告：reports/closing_20261109.md（验收逐条 + 10 项遗留；“同输入 0 新版本”已从假 ✅ 改为 ⚠️）
+
+## P6 整体重构（项目方 11-09 批，docs/P6_PLAN.md）
+- 目标：一整集新剧本全自动、≤ 50 分钟、项目方只点一次“全部通过”（成人触发除外）。阶段 R0 → R1a → R1 → R2 → R3 → R4 → R5 → R6
+- 五项决定（P6_PLAN §4）：① 按方案开工；② takes 搬进 gpu33 库（语义不变、旧 takes.json 保留；**R1 未开始**）；③ 基准 ep05、验收 ep06；④ 尽力版一律自动用，**范围 = 全部集（11-09 再确认）**，与 auto_current 对账为规则 4；⑤ 女主角钉死项目方给的一张参考图（服务器 assets/identity/lead_ref_v1.png，不进公开仓库），其他人物全合成
+- 新队列步骤：script → assets（一集规划）→ asset（一资产一行，镜只等自己缺的）→ board → first → last → video → film
+- R0（a43357a）：ep05 新剧本基线，12/13 镜分镜预检不过（缺前期资产）→ 加 R1a
+- R1a（334775b，reports/p6/r1a_ep05_status.md）：资产全自动通，13/13 过分镜；首帧 ready 6 / 尽力版 7、视频 0 条、墙钟 261.6 分钟（远超 50）。系统性原因：参考板印字被照画（Q6）、小脸身份（Q1）、只露手缺人（Q10）、排排站（G1）、尾帧与首帧太像（FL）；gpu33 两道干全集、gpu36 闲（出图分区按集分机，R1 的事）
+- R4 先行三处（无 live 证据）：841156c 视频 0 变体带原因（**pick_variant 为 None 的线上路径未覆盖**）、4fa1f95 参考板不印字、042dd21 尾帧全太像退回 I2VA
+- resident_sync 覆盖事件（11-09）：笔记本旧常驻用旧清单覆盖服务器 assets_v2/manifest.json（4 条资产登记被冲）→ 经项目方批准停掉旧系统笔记本写服务器的部分，登记已补回（服务器备份 bak_p6_restore_*；恢复记录在旧部署目录，不在本仓库）
+- ep06 剧本（16 镜 / 92 秒）已写好（草稿，不进仓库）；**按导入器整集 🔴 = 16/16 成人镜，全部要项目方触发**——做“全自动验收集”要另议
+- **ep05 停跑，直到 P0 关完**（任务书第二版）
 
 ## 线上（gpu33 / gpu36，/root/work/fredw/ns2/）
 - API：gpu33 只绑 10.0.0.33:8900（pid 见 api.pid），db data/queue.db（部署前改表都先 .backup：queue.db.bak_r6_* / bak_r12_*）
@@ -36,11 +60,12 @@
 
 ## M2 结果（PLAN §M2）
 - 迁移导入 55 镜 × 3 步（M2a）；film 步 v1（ep01–04 成片在剧本 ±2 秒内，M2a）；唯一总览 + 定稿 / 取消 / 成片 / 成人触发接口（M2b、P0 r1）
-- script / board 两步上线并真机跑通（P3 r14：smoke_v2 ep01 全程新系统，无人工派单，墙钟 23 分钟）
-- ① ep01 16/16 视频落定：S3 尽力版等项目方点“用这版 / 修改”（系统不代定）
+- script / board 两步上线并真机跑通（P3 r14：smoke_v2 ep01 全程新队列、执行层仍是旧部署目录，无人工派单，墙钟 37 分钟；r14 写的 23 分钟有误、“GPU 14.9 分钟”无 timing 源文件，待补或删）
+- ① ep01 16/16 视频落定（film v1 是用错帧的 job 226 合成的，见 r14；v2 为修正版）
 
 ## 坏点队列 / 遗留
-- 待项目方：series10 尽力版视频 24 镜定 / 改；ep03-S4 首帧（成人）复核 + 触发
+- series10 尽力版 24 镜 + 其余：**项目方 11-09 确认是本人在总览页点的“全部通过”**（55 镜 review=passed；具体时间 / 镜数待 SSH 后从 reviews 表核，收尾第 10 项核完再关）
+- 待项目方：ep03-S4 首帧（成人）复核 + 触发；浏览器真点总览 / 审片页；gpu36 回滚真演练
 - models.lock：6 个 LoRA sha 未登记、purelens 重复登记（未安装）、两台各 10+ 未登记 LoRA——项目方 11-09 定：暂不强制校验（只读校验照跑、不挡出片），以后再议（reports/models_lock_check.md）
 - 仓库保持 PUBLIC（项目方 11-09 定）；git 历史里仍有旧拓扑文件
 - tunnel_supervisor.py plan 子命令对现配置 KeyError 'hosts'（旧仓库工具，未修）
@@ -50,12 +75,12 @@
 - ep03 全 11 镜是成人镜（explicit）：只由项目方触发，新系统不自动渲；gpu33 视频分区当前只有 ep03
 - M0 报告更正：首帧 54 done + 1 待复核（ep03-S4 Q9 没过，尽力版）；原报告只看 postflight.ok 偏宽，已统一到 ns2/gates
 - PLAN 修正 ⑦（M1 新）：生产视频真实路径是 build_jobs 变体 + vidgen 提交，不是 h3_video.render
-- ep03-S4：旧视频子系统记 waiting_frame，但首尾帧在 takes.json 已过（旧系统多口径的又一例）
+- ep03-S4：首帧 Q9 未过（尽力版待复核），尾帧 ready；视频 blocked（审查 3 更正：原写“首尾帧已过”不对）
 
 ## M1b 验收证据（reports/m1/）
-- job 15 ep01-S1 视频试跑（gpu33:1）：v1 / s2 / s3 三条出片，打分 mean 3.26 / 2.63 / ?，penalty 0.512 / 0.365 / 0.39，全过视频门；trial 不动当前版（takes seq 167 前后一致）
+- job 15 ep01-S1 视频试跑（gpu33:1）：v1 / s2 / s3 三条出片、trial 不动当前版（takes seq 167 前后一致）。（打分逐条数字原写“3.26 / 2.63 / ?”无原始证据，审查 3 标未证实，已删）
 - 首跑 bug：score_clip PATH 无 ffmpeg → 崩被当没过门连渲 3 条（~18 GPU 分钟），188f793 修（打分崩 = infra 不重渲、重派先补打分）
-- 同输入两次入队：job 16 created True → False，行数 1，takes 不变
+- 同输入两次入队：job 16 created True → False（只这一行的口头记录；整集同输入证据见 reports/p3/r17，live 待补）
 - 回滚演练 19:27–19:29：旧系统起 90 s 无冲突、takes 不变 → 切回新系统，echo job 17 done（rollback_drill.log）
 
 ## M1c（9dd2160）
@@ -75,4 +100,4 @@
 - gpu36：20:19 JST STOP + 停 producer 2894126 / night 2894128 / vidgen 2895944 / 回魂冒烟 producer 1273897（gpu36 自 00:16 起三卡全闲；日志 gpu36 /root/work/fredw/ns2/logs/P5_stop_old_gpu36.log）
 - **坑（已堵）**：笔记本 resident_sync 的 W18 lifecycle 见旧 producer 心跳过期就 request_restart → resident_restart.sh / start.sh **rm STOP** → 旧派单复活。gpu33 实测 19:05、19:44 两次复活（期间 0 派单 0 出图，旧日志核过，无双写）。
   处置：笔记本 config/pipeline/sop_gate.json lifecycle.apply=false（备份 .bak_P5_1108；旧仓库已封存，此改动只在笔记本工作区，不入旧库）；gpu33 20:22 再停
-- 仍在笔记本跑的旧常驻：resident_sync / autoflow / sentinel / scorecard / tunnel_supervisor（各 2 份，非本会话所起，未动）。STOP 与 lifecycle 关之后它们不再能拉起服务器旧派单；M3 后按计划全停
+- 笔记本旧常驻：11-09 经项目方批准停掉写服务器的部分（计划任务停用，恢复办法：Enable-ScheduledTask，清单在本机 scratchpad old_system_stop_20261109.txt）
