@@ -300,3 +300,23 @@ def test_b3_wait_cancels_on_error_branches(monkeypatch):
     r = SV.wait("gpu33:0", "p", timeout_s=60, poll_s=0, grace_s=0)
     assert r["error"].startswith("comfy_down") and r["cancel"] == "deleted"
     assert calls == ["p", "p", "p"]
+
+
+def test_export_reviews_roundtrip_and_keep(tmp_path):
+    """审查 3 §9.5（项目方 11-09 定每日导出）：导出 reviews + triggers；只留最近 N 份；恢复只补缺、不覆盖"""
+    import json
+    from ns2 import export_reviews as X
+    c = D.connect(tmp_path / "q.db")
+    D.set_review(c, "r", "ep01-S1", "passed")
+    D.set_review(c, "r", "ep01-S2", "rejected", "手")
+    D.trigger(c, "r", "ep03-S4")
+    for i in range(3):
+        f = X.export(str(tmp_path / "q.db"), str(tmp_path / "bk"), keep=2, now=f"2026-11-1{i}T05:10:00")
+    files = sorted((tmp_path / "bk").glob("reviews_*.json"))
+    assert len(files) == 2 and files[-1] == f
+    doc = json.loads(f.read_text(encoding="utf-8"))
+    assert {r["shot"]: r["state"] for r in doc["reviews"]} == {"ep01-S1": "passed", "ep01-S2": "rejected"} and doc["triggers"][0]["shot"] == "ep03-S4"
+    c2 = D.connect(tmp_path / "new.db")
+    D.set_review(c2, "r", "ep01-S1", "unreviewed")
+    assert X.restore(str(tmp_path / "new.db"), str(f)) == {"reviews": 1, "triggers": 1}
+    assert D.reviews(D.connect(tmp_path / "new.db"), "r")["ep01-S1"]["state"] == "unreviewed"      # 不覆盖已有
