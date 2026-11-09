@@ -76,6 +76,51 @@ def finish_durable(api: str, lane: str, body: dict, max_wait_s: float = 12 * 360
     return "gave_up"
 
 
+def comfy_mark(job: dict, lane: str, pid: str, live: bool) -> None:
+    """审查 3 B3：提交 ComfyUI 后（wait 之前）先落本机 pending/comfy/<pid>.json 再上报 API；结束 / 撤掉后删文件、报 done。
+    worker 死了：重启时 cancel_leftover_prompts 撤掉文件里剩下的；worker 活着但卡住被回收：API 心跳回包让它撤"""
+    host = lane.split(":")[0]
+    d = (PENDING / "comfy") if PENDING is not None else None
+    if d is not None:
+        d.mkdir(parents=True, exist_ok=True)
+        f = d / f"{pid}.json"
+        if live:
+            f.write_text(json.dumps({"job_id": job.get("id"), "lane": lane, "pid": pid}), encoding="utf-8")
+        else:
+            f.unlink(missing_ok=True)
+    api = os.environ.get("NS2_API")
+    if api and job.get("id") is not None:
+        try:
+            post(api, "/api/worker/comfy", {"host": host, "job_id": job["id"], "lane": lane, "pid": pid, "state": "live" if live else "done"})
+        except Exception as e:  # noqa: BLE001 — 本机文件已落，API 暂时连不上不挡出片
+            log(lane, "COMFY_MARK_ERR", pid, repr(e)[:160])
+
+
+def cancel_prompts(items: list[dict], cancel=None) -> list:
+    """撤 ComfyUI prompt（/queue 删 + 正在跑则 /interrupt），撤完报 done"""
+    from ns2 import step_video as SV
+    cancel = cancel or SV.cancel
+    out = []
+    for it in items:
+        r = cancel(it["lane"], it["pid"])
+        log(it["lane"], "COMFY_CANCEL", it.get("job_id"), it["pid"], r)
+        comfy_mark({"id": it.get("job_id")}, it["lane"], it["pid"], live=False)
+        out.append((it["pid"], r))
+    return out
+
+
+def cancel_leftover_prompts(cancel=None) -> list:
+    """重启时：上个进程提交了、没等到结束就死了的 prompt → 撤掉（否则和回收后重派的同一活双跑）"""
+    d = (PENDING / "comfy") if PENDING is not None else None
+    items = []
+    for f in sorted(d.glob("*.json")) if d is not None and d.is_dir() else []:
+        try:
+            items.append(json.loads(f.read_text(encoding="utf-8")))
+        except (OSError, ValueError):
+            continue
+    return cancel_prompts(items, cancel)
+
+
 def resend_pending(api: str) -> list:
     """重启时补报上次没报出去的结果（API 已回收的会 409 → rejected/）"""
     out = []
@@ -194,6 +239,8 @@ def main(argv=None) -> int:
     PENDING = Path(os.environ.get("NS2_PENDING") or Path(__file__).resolve().parents[2] / "pending")
     for jid, st in resend_pending(a.api):
         log("RESEND", jid, st)
+    for pid, r in cancel_leftover_prompts():
+        log("LEFTOVER_PROMPT", pid, r)
     steps = a.steps.split(",")
     log("WORKER", a.host, lanes, steps, a.api)
     if a.files:
@@ -210,7 +257,9 @@ def main(argv=None) -> int:
             if dead:
                 log("LANE_DEAD", dead)          # 少一条道要喊出来（不静默少干活）
             try:
-                post(a.api, "/api/worker/heartbeat", {"host": a.host, "lanes": lanes})
+                hb = post(a.api, "/api/worker/heartbeat", {"host": a.host, "lanes": lanes})
+                if hb.get("cancel"):                 # B3：API 回收了本机的活 → 撤掉它在 ComfyUI 上的 prompt
+                    cancel_prompts(hb["cancel"])
             except Exception:  # noqa: BLE001
                 pass
             time.sleep(30)

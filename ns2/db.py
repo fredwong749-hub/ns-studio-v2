@@ -48,6 +48,8 @@ CREATE TABLE IF NOT EXISTS runs (run_id TEXT PRIMARY KEY, title TEXT NOT NULL DE
 CREATE TABLE IF NOT EXISTS triggers (run_id TEXT NOT NULL, shot TEXT NOT NULL, at TEXT NOT NULL, by TEXT, PRIMARY KEY (run_id, shot));
 CREATE TABLE IF NOT EXISTS reviews (run_id TEXT NOT NULL, shot TEXT NOT NULL, state TEXT NOT NULL, reason TEXT, at TEXT NOT NULL,
   PRIMARY KEY (run_id, shot));
+CREATE TABLE IF NOT EXISTS comfy_prompts (pid TEXT PRIMARY KEY, job_id INTEGER NOT NULL, host TEXT NOT NULL, lane TEXT NOT NULL,
+  state TEXT NOT NULL DEFAULT 'live', at TEXT NOT NULL, done_at TEXT);
 CREATE TABLE IF NOT EXISTS events (id INTEGER PRIMARY KEY AUTOINCREMENT, at TEXT NOT NULL, job_id INTEGER, kind TEXT NOT NULL, detail TEXT);
 """
 STAGE_OF = {"first": "image", "last": "last", "video": "video"}
@@ -285,16 +287,42 @@ def enqueue_film(c, run_id: str, ep: int, want_host: str | None = None, force: b
     return enqueue(c, run_id=run_id, ep=ep, shot=f"ep{ep:02d}", step="film", want_host=want_host, sig=sig, max_tries=2)
 
 
+REAP_BACKOFF_S = 120
+
+
+def comfy_record(c, job_id: int, host: str, lane: str, pid: str) -> bool:
+    """审查 3 B3：worker 提交 ComfyUI 后、wait 之前登记 prompt_id（只认本机正在跑的活）"""
+    j = c.execute("SELECT 1 FROM jobs WHERE id=? AND state='running' AND host=?", (job_id, host)).fetchone()
+    if j is None:
+        return False
+    c.execute("INSERT OR IGNORE INTO comfy_prompts(pid, job_id, host, lane, state, at) VALUES (?,?,?,?, 'live', ?)", (pid, job_id, host, lane, now_iso()))
+    return True
+
+
+def comfy_done(c, pid: str, host: str) -> None:
+    c.execute("UPDATE comfy_prompts SET state='done', done_at=? WHERE pid=? AND host=? AND state IN ('live','cancel_req','cancel_sent')", (now_iso(), pid, host))
+
+
+def comfy_cancels(c, host: str) -> list[dict]:
+    """要本机 worker 撤掉的 prompt（回收时标的）。取走即标 sent；worker 撤完回报 done"""
+    rows = [dict(r) for r in c.execute("SELECT pid, job_id, lane FROM comfy_prompts WHERE host=? AND state='cancel_req'", (host,))]
+    for r in rows:
+        c.execute("UPDATE comfy_prompts SET state='cancel_sent' WHERE pid=? AND state='cancel_req'", (r["pid"],))
+    return rows
+
+
 def reap(c, lease_s: float = LEASE_S, now: float | None = None) -> list[int]:
-    """心跳超时的 running → queued（tries+1；用完 → failed）"""
+    """心跳超时的 running → queued（tries+1；用完 → failed）。审查 3 B3：该活登记过的 ComfyUI prompt 标“要撤”（本机 worker 下次心跳取走
+    → /queue 删 + /interrupt），回队后 REAP_BACKOFF_S 内不许再领（防旧 prompt 还在跑就双跑）"""
     t = (now or time.time()) - lease_s
     ids = [r["id"] for r in c.execute("SELECT id FROM jobs WHERE state='running' AND (beat_at IS NULL OR beat_at < ?)", (t,))]
     done = []
     for i in ids:                         # M3：带谓词——中间心跳 / 上报过的不动
-        cur = c.execute("UPDATE jobs SET tries=tries+1, host=NULL, lane=NULL, error='心跳超时回收',"
+        cur = c.execute("UPDATE jobs SET tries=tries+1, host=NULL, lane=NULL, error='心跳超时回收', ready_at=?,"
                         " state=CASE WHEN tries+1 >= max_tries THEN 'failed' ELSE 'queued' END"
-                        " WHERE id=? AND state='running' AND (beat_at IS NULL OR beat_at < ?)", (i, t))
+                        " WHERE id=? AND state='running' AND (beat_at IS NULL OR beat_at < ?)", ((now or time.time()) + REAP_BACKOFF_S, i, t))
         if cur.rowcount == 1:
+            c.execute("UPDATE comfy_prompts SET state='cancel_req' WHERE job_id=? AND state='live'", (i,))
             _event(c, i, "reap")
             done.append(i)
     return done

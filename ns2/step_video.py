@@ -157,7 +157,7 @@ def wait(lane: str, pid: str, timeout_s: float, poll_s: float = 10, grace_s: flo
         except OSError as e:
             down_since = down_since or time.time()
             if time.time() - down_since > grace_s:
-                return {"error": f"comfy_down {grace_s:.0f}s：{e!r}"[:200], "infra": True}
+                return {"error": f"comfy_down {grace_s:.0f}s：{e!r}"[:200], "infra": True, "cancel": cancel(lane, pid)}
             time.sleep(poll_s)
             continue
         if pid in h:
@@ -167,14 +167,14 @@ def wait(lane: str, pid: str, timeout_s: float, poll_s: float = 10, grace_s: flo
                 if ts.get("execution_start") else None
             if st.get("status_str") == "error":
                 return {"infra": True, "error": "comfy_error " + json.dumps([m for m in st.get("messages") or [] if m[0] == "execution_error"], ensure_ascii=False)[-500:],
-                        "gpu_s": gpu_s}
+                        "gpu_s": gpu_s, "cancel": cancel(lane, pid)}
             for node in (h[pid].get("outputs") or {}).values():
                 for key in ("images", "videos", "gifs"):
                     for im in node.get(key) or []:
                         if str(im.get("filename", "")).endswith(".mp4"):
                             return {"path": "/".join(x for x in (OUTDIR[lane], im.get("subfolder"), im["filename"]) if x), "gpu_s": gpu_s}
             if st.get("completed"):
-                return {"error": "no_output", "gpu_s": gpu_s, "infra": True}
+                return {"error": "no_output", "gpu_s": gpu_s, "infra": True, "cancel": cancel(lane, pid)}
         time.sleep(poll_s)
     return {"error": "timeout", "infra": True, "cancel": cancel(lane, pid)}
 
@@ -392,8 +392,13 @@ def run(job: dict, lane: str):
     tag = {"agent": "NS2", "kind": "video", "shot": sid, "job": job["id"], "label": name}
     seed = int.from_bytes(os.urandom(4), "big") if p.get("fresh_seed") else None
     pid = submit(lane, var, prefix, tag, seed)
+    from ns2.worker import comfy_mark
+    comfy_mark(job, lane, pid, live=True)          # 审查 3 B3：wait 之前落盘 + 登记，回收时才撤得掉
     frames = int(var.get("frames") or 125)
-    res = wait(lane, pid, timeout_s=max(1800, frames * 12))
+    try:
+        res = wait(lane, pid, timeout_s=max(1800, frames * 12))
+    finally:
+        comfy_mark(job, lane, pid, live=False)
     if res.get("error"):              # M4：ComfyUI 出错 / 超时 / 没产出 / 连不上 = infra（不烧变体机会；连续 5 次转 blocked）
         return "infra", {"variant": name, "pid": pid, "has_output": False, **res}, res["error"]
     used = var.get("seed") if seed is None else seed

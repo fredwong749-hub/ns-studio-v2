@@ -234,12 +234,33 @@ def claim(c: Claim):
 
 @app.post("/api/worker/heartbeat")
 def heartbeat(b: Beat):
+    """整机心跳（job_id 空）顺带取走“要撤的 ComfyUI prompt”（审查 3 B3：回收的活）"""
     _workers[b.host] = {"at": time.time(), "lanes": b.lanes}
-    ok = True
-    if b.job_id is not None:
-        with _lock:
+    ok, cancel = True, []
+    with _lock:
+        if b.job_id is not None:
             ok = D.heartbeat(conn(), b.job_id, b.host)
-    return {"ok": ok}
+        else:
+            cancel = D.comfy_cancels(conn(), b.host)
+    return {"ok": ok, "cancel": cancel}
+
+
+class ComfyRec(BaseModel):
+    host: str
+    job_id: int
+    lane: str
+    pid: str
+    state: str = "live"
+
+
+@app.post("/api/worker/comfy")
+def comfy_prompt(r: ComfyRec):
+    """B3：提交后登记 prompt（live），结束 / 撤掉后回报（done）"""
+    with _lock:
+        if r.state == "live":
+            return {"ok": D.comfy_record(conn(), r.job_id, r.host, r.lane, r.pid)}
+        D.comfy_done(conn(), r.pid, r.host)
+    return {"ok": True}
 
 
 @app.post("/api/worker/finish")

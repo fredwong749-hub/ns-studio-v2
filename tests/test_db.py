@@ -140,6 +140,8 @@ def test_m3_predicates_without_api_lock(tmp_path):
     D.claim(c1, "h", "h:0", ["first"])
     assert D.reap(c2, lease_s=0, now=1e12) == [a["id"]]                  # 回收
     assert D.finish(c1, a["id"], "h", "done") is None                    # 旧 worker 的上报作废
+    assert D.claim(c1, "h2", "h2:0", ["first"]) is None                  # 审查 3 B3：回收后退避期内不许再领（旧 prompt 可能还在跑）
+    c1.execute("UPDATE jobs SET ready_at=NULL WHERE id=?", (a["id"],))     # 退避期过了
     D.claim(c1, "h2", "h2:0", ["first"])
     D.heartbeat(c1, a["id"], "h2")
     assert D.reap(c2, lease_s=3600) == []                                # 刚心跳的不动
@@ -242,3 +244,59 @@ def test_p6_asset_without_shots_blocks_nobody(tmp_path):
               payload={"asset": "item-x", "shots": [], "after": []})
     b, _ = D.enqueue(c, run_id="r", ep=5, shot="ep05-S1", step="board", want_host="g")
     assert D.claim(c, "g", "g:0", ["board"])["id"] == b["id"]
+
+
+
+def test_b3_reap_marks_comfy_prompt_for_cancel(tmp_path):
+    """审查 3 B3：提交后登记 prompt；回收 → 标要撤，本机整机心跳取走一次；撤完报 done；别的机器取不到"""
+    c = mk(tmp_path)
+    a, _ = D.enqueue(c, run_id="r", ep=1, shot="s", step="first")
+    D.claim(c, "h", "h:0", ["first"])
+    assert D.comfy_record(c, a["id"], "other", "other:0", "p0") is False     # 不是本机正在跑的活 → 不收
+    assert D.comfy_record(c, a["id"], "h", "h:0", "p1") is True
+    assert D.comfy_cancels(c, "h") == []                                     # 没回收不撤
+    assert D.reap(c, lease_s=0, now=1e12) == [a["id"]]
+    assert D.comfy_cancels(c, "other") == []
+    assert D.comfy_cancels(c, "h") == [{"pid": "p1", "job_id": a["id"], "lane": "h:0"}]
+    assert D.comfy_cancels(c, "h") == []                                     # 只发一次
+    D.comfy_done(c, "p1", "h")
+    assert c.execute("SELECT state FROM comfy_prompts WHERE pid='p1'").fetchone()[0] == "done"
+    assert c.execute("SELECT ready_at FROM jobs WHERE id=?", (a["id"],)).fetchone()[0] >= 1e12 + D.REAP_BACKOFF_S
+
+
+def test_b3_worker_cancels_leftover_and_reaped_prompts(tmp_path, monkeypatch):
+    """worker 死了重启：pending/comfy 里剩的 prompt 全撤；心跳回包要撤的也撤，撤完删本机文件"""
+    from ns2 import worker as W
+    monkeypatch.setattr(W, "PENDING", tmp_path / "pending")
+    monkeypatch.delenv("NS2_API", raising=False)
+    W.comfy_mark({"id": 7}, "gpu36:1", "pidA", live=True)
+    W.comfy_mark({"id": 8}, "gpu36:2", "pidB", live=True)
+    W.comfy_mark({"id": 8}, "gpu36:2", "pidB", live=False)                   # 正常结束的不留
+    got = []
+    out = W.cancel_leftover_prompts(cancel=lambda lane, pid: got.append((lane, pid)) or "deleted,interrupted")
+    assert got == [("gpu36:1", "pidA")] and out == [("pidA", "deleted,interrupted")]
+    assert not list((tmp_path / "pending/comfy").glob("*.json"))
+    got.clear()
+    W.cancel_prompts([{"pid": "pidC", "lane": "gpu36:0", "job_id": 9}], cancel=lambda lane, pid: got.append(pid) or "deleted")
+    assert got == ["pidC"]
+
+
+def test_b3_wait_cancels_on_error_branches(monkeypatch):
+    """wait() 的 comfy_down / comfy_error / no_output 分支都撤自己的 prompt（原来只有 timeout / http 撤）"""
+    import json
+    from ns2 import step_video as SV
+    calls = []
+    monkeypatch.setattr(SV, "cancel", lambda lane, pid: calls.append(pid) or "deleted")
+    monkeypatch.setattr(SV.time, "sleep", lambda s: None)
+    hist = {"err": {"p": {"status": {"status_str": "error", "messages": [["execution_error", {}]]}}},
+            "noout": {"p": {"status": {"completed": True, "messages": []}, "outputs": {}}}}
+    for k in ("err", "noout"):
+        monkeypatch.setattr(SV, "api", lambda port, path, *a, _k=k, **kw: json.dumps(hist[_k]).encode())
+        r = SV.wait("gpu33:0", "p", timeout_s=60, poll_s=0)
+        assert r["infra"] and r["cancel"] == "deleted"
+    def down(*a, **k):
+        raise OSError("refused")
+    monkeypatch.setattr(SV, "api", down)
+    r = SV.wait("gpu33:0", "p", timeout_s=60, poll_s=0, grace_s=0)
+    assert r["error"].startswith("comfy_down") and r["cancel"] == "deleted"
+    assert calls == ["p", "p", "p"]
