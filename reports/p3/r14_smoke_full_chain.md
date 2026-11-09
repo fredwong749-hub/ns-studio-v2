@@ -1,4 +1,6 @@
-# P3 r14：smoke_v2 ep01 整集全程新系统（script → board → first → last → video → film）+ 首尾帧交接 bug
+# P3 r14：smoke_v2 ep01 整集全程新队列（执行层仍是旧部署目录）（script → board → first → last → video → film）+ 首尾帧交接 bug
+
+> 11-09 审查 3 更正：标题原写“全程新系统”——派单 / 状态是新队列，但首尾帧、导入、分镜、打分、变体编译仍在旧部署目录 offline_20261101 跑，R2 去旧代码前不叫“新系统”。整集墙钟按 overview 实测是 **37 分 12 秒**，下文“23.0 分钟”是交接修复前那一轮的数，不是整集；“GPU 14.9 分钟”没有留 timing / events 源文件，**作废**（不作为证据）。
 
 ## 跑法
 `python -m ns2.enqueue_episode --run smoke_v2 --ep 1 --md data/pipeline/runs/smoke_v2/P4_ep01.md`（gpu33，11-09 02:40 起）。之后全自动，没有人工派单。
@@ -17,7 +19,7 @@ job 行：r14_smoke_ep01_jobs.jsonl。
   v1 第 1 次过门（penalty 0.0，420.6 s），take 2 设当前 → film 237 自动重合 → `data/episodes/smoke_v2/ns2/ep01_v2.mp4`
 - S2：board 1.1 s → 首帧第 3 次过（tries 2，115 s）→ 尾帧第 2 次过（145 s）→ 视频 → 成片
 - S1 / S3：首帧 G1“排排站”3 次不过 → best_effort 等人（冒烟剧本构图问题，与 M1 一致），其尾帧 / 视频不跑，成片用占位
-- 整集用时（overview timing，交接修复前那一轮）：墙钟 23.0 分钟 ≤ 50 分钟预算；GPU 14.9 分钟；逻辑（内容没过重来）17.8 分钟（首帧 8 次重试）；代码 0；检测 3.3 分钟
+- 整集用时（overview timing，交接修复前那一轮）：墙钟 23.0 分钟（交接修复前那一轮，非整集；整集 37 分 12 秒，见文首更正）；GPU 14.9 分钟（无源文件，作废）；逻辑（内容没过重来）17.8 分钟（首帧 8 次重试）；代码 0；检测 3.3 分钟
 - **同输入 0 新版本**：同一剧本再跑 enqueue_episode → 217 / 218 existing，行数 26 不变
 - 测试 53 passed（r14_pytest.txt）；新增 `test_handoff_pulls_image_host_frames`（真文件口 + 冲突不覆盖 + 重跑无变化）
 

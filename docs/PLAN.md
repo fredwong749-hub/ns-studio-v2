@@ -223,7 +223,7 @@ CREATE TABLE runs (
 | `/api/overview?run=` | GET | **唯一总览只读接口**。合并旧 `/api/season` + `/api/episodes/summary` + `/api/videos/overview` + `/api/episodes/kpi` + `/api/pipeline/status` 五个接口。返回 §2.4 下方 JSON 结构 | 旧实现见 `season.py:240-256`、`video_index.py`、`episode_kpi.py`；合并方案按子报告 §5.1，但口径按下方口径表定死 |
 | `/api/jobs?run=&ep=&state=` | GET | 队列只读（调试与排障用）。返回 jobs 表行（脱敏后） | 新增；替代旧 `/api/jobs` 路由组 |
 | `/api/shots/{shot_id}/jobs` | POST | 派单。body `{stage: first\|last\|video, mode?: regen\|edit\|refs, seed?, gpu?: auto\|道 id, tier?: preview\|final, by: manual\|auto}`；服务端复用现有前置检查（`material_readiness.job_gate`、首尾帧定稿检查、H3 lint）；`by=auto` 时资料不全 409，手动只告警 | 沿用旧 `frame_jobs.py:269` + `video_jobs.py:201` 的前置语义，合并成一个接口 |
-| `/api/shots/{shot_id}/review` | PUT | 定稿 / 驳回。body `{state: passed\|rejected\|unreviewed, reason?}`，写该镜 `review.json`；`passed` 即 `final` 的唯一判定 | 沿用旧 `app.py:1909-1921`；成人镜触发也走这里（`owner_trigger` 由本接口清掉） |
+| `/api/shots/{shot_id}/review` | PUT | 定稿 / 驳回。body `{state: passed\|rejected\|unreviewed, reason?}`，写队列 `reviews` 表（11-09 决定：单一来源，**不写 / 不读 review.json**）；`passed` 即 `final` 的唯一判定 | 沿用旧 `app.py:1909-1921` 的语义；成人镜触发**不走这里**，走 `POST /api/shots/{id}/trigger`（撤销 `DELETE` 同路径，审查 3 堵点 3） |
 | `/api/shots/{shot_id}/cancel` | POST | 取消排队任务。仅 `state=queued` 可取消；在途任务不取消（等它跑完或超时回收） | 新增；旧 jobs 路由组有 cancel，行号未核实，新实现只认 jobs 表 |
 | `/api/episodes/{ep}/assemble` | POST | 触发成片：给该集插一行 `film` 步任务进队列 | 新增；替代旧 `tools/assemble_episode.py` 的手动调用 |
 | `/api/worker/claim` | POST | worker 认领。body `{host, lanes[], capacity}`；服务端原子 UPDATE 后返回一条 job 或空。同一 worker 一次只领一条（每卡并发 1，见 §2.7） | 新增 |
