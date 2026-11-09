@@ -257,3 +257,26 @@ def test_p3_recheck_remote_frames_and_handoff_fixes(tmp_path, monkeypatch):
     monkeypatch.setattr(HO, "remote_size", lambda base, rel: 999)
     with pytest.raises(HO.HandoffConflict):
         HO.sync_frames("r", "ep02-S1", "gpu36", root, base="http://x")
+
+
+def test_mot_early_after_low_motion_fail(tmp_path, monkeypatch):
+    """R4 11-10：开关开 + 上一条动作量 < 1.0 → 下一条先走 mot；mot 用过就按阶梯取没用过的；开关关 = 原阶梯"""
+    vs = {k: {"status": "ready", "frames": 124} for k in ("v1", "s2", "s3", "s4", "mot")}
+    p = {"variants": vs, "ladder": ["v1", "s2", "s3", "s4", "mot"]}
+    low = [{"variant": "v1", "score": {"mean": 0.65}}]
+    assert V.pick_variant(p, 1, "gpu33:0", low)[0] == "s2"                    # 默认关
+    monkeypatch.setattr(V, "MOT_EARLY", True)
+    assert V.pick_variant(p, 1, "gpu33:0", low)[0] == "mot"
+    assert V.pick_variant(p, 1, "gpu33:0", [{"variant": "v1", "score": {"mean": 2.4}}])[0] == "s2"   # 动作够 → 照阶梯
+    assert V.pick_variant(p, 2, "gpu33:0", low + [{"variant": "mot", "score": {"mean": 0.5}}])[0] == "s2"   # mot 不重复、不跳号
+    assert V.pick_variant(p, 0, "gpu33:0", [])[0] == "v1"
+    # job_history 只认本 job 的 video take，按 n 排
+    d = tmp_path / "data/renders/r/ep01/S1"
+    d.mkdir(parents=True)
+    (d / "takes.json").write_text(json.dumps({"takes": [
+        {"n": 5, "stage": "video", "job_id": 7, "variant": "s2", "score": {"mean": 3}},
+        {"n": 4, "stage": "video", "job_id": 7, "variant": "v1", "score": {"mean": 0.6}},
+        {"n": 6, "stage": "video", "job_id": 8, "variant": "v1"}, {"n": 1, "stage": "image"}]}), encoding="utf-8")
+    monkeypatch.setattr(V, "ROOT", tmp_path)
+    assert [h["variant"] for h in V.job_history(_job())] == ["v1", "s2"]
+    assert V.job_history({**_job(), "shot": "ep09-S9"}) == []

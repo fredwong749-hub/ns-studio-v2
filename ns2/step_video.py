@@ -29,6 +29,10 @@ FFMPEG = {"gpu33": "/root/claude-kimi-ns-studio-v1/env/ffmpeg/bin", "gpu36": "/r
 SCORE_SCRIPT = "/root/work/fredw/offline_20261101/repo/tools/series10_video/score_clip.py"   # 旧部署里的同一份（不复制，口径不分叉）
 CLIENT = "ns2-"
 LONG_LANE, LONG_FRAMES = "gpu36:2", 260
+# R4 质量（11-10）：上一条没过门、且动作量 < MOT_LOW（“像照片在动”）→ 下一条先走 mot 变体（加动作提示），不再按阶梯走到第 5 条才轮到。
+# 开关默认关；NS2_MOT_EARLY=1 才生效（先离线 A/B，过线再开）
+MOT_EARLY = os.environ.get("NS2_MOT_EARLY") == "1"
+MOT_LOW = float(os.environ.get("NS2_MOT_LOW") or 1.0)
 _uploads: dict[tuple[str, str], str] = {}
 
 
@@ -241,15 +245,33 @@ def rendered_count(job: dict) -> int:
     return sum(1 for t in doc.get("takes") or [] if t.get("stage") == "video" and t.get("job_id") == job["id"])
 
 
-def pick_variant(payload: dict, tries: int, lane: str) -> tuple[str, dict] | None:
+def pick_variant(payload: dict, tries: int, lane: str, history: list | None = None) -> tuple[str, dict] | None:
     vs = payload.get("variants") or {}
     ladder = [v for v in payload.get("ladder") or list(vs) if (vs.get(v) or {}).get("status") == "ready"]
     if lane != LONG_LANE:
         ladder = [v for v in ladder if int(vs[v].get("frames") or 0) <= LONG_FRAMES]      # 长镜头只派 gpu36:2，不截短
     if not ladder:
         return None
+    if MOT_EARLY and history:
+        used = [h.get("variant") for h in history]
+        last_mean = (history[-1].get("score") or {}).get("mean")
+        if "mot" in ladder and "mot" not in used and last_mean is not None and float(last_mean) < MOT_LOW:
+            return "mot", vs["mot"]
+        rest = [v for v in ladder if v not in used]
+        if rest:
+            return rest[0], vs[rest[0]]
     name = ladder[tries % len(ladder)]
     return name, vs[name]
+
+
+def job_history(job: dict) -> list[dict]:
+    """本 job 已出的视频 take（按 n）：[{variant, score}]——MOT_EARLY 用"""
+    try:
+        doc = json.loads((ROOT / "data/renders" / job["run_id"] / job["shot"].split("-")[0] / job["shot"].split("-")[1] / "takes.json").read_text(encoding="utf-8"))
+    except (OSError, ValueError, KeyError, IndexError):
+        return []
+    mine = [t for t in doc.get("takes") or [] if t.get("stage") == "video" and t.get("job_id") == job.get("id")]
+    return [{"variant": t.get("variant"), "score": t.get("score") or {}} for t in sorted(mine, key=lambda t: t.get("n") or 0)]
 
 
 def seed_ledger_path(run: str):
@@ -462,7 +484,7 @@ def run(job: dict, lane: str):
     if any(r.get("error") for r in re_):
         return "blocked", {"rescored": re_, "has_output": True}, "打分仍出错（infra，不重渲）：" + str(re_[0]["error"])[:300]
     k = rendered_count(job)                                              # 变体按“本 job 已出几条”取，不按 tries（重启 / 回收不跳号也不重出）
-    pv = pick_variant(p, k, lane)
+    pv = pick_variant(p, k, lane, job_history(job) if MOT_EARLY else None)
     if pv is None and lane != LONG_LANE and pick_variant(p, k, LONG_LANE) is not None:
         # M6：长镜头（>260 帧）只能 gpu36:2 → 回队并锁定那条道（infra 不计次），不再 blocked 堵死
         return "infra", {"want_lane": LONG_LANE, "has_output": False}, f"长镜头只派 {LONG_LANE}，已改派"
