@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+from contextlib import contextmanager
 import sqlite3
 import time
 from datetime import datetime, timezone
@@ -72,6 +73,21 @@ def connect(path: str | Path) -> sqlite3.Connection:
     return c
 
 
+@contextmanager
+def tx(c):
+    """审查 3 M3：多语句写一个事务（连接是 autocommit）。已在事务里 → 直接并入外层"""
+    if c.in_transaction:
+        yield c
+        return
+    c.execute("BEGIN IMMEDIATE")
+    try:
+        yield c
+    except BaseException:
+        c.execute("ROLLBACK")
+        raise
+    c.execute("COMMIT")
+
+
 def idem_key(run_id: str, shot: str, step: str, sig: dict | None) -> str:
     s = json.dumps([run_id, shot, step, sig or {}], sort_keys=True, ensure_ascii=False)
     return hashlib.sha256(s.encode("utf-8")).hexdigest()[:16]
@@ -128,8 +144,9 @@ def enqueue(c, *, run_id: str, ep: int, shot: str, step: str, payload: dict | No
     if step == "film" and state == "queued":     # 新一版整集输入 → 本集更早的排队 film 行作废（不删，记 na + 原因）
         for r in c.execute("SELECT id FROM jobs WHERE run_id=? AND shot=? AND step='film' AND state='queued' AND id<?",
                            (run_id, shot, cur.lastrowid)).fetchall():
-            c.execute("UPDATE jobs SET state='na', error='被新一版整集输入取代', finished_at=? WHERE id=?", (now_iso(), r["id"]))
-            _event(c, r["id"], "superseded", {"by": cur.lastrowid})
+            if c.execute("UPDATE jobs SET state='na', error='被新一版整集输入取代', finished_at=? WHERE id=? AND state='queued'",
+                         (now_iso(), r["id"])).rowcount == 1:          # 审查 3 M3：带状态谓词（检查与写之间被领走的不动）
+                _event(c, r["id"], "superseded", {"by": cur.lastrowid})
     return row(c.execute("SELECT * FROM jobs WHERE id=?", (cur.lastrowid,)).fetchone()), True
 
 
@@ -216,6 +233,12 @@ def heartbeat(c, job_id: int, host: str) -> bool:
 
 
 def finish(c, job_id: int, host: str, state: str, result: dict | None = None, error: str | None = None) -> dict | None:
+    """审查 3 M3：主 UPDATE 与事件 / 成人挡 / 资产后重派 / 成片入队同一事务——中途崩全回滚，worker 重报（finish_durable）"""
+    with tx(c):
+        return _finish(c, job_id, host, state, result, error)
+
+
+def _finish(c, job_id: int, host: str, state: str, result: dict | None = None, error: str | None = None) -> dict | None:
     """state ∈ done|failed|blocked|best_effort|na|retry|infra。retry：tries+1，没用完回 queued；用完 → 有产物 best_effort / 无产物 failed。
     infra（打分 / 连接 / 执行器出错，不是内容不过）：回 queued 不计次；连续 INFRA_MAX 次 → blocked（人工看）"""
     j = row(c.execute("SELECT * FROM jobs WHERE id=?", (job_id,)).fetchone())
@@ -429,10 +452,12 @@ def reviews(c, run_id: str) -> dict:
 def cancel(c, run_id: str, shot: str) -> list[int]:
     """只取消排队中的（在途的不取消，等跑完或心跳回收）；记 na + 原因，不删行"""
     ids = [r["id"] for r in c.execute("SELECT id FROM jobs WHERE run_id=? AND shot=? AND state='queued'", (run_id, shot))]
-    for i in ids:
-        c.execute("UPDATE jobs SET state='na', error='人工取消', finished_at=? WHERE id=?", (now_iso(), i))
-        _event(c, i, "cancel")
-    return ids
+    done = []
+    for i in ids:                         # 审查 3 M3：带状态谓词——检查与写之间被领走的不取消
+        if c.execute("UPDATE jobs SET state='na', error='人工取消', finished_at=? WHERE id=? AND state='queued'", (now_iso(), i)).rowcount == 1:
+            _event(c, i, "cancel")
+            done.append(i)
+    return done
 
 
 def finish_events(c, run_id: str) -> list[dict]:

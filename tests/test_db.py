@@ -320,3 +320,30 @@ def test_export_reviews_roundtrip_and_keep(tmp_path):
     D.set_review(c2, "r", "ep01-S1", "unreviewed")
     assert X.restore(str(tmp_path / "new.db"), str(f)) == {"reviews": 1, "triggers": 1}
     assert D.reviews(D.connect(tmp_path / "new.db"), "r")["ep01-S1"]["state"] == "unreviewed"      # 不覆盖已有
+
+
+def test_m3_finish_is_atomic_and_cancel_predicate(tmp_path, monkeypatch):
+    """审查 3 M3：finish 后半段（成片入队）崩 → 主 UPDATE 一起回滚（行仍 running，worker 重报可再收）；cancel 只动 queued"""
+    c = mk(tmp_path)
+    for st in ("first", "last"):
+        j, _ = D.enqueue(c, run_id="r", ep=1, shot="ep01-S1", step=st)
+        D.claim(c, "h", "h:0", [st])
+        D.finish(c, j["id"], "h", "done")
+    v, _ = D.enqueue(c, run_id="r", ep=1, shot="ep01-S1", step="video")
+    assert D.claim(c, "h", "h:0", ["video"])["id"] == v["id"]
+
+    def boom(*a, **k):
+        raise RuntimeError("崩在成片入队")
+    monkeypatch.setattr(D, "enqueue_film", boom)
+    import pytest
+    with pytest.raises(RuntimeError):
+        D.finish(c, v["id"], "h", "done")
+    assert c.execute("SELECT state FROM jobs WHERE id=?", (v["id"],)).fetchone()[0] == "running"
+    assert not c.in_transaction
+    monkeypatch.undo()
+    assert D.finish(c, v["id"], "h", "done")["state"] == "done"
+    assert c.execute("SELECT COUNT(*) FROM jobs WHERE step='film'").fetchone()[0] == 1
+    q, _ = D.enqueue(c, run_id="r", ep=1, shot="ep01-S2", step="first")
+    D.claim(c, "h", "h:0", ["first"])                                        # 被领走了
+    assert D.cancel(c, "r", "ep01-S2") == []
+    assert c.execute("SELECT state FROM jobs WHERE id=?", (q["id"],)).fetchone()[0] == "running"
