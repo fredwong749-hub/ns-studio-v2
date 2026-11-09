@@ -1,7 +1,15 @@
 # STATE（ns-studio-v2，活文件）
 
-当前（11-09）：**按任务书第二版 ns2-auto-iterate-brief-2 迭代**（第三次审查 HEAD 042dd21 结论 STILL FIX-FIRST）——P0 先关，**P0 关完之前不开新集、不再跑 ep05**。
-M0 ✅ · M1 ✅ 11-08 20:18 · M2a/M2b 11-08 22:05 · P6（整体重构）R0 ✅ / R1a 进行中（见下 P6 节）
+当前（11-09 23:0x JST）：**P0 已 live 关闭**（reports/p7/live_deploy_20261109.md、p3/r17 live、b3 live 演练）→ 按任务书恢复 ep05，在跑（量 R4 退出标准）。
+M0 ✅ · M1 ✅ 11-08 20:18 · M2a/M2b 11-08 22:05 · P6 R0 ✅ / R1a ✅ / R3 两台出视频（11-09 项目方“把 gpu36 也用起来”）
+
+## 11-09 晚（P0 live 关闭之后）
+- 部署：深圳跳板不通 → 香港路线 gpu33-hk / gpu36-hk（项目 ssh_config，不在本仓库）；部署前 queue.db 备份 bak_brief2_1109
+- live 证据：文件口 401 / 403、伪造终态 403、导入口 403、非成人 trigger 400、55 镜定稿时间核实、审片导出 cron（修了 set -e 空表 bug）；ep05 同剧本重入队 0 新行 + takes 字节不变；B3 kill → reap → ComfyUI 中断
+- 恢复 ep05 发现并修：尽力版读视图没接到尾帧 preflight / build_jobs（61ae12d）、sop_gate 视频闸门对 ns2 新导入的集永远挡（同上，改由队列前置）、作业表过期不重编（ab… / current(strict)）、ep05-S7 V1 期旧驳回（项目方“清掉”，两台已标 cleared）
+- 两台出视频（fafcb91 + 后续）：视频行任一台领、/api/retarget、交接带尽力版 / I2VA 标记、拼片取对方的片、视频机不按旧账复判出图机的验收 / 驳回、认领时本机专属活优先
+- 前端按项目方“参看旧 v3 做到 95 分”重做（1383ee5 / 84e5f2f，reports/p7/ui_redesign.md）
+- ep05 S8 / S13 视频：剧本 H3 段落不满足 RL-T3（每拍视线 / 表情 / 另一人反应）→ 5 个变体全 lint_error；要写手返修（改剧本 = 新签名，整集重入队，今晚未动）
 
 ## 任务书第二版进度（证据 reports/p7/ …，每项一份报告 + pytest txt）
 - Pillow 进 requirements（全新 venv 62/62）→ reports/p7/p0_pillow.md
@@ -15,7 +23,7 @@ M0 ✅ · M1 ✅ 11-08 20:18 · M2a/M2b 11-08 22:05 · P6（整体重构）R0 �
 - 审片史每日导出（项目方 11-09 批）→ reports/p7/review_export.md（gpu33 定时任务安装**待 SSH**）
 - P1 / P2 / P3（本机）：M3 事务 + 谓词、M4 真 HTTP 假 Comfy、M5 preflight fail-closed、M6 锁长道 + 前置失败挡视频、M7 种子账本、M8、M10 set -eu、M13 force 围栏；前端 N1 / N2 / N5 / N6 + 总览口径；P3 提交前复核出图机帧 + handoff N2–N4、0 变体原因、film v1 标注；文档更正
 - 收尾：reports/p7/closing_brief2.md（逐项结论、SSH 后要做的事、要项目方定的 4 件：M9 冲突、ep06 整集成人不适合做全自动验收、ep03-S4 / 真点 / gpu36 演练、API 双绑）；全新 venv 92 passed
-- **SSH 跳板 11-09 约 11:00 JST 起不通**（两台都连不上，隧道 18900 的只读接口仍通）：以上全部只在本机测过，**未部署**；部署 + live 证据待恢复后补
+- SSH 跳板 11-09 约 11:00 JST 起不通 → 20:4x 改走香港路线部署，live 证据已补（见文件顶部）
 
 ## 任务书迭代进度（证据 reports/p0/ …）
 - P0 r1（11-09 01:5x）：B1 ✅ · B2 ✅ · B4 ✅；B3 部分（op_id / cancel）；顺带 M4、M5 部分、M13 部分。证据 reports/p0/r1_B1_B2_B4.md
@@ -49,7 +57,7 @@ M0 ✅ · M1 ✅ 11-08 20:18 · M2a/M2b 11-08 22:05 · P6（整体重构）R0 �
 - R4 先行三处（无 live 证据）：841156c 视频 0 变体带原因（**pick_variant 为 None 的线上路径未覆盖**）、4fa1f95 参考板不印字、042dd21 尾帧全太像退回 I2VA
 - resident_sync 覆盖事件（11-09）：笔记本旧常驻用旧清单覆盖服务器 assets_v2/manifest.json（4 条资产登记被冲）→ 经项目方批准停掉旧系统笔记本写服务器的部分，登记已补回（服务器备份 bak_p6_restore_*；恢复记录在旧部署目录，不在本仓库）
 - ep06 剧本（16 镜 / 92 秒）已写好（草稿，不进仓库）；**按导入器整集 🔴 = 16/16 成人镜，全部要项目方触发**——做“全自动验收集”要另议
-- **ep05 停跑，直到 P0 关完**（任务书第二版）
+- ep05 停跑到 P0 关完（任务书第二版）→ **11-09 21:26 P0 live 关闭后恢复**
 
 ## 线上（gpu33 / gpu36，/root/work/fredw/ns2/）
 - API：gpu33 只绑 10.0.0.33:8900（pid 见 api.pid），db data/queue.db（部署前改表都先 .backup：queue.db.bak_r6_* / bak_r12_*）
