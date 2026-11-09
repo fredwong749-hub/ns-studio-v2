@@ -389,6 +389,8 @@ def compile_payload(job: dict, host: str) -> tuple[dict | None, str | None]:
         act = tj.get("active") or {}
         if not sh or sh.get("first_frame_take") != act.get("image"):
             return False
+        if strict and not any((v or {}).get("status") == "ready" for v in (sh.get("variants") or {}).values()):
+            return False             # 11-09 gpu36 ep05-S5：作业表这镜被旧账挡着（hold / 0 个 ready）→ 编译前先重编一次，不拿旧表直接判死
         if sh.get("last_frame") is None:
             return not (strict and act.get("last"))
         return sh.get("last_frame_take") == act.get("last")

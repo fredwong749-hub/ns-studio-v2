@@ -84,7 +84,7 @@ def _jobs_takes(tmp_path, last_in_jobs, active_last):
     run, sid = "series10_v2", "ep05-S1"
     jd = tmp_path / "data/pipeline/runs" / run / "video"
     jd.mkdir(parents=True)
-    sh = {"shot": sid, "first_frame_take": 2, "variants": [{"id": "v1"}]}
+    sh = {"shot": sid, "first_frame_take": 2, "variants": {"v1": {"status": "ready"}}}
     if last_in_jobs:
         sh.update(last_frame="x.png", last_frame_take=last_in_jobs)
     (jd / "jobs.json").write_text(json.dumps({"shots": [sh]}), encoding="utf-8")
@@ -129,3 +129,19 @@ def test_video_host_trusts_image_host_for_accept_and_regen_holds():
     assert BJ.accept_status("ep02-S1", "a.png", {}, {}) is None                     # ep02 出图就在 gpu36 → 照旧
     assert BJ.regen_holds(["ep05-S5", "ep02-S3"]) == {"ep02-S3": "regen：旧驳回"}
     assert LB.remote_shot_fn(None)("ep05-S1") is False
+
+
+def test_compile_recompiles_when_table_has_no_ready_variant(monkeypatch, tmp_path):
+    """gpu36 ep05-S5：作业表首尾帧版本对得上、但这镜被旧账 hold（0 个 ready）→ 先重编，不直接判 0 变体"""
+    from ns2 import step_video as SV
+    from ns2 import enqueue_video as EV
+    job = _jobs_takes(tmp_path, 3, 3)
+    jf = tmp_path / "data/pipeline/runs/series10_v2/video/jobs.json"
+    d = json.loads(jf.read_text(encoding="utf-8")); d["shots"][0]["variants"] = {}; d["shots"][0]["route"] = "hold"
+    jf.write_text(json.dumps(d), encoding="utf-8")
+    calls = []
+    monkeypatch.setattr(SV.subprocess, "run", lambda cmd, **kw: calls.append(cmd) or types.SimpleNamespace(returncode=0, stdout="", stderr=""))
+    monkeypatch.setattr(SV, "ROOT", tmp_path)
+    monkeypatch.setattr(EV, "build", lambda run, sid, host: (None, None, {"payload": {"variants": {}}}))
+    pl, err = SV.compile_payload(job, "gpu36")
+    assert calls and pl is None and "0 个视频变体" in err                 # 重编过；仍 0 个才报
