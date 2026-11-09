@@ -387,7 +387,8 @@ def compile_payload(job: dict, host: str) -> tuple[dict | None, str | None]:
         return bool(sh) and sh.get("first_frame_take") == act.get("image") and (sh.get("last_frame") is None or sh.get("last_frame_take") == act.get("last"))
     log = ""
     if not current():
-        r = subprocess.run([str(OFF / "venv/bin/python"), "tools/series10_video/build_jobs.py", "--run", run_id], cwd=str(OFF / "repo"),
+        # 经 ns2/legacy_build_jobs.py 跑旧 build_jobs：尽力版读视图 + sop_gate 视频闸门由队列前置代替（见该文件说明）
+        r = subprocess.run([str(OFF / "venv/bin/python"), str(Path(__file__).resolve().parent / "legacy_build_jobs.py"), "--run", run_id], cwd=str(OFF / "repo"),
                            env=legacy_env(host, run_id), capture_output=True, text=True, timeout=1800)
         log = ((r.stdout or "")[-300:] + (r.stderr or "")[-300:]).strip()
         if r.returncode or not current():

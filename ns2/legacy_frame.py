@@ -129,6 +129,12 @@ def main(a: dict) -> dict:
     if a.get("owner_triggered"):     # B2：项目方已在新系统触发本镜 → 旧 FrameExec 的成人闸认这次触发（没触发时旧闸照挡 = 第二道防线）
         _orig = PR.owner_trigger_ids
         PR.owner_trigger_ids = lambda p, _o=_orig, _s=a["sid"], _r=a["run"]: set(_o(p)) | {f"first:{_s}", f"{_r}/first:{_s}", f"last:{_s}", f"{_r}/last:{_s}"}
+    if a["kind"] == "last":          # 尽力版首帧做尾帧（项目方 11-09；P6 恢复 ep05 发现 producer 尾帧 preflight 只认 postflight.ok）：
+        import best_effort_view as BV   # 只认本镜“带标记且仍是当前版”的那一张首帧，按过 + 待复核给 preflight 看；不写回 takes.json
+        fbe = BV.marked(P.load_takes(a["sid"]), "image")
+        if fbe is not None:
+            _otp, _key = PR.take_pf, (fbe.get("n"), fbe.get("file"))
+            PR.take_pf = lambda t, _o=_otp, _k=_key: BV.as_passed(_o(t)) if t and t.get("stage") == "image" and (t.get("n"), t.get("file")) == _k else _o(t)
     if a.get("promote_only"):        # 补选：已是尽力版的镜（规则上线前用完次数的）按同一规则选一版设当前
         return {"outcome": "promoted", **promote_best(P, a["sid"], "image" if a["kind"] == "first" else "last",
                                                       adult=a.get("adult", True), triggered=bool(a.get("owner_triggered")))}
