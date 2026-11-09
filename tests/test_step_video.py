@@ -200,3 +200,12 @@ def test_handoff_pulls_image_host_frames(tmp_path, monkeypatch):
     with pytest.raises(HO.HandoffConflict):
         HO.sync_frames("r", "ep01-S2", "gpu33", dst, base=base)
     srv.shutdown()
+
+
+def test_no_variant_reason_never_empty():
+    """审查 3 §4：pick_variant 为 None 的线上路径原因不再是空的"""
+    assert "0 个变体" in V.no_variant_reason({"variants": {}}, "gpu33:0")
+    r = V.no_variant_reason({"variants": {"v1": {"status": "needs_writer", "reason": "缺动作描述"}, "s2": {}}, "ladder": ["v1", "s2"]}, "gpu33:0")
+    assert "v1=needs_writer（缺动作描述）" in r and "s2=无状态" in r and "ready 的：无" in r
+    long_ = V.no_variant_reason({"variants": {"v1": {"status": "ready", "frames": V.LONG_FRAMES + 1}}}, "gpu33:0")
+    assert f"只能 {V.LONG_LANE}" in long_

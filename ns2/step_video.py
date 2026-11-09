@@ -252,6 +252,30 @@ def pick_variant(payload: dict, tries: int, lane: str) -> tuple[str, dict] | Non
     return name, vs[name]
 
 
+def no_variant_reason(payload: dict, lane: str) -> str:
+    """审查 3 §4（ep05-S2/S12/S13 线上报“没有可派的变体：”后面是空的）：pick_variant 为 None 时一律写出为什么——
+    0 个变体 / 各变体状态与原因 / 阶梯里没有 ready 的 / 全是超长只能长道"""
+    vs = payload.get("variants") or {}
+    if not vs:
+        return ("没有可派的变体：payload 里 0 个变体（编译后作业表本镜 variants 为空；ladder="
+                + json.dumps(payload.get("ladder"), ensure_ascii=False) + "）")
+    parts = []
+    for k, v in vs.items():
+        v = v or {}
+        x = f"{k}={v.get('status') or '无状态'}"
+        if v.get("reason"):
+            x += f"（{v['reason']}）"
+        elif v.get("missing"):
+            x += f"（缺 {json.dumps(v['missing'], ensure_ascii=False)[:120]}）"
+        if int(v.get("frames") or 0) > LONG_FRAMES:
+            x += f"［{v.get('frames')} 帧，只能 {LONG_LANE}］"
+        parts.append(x)
+    ladder = payload.get("ladder") or list(vs)
+    ready = [k for k in ladder if (vs.get(k) or {}).get("status") == "ready"]
+    tail = f"；阶梯 {ladder} 里 ready 的：{ready or '无'}；本道 {lane}"
+    return "没有可派的变体：" + "；".join(parts) + tail
+
+
 def record_take(job: dict, var_name: str, var: dict, clip_rel: str, s: dict, *, final: bool, seed=None, trial: bool = False,
                 attempt: str | None = None) -> dict:
     """写一条 video take；过门设当前；final 且没过 → ns2 视频里 penalty 最小的设当前。op_id 幂等（同 job 同次只写一次）。
@@ -387,9 +411,7 @@ def run(job: dict, lane: str):
         # M6：长镜头（>260 帧）只能 gpu36:2 → 回队并锁定那条道（infra 不计次），不再 blocked 堵死
         return "infra", {"want_lane": LONG_LANE, "has_output": False}, f"长镜头只派 {LONG_LANE}，已改派"
     if pv is None:
-        vs = p.get("variants") or {}
-        why = "；".join(f"{k}={v.get('status')}" + (f"（{v.get('reason')}）" if v.get("reason") else "") for k, v in vs.items())
-        return "blocked", None, f"没有可派的变体：{why}"[:900]     # B4：编译器给的缺什么原文带出来（A14 needs_writer）
+        return "blocked", None, no_variant_reason(p, lane)[:900]     # B4：编译器给的缺什么原文带出来（A14 needs_writer）
     name, var = pv
     sid, ep = job["shot"], int(job["ep"])
     try:
