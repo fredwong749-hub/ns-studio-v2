@@ -53,6 +53,30 @@ class _Stub:
         return self.PR.Producer.rung(self, o, attempt)
 
 
+BEST_EFFORT_REASON = "P6 尽力版一律自动用（项目方 11-09）：用完次数仍没过契约，按不过项最少、同等取最新设为当前"
+
+
+def promote_best(P, sid: str, stage: str) -> dict:
+    """项目方 11-09“尽力版一律自动用”：这一镜这一阶段没有合格的当前版时，从不是坏图 / 没被驳回的版本里选不过项最少的一版设为当前。
+    项目方本人定稿锁过的不动；已有合格当前版的不动。返回 {promoted: n | None, why}"""
+    from ns_render import auto_current as AC
+    d = P.load_takes(sid)
+    takes = [t for t in d.get("takes") or [] if t.get("stage") == stage]
+    act = (d.get("active") or {}).get(stage)
+    cur = next((t for t in takes if t.get("n") == act), None)
+    if cur is not None and AC.passes(cur):
+        return {"promoted": None, "why": f"已有合格当前版 v{act}"}
+    if AC.owner_lock(d, stage) is not None:
+        return {"promoted": None, "why": "项目方定稿锁着，不动"}
+    cands = [t for t in takes if not P.ineligible_reason(t) and AC.take_pf(t)]
+    if not cands:
+        return {"promoted": None, "why": "没有可用版本（全是坏图 / 被驳回 / 没打过分）"}
+    best = min(cands, key=lambda t: (len(AC.take_pf(t).get("blocking") or []), -int(t["n"])))
+    if best["n"] != act:
+        P.set_active(sid, stage, int(best["n"]), reason=BEST_EFFORT_REASON, actor="ns2-best-effort")
+    return {"promoted": int(best["n"]), "blocking": AC.take_pf(best).get("blocking"), "why": BEST_EFFORT_REASON}
+
+
 def main(a: dict) -> dict:
     os.environ.setdefault("NS_RUN", a["run"])
     sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -71,6 +95,8 @@ def main(a: dict) -> dict:
     if a.get("owner_triggered"):     # B2：项目方已在新系统触发本镜 → 旧 FrameExec 的成人闸认这次触发（没触发时旧闸照挡 = 第二道防线）
         _orig = PR.owner_trigger_ids
         PR.owner_trigger_ids = lambda p, _o=_orig, _s=a["sid"], _r=a["run"]: set(_o(p)) | {f"first:{_s}", f"{_r}/first:{_s}", f"last:{_s}", f"{_r}/last:{_s}"}
+    if a.get("promote_only"):        # 补选：已是尽力版的镜（规则上线前用完次数的）按同一规则选一版设当前
+        return {"outcome": "promoted", **promote_best(P, a["sid"], "image" if a["kind"] == "first" else "last")}
     st = _Stub(PR, paths, script, a.get("prev_blocking") or [])
     o = {"id": f"{a['kind']}:{a['sid']}", "shot": a["sid"], "kind": a["kind"]}
     if a.get("rescore_take"):        # M2：上次图已出、只是打分 infra 出错 → 只重打分，不重出图（同旧 Producer._rescore_one）
@@ -108,6 +134,8 @@ def main(a: dict) -> dict:
            "current": pf.get("current"), "review_needed": pf.get("review_needed")}
     if pf.get("score_infra"):
         return {**out, "outcome": "infra", "error": "契约打分 score_infra（gpu33 显存 / 连接 / 看图排队）"}
+    if not pf.get("ok") and a.get("final_attempt"):    # 最后一次仍不过 → 尽力版自动用（项目方 11-09）
+        out["best_effort"] = promote_best(P, a["sid"], "image" if a["kind"] == "first" else "last")
     return {**out, "outcome": "pass" if pf.get("ok") else "fail"}
 
 

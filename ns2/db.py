@@ -24,6 +24,7 @@ PREREQ = {"last": ("first",), "video": ("first", "last")}
 SOFT_PREREQ = {"first": ("board",), "board": ("assets", "script"), "assets": ("script",)}   # P6 R1a：剧本 → 资产 → 分镜（有行才挡）
 EP_LEVEL = ("script", "assets")      # 一集一行（shot = epNN）
 PASSED = ("done", "na")
+FRAME_PASSED = ("done", "na", "best_effort")    # 项目方 11-09：尽力版一律自动用 → 首 / 尾帧尽力版照样放行尾帧 / 视频
 LEASE_S = 45 * 60
 INFRA_MAX = 5
 INFRA_BACKOFF_S, INFRA_BACKOFF_MAX_S = 30, 600
@@ -153,7 +154,7 @@ def _claim_sql(step: str) -> str:
                 " ORDER BY j.created_at, j.id LIMIT 1")
     pre = "".join(
         f" AND (SELECT p.state FROM jobs p WHERE p.run_id=j.run_id AND p.shot=j.shot AND p.step='{p}'"
-        f" ORDER BY p.id DESC LIMIT 1) IN ('done','na')" for p in PREREQ.get(step, ()))
+        f" ORDER BY p.id DESC LIMIT 1) IN ('done','na','best_effort')" for p in PREREQ.get(step, ()))   # FRAME_PASSED
     for soft in SOFT_PREREQ.get(step, ()):
         pre += _soft_sql(soft)
     if step == "board":          # P6 R1a：本镜只等覆盖它的资产行（payload.shots 含本镜或 "*"）做完；不缺资产的镜不等整集

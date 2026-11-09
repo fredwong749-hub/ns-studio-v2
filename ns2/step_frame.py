@@ -40,7 +40,8 @@ def run(job: dict, lane: str):
     res = (job.get("result") or {})
     prev = list(res.get("prev_blocking") or [])
     args = {"kind": kind, "sid": job["shot"], "run": job["run_id"], "lane": lane, "port": PORTS[lane],
-            "attempt": int(job.get("tries") or 0) + 1, "prev_blocking": prev}
+            "attempt": int(job.get("tries") or 0) + 1, "prev_blocking": prev,
+            "final_attempt": int(job.get("tries") or 0) + 1 >= int(job.get("max_tries") or 3)}   # 最后一次不过 → 尽力版自动用
     if p.get("edit"):
         args["edit"] = p["edit"]
     if p.get("owner_triggered"):

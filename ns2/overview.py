@@ -24,7 +24,7 @@ ETA_DEFAULT_S = 840.0
 # 视频：final（有片且项目方 passed）· pending_review · best_effort · rendering · queued · need_frames · todo · failed · blocked
 FRAME_STATE = {"done": "ready", "na": "na", "running": "running", "queued": "pending", "failed": "failed",
                "best_effort": "best_effort", "blocked": "blocked"}
-FRAME_OK = ("ready", "passed", "fallback", "na")
+FRAME_OK = ("ready", "passed", "fallback", "na", "best_effort")   # 项目方 11-09：尽力版一律自动用
 
 
 def _iso_in(sec: float) -> str:

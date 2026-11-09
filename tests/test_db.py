@@ -45,7 +45,8 @@ def test_qc_fail_blocks_next_step(tmp_path):
     for _ in range(2):
         D.claim(c, "h", "h:0", ["first"]); D.finish(c, f["id"], "h", "retry", {"has_output": True})
     assert D.jobs(c, shot="s")[0]["state"] == "best_effort"
-    assert D.claim(c, "h", "h:0", ["last"]) is None                                # 尽力版首帧不进下一步（等人工）
+    # 项目方 11-09“尽力版一律自动用”（取代原“尽力版首帧不进下一步、等人工”）：帧步最后一次已把最好一版设当前 → 尾帧照常领
+    assert D.claim(c, "h", "h:0", ["last"])["step"] == "last"
 
 
 def test_retry_without_output_fails(tmp_path):
