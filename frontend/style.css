@@ -187,6 +187,7 @@ button.tile { cursor: zoom-in; }
 .tile .cap {
   position: absolute; top: 5px; left: 6px; z-index: 2; font-size: 11px; font-weight: 700; color: #fff; text-shadow: 0 1px 3px rgba(0, 0, 0, .8);
 }
+.tile:not(:has(img)) .cap { color: var(--text-2); text-shadow: none; }
 .tile .st { position: absolute; left: 5px; right: 5px; bottom: 5px; z-index: 2; display: flex; justify-content: center; }
 .tile .st .pill { background: rgba(0, 0, 0, .62); backdrop-filter: blur(4px); }
 .tile .ph { padding: 0 8px; line-height: 1.4; }
