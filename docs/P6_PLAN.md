@@ -64,6 +64,10 @@
 2. takes 搬进 gpu33 数据库（语义不变，只换存放位置；老 takes.json 保留不删）——同意
 3. 基准剧本：series10 第 5 集（R0 基准 / 调参）、第 6 集（R6 验收）；含成人镜的按规矩等项目方触发，等待时间不计入耗时
 4. 尽力版：**一律自动用**（不管分数直接进成片，不列给项目方）。“尽力版 ≤ 10%”仍作为质量指标在报告里量，但不再挡流程
+   - **范围（项目方 11-09 再确认，审查 3 §9.3）：全部集**（新集与 series10 ep01–04 旧集同一规则）。
+   - **与 auto_current 对账（审查 3 §5b）**：规则文本加第 4 条例外（`services/render_router/ns_render/auto_current.py` 与 `ns2/legacy_rules._best_effort_rule`）——
+     提升的版本在 takes.json 顶层打 `best_effort[stage]` 标记，重打分仍不过时不清空当前；有过契约的版本照常换上。成人镜未经项目方触发不提升（`legacy_frame.promote_best`）。
+   - 补选旧的 best_effort 行：`python -m ns2.promote_best_effort --run … --ep …`（同一函数、审计 jsonl）
 
 5. **人物资产来源（11-09）**：女主角钉死项目方给的一张 AI 生成人物参考图（服务器 assets/identity/lead_ref_v1.png，sha256 445235e2…；**不进公开仓库**）；其他人物全部由系统虚拟合成身份与造型，全自动、默认通过
 

@@ -1,6 +1,7 @@
 """M1c 首 / 尾帧步：一次认领 = 一次出图 + 契约打分（旧 FrameExec 原代码，经 ns2/legacy_frame.py 子进程在旧部署目录里跑）。
 
-结果映射：pass → done（旧 auto_current 已按契约设当前）；fail → retry（has_output，用尽 → best_effort，不设当前，等人工）；
+结果映射：pass → done（旧 auto_current 已按契约设当前）；fail → retry（has_output）；最后一次仍不过 → 尽力版自动用
+（legacy_frame.promote_best 选不过项最少的一版设当前并打 best_effort 标记，项目方 11-09；成人镜未触发不提升）→ best_effort；
 na（本镜无尾帧）→ na；preflight 不过 / 成人未触发 → blocked（写清原因）；打分 / 连接出错 → infra（回队不计次，连续 5 次 → blocked）。
 """
 from __future__ import annotations
@@ -46,6 +47,8 @@ def run(job: dict, lane: str):
         args["edit"] = p["edit"]
     if p.get("owner_triggered"):
         args["owner_triggered"] = True
+    from ns2.step_video import shot_adult
+    args["adult"] = shot_adult(job["run_id"], job["shot"])        # 尽力版提升的成人拒绝要它（读不到剧本 = 当成人）
     if res.get("infra_take"):                       # 上次图已出、打分 infra → 这次只重打分（不占新版本号、不耗 GPU 出图）
         args["rescore_take"] = res["infra_take"]
     out = call_legacy(args, lane.split(":")[0], float(p.get("timeout_s") or 3600))

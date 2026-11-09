@@ -71,10 +71,19 @@ def i2va_fallback(P, sid: str, d: dict) -> dict:
     return {"promoted": None, "fallback": "i2va", "first_n": first_n, "why": why}
 
 
-def promote_best(P, sid: str, stage: str) -> dict:
-    """项目方 11-09“尽力版一律自动用”：这一镜这一阶段没有合格的当前版时，从不是坏图 / 没被驳回的版本里选不过项最少的一版设为当前。
-    项目方本人定稿锁过的不动；已有合格当前版的不动。返回 {promoted: n | None, why}"""
+BEST_EFFORT_KEY = "best_effort"        # takes.json 顶层 {stage: {n, at, by, reason, blocking}}：尽力版自动用的来源标记（auto_current 规则 4 认它）
+
+
+def promote_best(P, sid: str, stage: str, adult: bool = True, triggered: bool = False) -> dict:
+    """项目方 11-09“尽力版一律自动用”（范围：全部集，项目方 11-09 再确认）：这一镜这一阶段没有合格的当前版时，
+    从不是坏图 / 没被驳回的版本里选不过项最少的一版设为当前，并在 takes.json 顶层 best_effort[stage] 打来源标记。
+    - auto_current 规则 4（ns2/legacy_rules.py 运行时补上，vendored 规则文本同步）：当前版是带标记的尽力版时，重打分不清空当前
+    - 成人镜（adult，按剧本；拿不准 = 当成人）未经项目方触发 → 拒绝提升（审查 3 §5b）
+    - 项目方本人定稿锁过的不动；已有合格当前版的不动。返回 {promoted: n | None, why}"""
+    import time
     from ns_render import auto_current as AC
+    if adult and not triggered:
+        return {"promoted": None, "refused": "adult", "why": "成人镜未经项目方触发，尽力版不自动提升（L-128）"}
     d = P.load_takes(sid)
     takes = [t for t in d.get("takes") or [] if t.get("stage") == stage]
     act = (d.get("active") or {}).get(stage)
@@ -93,9 +102,13 @@ def promote_best(P, sid: str, stage: str) -> dict:
             return i2va_fallback(P, sid, d)
         cands = ok_cands
     best = min(cands, key=lambda t: (len(AC.take_pf(t).get("blocking") or []), -int(t["n"])))
+    blocking = AC.take_pf(best).get("blocking")
     if best["n"] != act:
         P.set_active(sid, stage, int(best["n"]), reason=BEST_EFFORT_REASON, actor="ns2-best-effort")
-    return {"promoted": int(best["n"]), "blocking": AC.take_pf(best).get("blocking"), "why": BEST_EFFORT_REASON}
+    mark = {"n": int(best["n"]), "at": time.strftime("%Y-%m-%dT%H:%M:%S%z"), "by": "ns2-best-effort", "reason": BEST_EFFORT_REASON,
+            "blocking": blocking}
+    P.mutate_takes(sid, lambda x: x.setdefault(BEST_EFFORT_KEY, {}).__setitem__(stage, mark), op="best_effort_mark", by="ns2-best-effort")
+    return {"promoted": int(best["n"]), "blocking": blocking, "why": BEST_EFFORT_REASON}
 
 
 def main(a: dict) -> dict:
@@ -117,7 +130,8 @@ def main(a: dict) -> dict:
         _orig = PR.owner_trigger_ids
         PR.owner_trigger_ids = lambda p, _o=_orig, _s=a["sid"], _r=a["run"]: set(_o(p)) | {f"first:{_s}", f"{_r}/first:{_s}", f"last:{_s}", f"{_r}/last:{_s}"}
     if a.get("promote_only"):        # 补选：已是尽力版的镜（规则上线前用完次数的）按同一规则选一版设当前
-        return {"outcome": "promoted", **promote_best(P, a["sid"], "image" if a["kind"] == "first" else "last")}
+        return {"outcome": "promoted", **promote_best(P, a["sid"], "image" if a["kind"] == "first" else "last",
+                                                      adult=a.get("adult", True), triggered=bool(a.get("owner_triggered")))}
     st = _Stub(PR, paths, script, a.get("prev_blocking") or [])
     o = {"id": f"{a['kind']}:{a['sid']}", "shot": a["sid"], "kind": a["kind"]}
     if a.get("rescore_take"):        # M2：上次图已出、只是打分 infra 出错 → 只重打分，不重出图（同旧 Producer._rescore_one）
@@ -156,7 +170,8 @@ def main(a: dict) -> dict:
     if pf.get("score_infra"):
         return {**out, "outcome": "infra", "error": "契约打分 score_infra（gpu33 显存 / 连接 / 看图排队）"}
     if not pf.get("ok") and a.get("final_attempt"):    # 最后一次仍不过 → 尽力版自动用（项目方 11-09）
-        out["best_effort"] = promote_best(P, a["sid"], "image" if a["kind"] == "first" else "last")
+        out["best_effort"] = promote_best(P, a["sid"], "image" if a["kind"] == "first" else "last",
+                                          adult=a.get("adult", True), triggered=bool(a.get("owner_triggered")))
     return {**out, "outcome": "pass" if pf.get("ok") else "fail"}
 
 

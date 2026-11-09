@@ -6,6 +6,11 @@
   2. 没过契约（ok=False / 还没算完 ok=None）或有 bad_reason（坏图）→ 绝不设为当前；它若已经是当前，
      退回到这一阶段最近一个“过契约且不是坏图”的版本，没有就清空当前（不留一张不合格的当前图）。
   3. 例外：项目方自己定稿（takes.json locked[stage]，且 locked_by[stage].by 不是 "auto"）的版本，永远不被自动挤掉。
+  4. 例外（项目方 11-09“尽力版一律自动用”，范围全部集；ns2 执行层见 ns2/legacy_frame.promote_best + ns2/legacy_rules._best_effort_rule）：
+     帧步用完次数仍没过契约 → ns2 选不过项最少的一版设为当前，并在 takes.json 顶层写 best_effort[stage] = {n, at, by, reason, blocking}。
+     当前版是这个带标记的尽力版时，它被重打分仍不过 → 不清空当前（规则 2 的“清空”不适用）；有过契约的版本时照常换上 / 退回。
+     成人镜未经项目方触发的帧，尽力版不提升。
+     （服务器执行的是旧部署目录里的本文件，规则 4 由 ns2/legacy_rules.apply() 在运行时补上；这里同步规则文本，代码以 ns2 那份为准）
 
 所有调用方只调 on_contract(shot_id, stage, n)（契约结果写进版本之后）；入库时一律 _add_take(activate=False)。
 项目方在界面上手动“设为当前 / 采用”不走这里（那是项目方本人的决定）。

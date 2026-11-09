@@ -43,6 +43,29 @@ def board_no_text(AR, project: str, tiles: list) -> str:
     return AR.rel(out)
 
 
+def _best_effort_rule() -> None:
+    """6. auto_current 规则 4（项目方 11-09“尽力版一律自动用”，审查 3 §5b 对账）：当前版是 ns2 打过 best_effort 标记的尽力版时，
+    这一版被重打分仍不过 → 不清空当前（原规则 2 会“清空当前”，把已自动用的尽力版悄悄撤掉）。有过契约的版本时照常换上 / 退回（更好的版本优先）"""
+    try:
+        from ns_render import auto_current as AC
+    except ImportError:
+        return
+    if getattr(AC.decide, "_ns2_rule4", False):
+        return
+    orig = AC.decide
+
+    def decide(data, stage, n):
+        action, target, why = orig(data, stage, n)
+        be = (data.get("best_effort") or {}).get(stage) or {}
+        active = (data.get("active") or {}).get(stage)
+        if action == "clear" and be.get("n") is not None and be.get("n") == active:
+            return "keep", active, why + f"；但当前 v{active} 是尽力版自动用（项目方 11-09，规则 4），不清空"
+        return action, target, why
+
+    decide._ns2_rule4 = True
+    AC.decide = decide
+
+
 def _no_text_boards(AR) -> None:
     """5. 参考板标签进画面（P6 R1a ep05-S5/S7/S11 Q6：“①祁念；层勘”“③服装：日常全壹装…”被模型照画）：
     旧参考板每格底下印中文标签，出图模型把字当画面内容抄进去。修：参考板不印字；对应关系改在提示词里按格子顺序说明"""
@@ -103,6 +126,7 @@ def apply() -> None:
 
     AR.resolve_shot = resolve_shot
     _no_text_boards(AR)
+    _best_effort_rule()
     try:
         import producer as PR                       # 旧派单器模块（board / 首尾帧执行器都会 import 它）
         PR.refs_guard = lambda *a, **k: []
