@@ -316,9 +316,18 @@ def compile_payload(job: dict, host: str) -> tuple[dict | None, str | None]:
         if r.returncode or not current():
             return None, f"视频变体编译不过 / 与当前首尾帧对不上（build_jobs rc={r.returncode}）：{log[-400:]}"
     try:
-        return EV.build(run_id, sid, host)[2]["payload"], None
+        pl = EV.build(run_id, sid, host)[2]["payload"]
     except SystemExit as e:
         return None, f"视频变体编译后仍找不到本镜：{e}"
+    if not pl.get("variants"):        # P6 11-09 ep05-S2/S12/S13：build_jobs 给这镜 0 个变体、报错原因是空的 → 把作业表里这镜的状态 / 原因带出来
+        try:
+            jobs = json.loads((ROOT / "data/pipeline/runs" / run_id / "video/jobs.json").read_text(encoding="utf-8"))
+            sh = next((x for x in jobs.get("shots") or [] if x.get("shot") == sid), {}) or {}
+        except (OSError, ValueError):
+            sh = {}
+        info = {k: v for k, v in sh.items() if k != "variants" and (isinstance(v, (str, int, float, bool)) or k in ("reason", "missing", "needs_writer", "skip", "blocked"))}
+        return None, f"build_jobs 给本镜 0 个视频变体；作业表本镜字段：{json.dumps(info, ensure_ascii=False)[:600]}；编译日志：{log[-200:]}"
+    return pl, None
 
 
 def shot_adult(run_id: str, sid: str) -> bool:
