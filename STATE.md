@@ -19,7 +19,7 @@
 - P1 r12：M13 ✅ infra 回队退避（30 s 起倍增、上限 10 分钟），人工重派立即可领。证据 reports/p0/r12_M13.md
 - P2 r13：前端 ✅ ns2 同源 /ui（总览 15 s 轮询 + 审片页五操作，接口层真机验过；浏览器真点未做——Chrome 扩展未连）。证据 reports/p2/r13_frontend.md
   打开方式：笔记本浏览器 http://127.0.0.1:18900/ （写操作第一次会要密钥：服务器 /root/work/fredw/ns2/secret.key）
-- P3 r14：smoke_v2 ep01 全程新系统跑通（script→board→first→last→video→film，无人工派单；墙钟 23 分钟；同输入 0 新行）；
+- P3 r14：smoke_v2 ep01 全程新系统跑通（script→board→first→last→video→film，无人工派单；墙钟 37 分钟（r14 标题 23 分钟有误，审查 3 更正）；同输入 0 新行：本机证据见 reports/p3/r17，live 待补）；
   **真机抓到首尾帧跨机交接缺失**（视频机用了旧首帧）→ ns2/handoff.py 修好并重跑验证（236 用 v14/v4，film v2）。证据 reports/p3/r14_smoke_full_chain.md
 - 待项目方：ep03-S4（成人，首帧待复核 + 触发）（series10 ep01 不重出：项目方 11-09 定 smoke 证明已够）
 - P3 r15：总览 need_frames 判定修正、ETA 不计等人的镜。证据 reports/p3/r15_overview_need_frames.md

@@ -1,0 +1,8 @@
+== 第 1 次 enqueue_episode（剧本 sha 7b706eda2d40a16d）
+script gpu33 1 new
+script gpu36 2 new 
+   镜头行入队（step_script.shot_rows，13 镜 × 4 步 + assets 1 行）：{'new': 53, 'existing': 0}；库里总行数 55；id 范围 1–55
+== 第 2 次 enqueue_episode（剧本 sha 7b706eda2d40a16d）
+script gpu33 1 existing
+script gpu36 2 existing 
+   镜头行入队（step_script.shot_rows，13 镜 × 4 步 + assets 1 行）：{'new': 0, 'existing': 53}；库里总行数 55；id 范围 1–55
