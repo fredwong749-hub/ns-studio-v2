@@ -116,3 +116,16 @@ def test_compile_skips_build_when_jobs_table_matches(monkeypatch, tmp_path):
     monkeypatch.setattr(SV, "ROOT", tmp_path)
     monkeypatch.setattr(EV, "build", lambda run, sid, host: (None, None, {"payload": {"variants": [1]}}))
     assert SV.compile_payload(job, "gpu33") == ({"variants": [1]}, None) and not calls
+
+
+def test_video_host_trusts_image_host_for_accept_and_regen_holds():
+    """11-09 gpu36 出 ep05 视频：验收记录 / 驳回账是出图机本机的，视频机上旧的那份不再复判（只对交接来的镜）"""
+    import legacy_build_jobs as LB
+    BJ = types.SimpleNamespace(json=json, _q9_ok=lambda pf: True, anomaly_block=lambda *a: None,
+                               accept_status=lambda sid, f, pf, rows: None, regen_holds=lambda ids: {i: "regen：旧驳回" for i in ids})
+    G = types.SimpleNamespace(filter_video_specs=None)
+    LB.patch(BJ, G, LB.remote_shot_fn("gpu36"))
+    assert BJ.accept_status("ep05-S9", "a.png", {}, {}) == "pass"                   # ep05 出图在 gpu33 → 本机 gpu36 不复判
+    assert BJ.accept_status("ep02-S1", "a.png", {}, {}) is None                     # ep02 出图就在 gpu36 → 照旧
+    assert BJ.regen_holds(["ep05-S5", "ep02-S3"]) == {"ep02-S3": "regen：旧驳回"}
+    assert LB.remote_shot_fn(None)("ep05-S1") is False

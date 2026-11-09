@@ -26,13 +26,33 @@ def json_view_module():
     return m
 
 
-def patch(BJ, G) -> None:
+def remote_shot_fn(self_host: str | None):
+    """本机不是这集的出图机 → 这一镜的首 / 尾帧是交接来的：True"""
+    def remote(sid: str) -> bool:
+        try:
+            from ns2.migrate import host_for
+            ep = int(str(sid).split("-")[0][2:])
+        except (ImportError, ValueError):
+            return False
+        src = host_for("images", ep)
+        return bool(self_host and src and src != self_host)
+    return remote
+
+
+def patch(BJ, G, remote=None) -> None:
+    """remote(sid)：本机不是出图机（交接来的帧）。3. 出图机说了算——旧系统的“出图后验收记录”和“驳回 / 换代账”
+    （data/producer/master_rejects.json）都是出图机本机的账，视频机上那份是旧的（11-09 gpu36：ep05 七镜 V1 期驳回在 gpu33 已清、gpu36 没清；
+    验收记录 gpu36 没有 → 已过契约的首帧判“还没验收”）。ns2 下视频行要等首 / 尾帧在出图机 done / best_effort 才领，这两项在视频机上不再复判"""
     import best_effort_view as BV
     BJ.json = json_view_module()
     oq, oa = BJ._q9_ok, BJ.anomaly_block
     BJ._q9_ok = lambda pf: True if (pf or {}).get(BV.FLAG) else oq(pf)
     BJ.anomaly_block = lambda sid, file, pf, rows: None if (pf or {}).get(BV.FLAG) else oa(sid, file, pf, rows)
     G.filter_video_specs = lambda run, specs, root=None: specs
+    if remote is not None:
+        oacc, oreg = BJ.accept_status, BJ.regen_holds
+        BJ.accept_status = lambda sid, file, pf, rows: "pass" if remote(sid) else oacc(sid, file, pf, rows)
+        BJ.regen_holds = lambda shot_ids: {k: v for k, v in oreg(shot_ids).items() if not remote(k)}
 
 
 def main(argv: list[str]) -> int:
@@ -45,7 +65,10 @@ def main(argv: list[str]) -> int:
     sys.argv = [str(root / "tools/series10_video/build_jobs.py")] + argv
     import build_jobs as BJ
     from tools.master import sop_gate as G
-    patch(BJ, G)
+    import os
+    if str(HERE.parent) not in sys.path:
+        sys.path.append(str(HERE.parent))             # ns2 包（migrate.host_for）；追加在后，不遮旧仓库的模块
+    patch(BJ, G, remote_shot_fn(os.environ.get("OFFLINE_SELF")))
     sys.stdout.reconfigure(encoding="utf-8")
     BJ.set_run(BJ.RC.resolve())
     if "--validate" in argv:
