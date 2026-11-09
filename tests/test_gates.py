@@ -27,3 +27,21 @@ def test_frame_passed_paths(monkeypatch):
     monkeypatch.setattr(G, "_vq", lambda: VQ(boom=True))
     ok, why = G.frame_passed("image", t)
     assert ok is False and "infra" in why
+
+
+def test_p6_sanitize_sheet_spec_drops_text_props():
+    """P6 11-09 根因：造型写“印着替补号码的衣袋”“（卓琳统一配）”→ 设定图画出号码字母，读字检查连毙 7 张。出设定图前去掉带字部件和剧情备注"""
+    import importlib.util as u
+    from pathlib import Path
+    sp = u.spec_from_file_location("legacy_assets_t", Path(__file__).resolve().parents[1] / "ns2" / "legacy_assets.py")
+    m = u.module_from_spec(sp)
+    sp.loader.exec_module(m)
+    spec = {"slots": {"服装": "白色缎面吊带长裙、印着替补号码的黑色衣袋挂在肩上", "鞋": "黑色漆皮细带露趾高跟凉鞋（卓琳统一配）", "饰品": "银色细手链"},
+            "en": "a white satin slip gown with a black numbered garment bag over one shoulder, black patent leather strappy open-toe heeled sandals",
+            "img": "穿白色缎面吊带长裙、印着替补号码的黑色衣袋挂在肩上、黑色漆皮细带露趾高跟凉鞋（卓琳统一配）、银色细手链，无文字无标识"}
+    dropped = m.sanitize_spec(spec)
+    assert spec["slots"] == {"服装": "白色缎面吊带长裙", "鞋": "黑色漆皮细带露趾高跟凉鞋", "饰品": "银色细手链"}
+    assert "号码" not in spec["img"] and "统一配" not in spec["img"] and "numbered" not in spec["en"] and "slip gown" in spec["en"]
+    assert len(dropped) == 3
+    clean = {"slots": {"服装": "黑色修身西装"}, "en": "a black slim suit with a white shirt, a textured tie", "img": "穿黑色修身西装"}
+    assert m.sanitize_spec(clean) == [] and clean["en"] == "a black slim suit with a white shirt, a textured tie"

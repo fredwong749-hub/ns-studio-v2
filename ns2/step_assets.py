@@ -30,7 +30,7 @@ def _call(args: dict, host: str, run: str, timeout_s: float) -> dict:
 def asset_rows(job: dict, assets: list[dict]) -> list[dict]:
     return [{"run_id": job["run_id"], "ep": int(job["ep"]), "shot": job["shot"], "step": "asset", "want_host": job.get("want_host"),
              "max_tries": 1, "sig": {"asset": a["asset"], "plan": job["id"]},
-             "payload": {"asset": a["asset"], "kind": a.get("kind"), "shots": a.get("shots") or ["*"], "after": a.get("after") or []}}
+             "payload": {"asset": a["asset"], "kind": a.get("kind"), "shots": a.get("shots") or [], "after": a.get("after") or []}}
             for a in assets]
 
 

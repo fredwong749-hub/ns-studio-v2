@@ -14,6 +14,7 @@ ep05 资产跑了 65 分钟、4 条道空转、13 镜全在等。
 from __future__ import annotations
 
 import json
+import re
 import sys
 import traceback
 from pathlib import Path
@@ -82,9 +83,55 @@ def plan(a: dict) -> dict:
     for j in sorted(jobs, key=lambda j: (RENDER_ORDER[j["kind"]], j["id"])):
         cid = str(j.get("target") or "").split(":")[0]
         after = [faces[cid]] if j["kind"] in ("sheet", "item") and cid in faces else []
-        out.append({"asset": j["id"], "kind": j["kind"], "shots": [f"ep{ep:02d}-S{n}" for n in j.get("shots") or []] or ["*"], "after": after})
+        # 只挡缺口清单里写了的镜；没写镜号的（如设定图登记后旧代码顺手排的单品裁图）不在任何镜的缺口里 → 不挡分镜（11-09：曾默认 "*" 把 13 镜全挡住）
+        out.append({"asset": j["id"], "kind": j["kind"], "shots": [f"ep{ep:02d}-S{n}" for n in j.get("shots") or []], "after": after})
     writer = [g for g in res.get("gaps") or [] if not any(str(g.get("kind")) == k for k in ("face", "scene", "look", "item", "name", "schedule"))]
     return {"outcome": "ok", "assets": out, "meta": meta_log, "gaps": _gaps(res)[:40], "other_gaps": _gaps({"gaps": writer})[:20]}
+
+
+TEXTY_ZH = re.compile(r"印着|印有|号码|编号|字样|字母|文字|标志|标识|logo|LOGO|品牌|牌子|商标")
+TEXTY_EN = re.compile(r"\b(numbered|number|lettered|letters?|logo|brand(ed)?|printed|text|label(l)?ed|monogram)\b", re.I)
+
+
+def sanitize_spec(spec: dict) -> list[str]:
+    """设定图规格里去掉带字 / 带标志的部件和括号里的剧情备注（P6 11-09 根因：唐瑶造型 B 写“印着替补号码的黑色衣袋”+“（卓琳统一配）”，
+    模型照画号码和字母，读字检查连毙 7 张——规格自相矛盾，换种子永远过不了）。原地改 spec，返回去掉了什么"""
+    dropped: list[str] = []
+    slots = spec.get("slots") or {}
+    for k, v in list(slots.items()):
+        if not isinstance(v, str):
+            continue
+        parts = [x for x in re.split(r"[、，,]", v) if x.strip()]
+        keep = []
+        for x in parts:
+            if TEXTY_ZH.search(x):
+                dropped.append(x.strip())
+                continue
+            y = re.sub(r"（[^）]*）|\([^)]*\)", "", x)
+            if y != x:
+                dropped.append(x.strip())
+            keep.append(y)
+        new = "、".join(keep)
+        if new != v:
+            if spec.get("img") and v in spec["img"]:
+                spec["img"] = spec["img"].replace(v, new)
+            slots[k] = new
+    for key in ("img",):
+        if spec.get(key):
+            spec[key] = re.sub(r"（[^）]*统一配[^）]*）", "", spec[key])
+    if spec.get("en"):
+        eparts = [x for x in re.split(r",\s*", spec["en"]) if x.strip()]
+        ekeep = []
+        for x in eparts:
+            if TEXTY_EN.search(x):
+                if " with " in x and not TEXTY_EN.search(x.split(" with ")[0]):
+                    ekeep.append(x.split(" with ")[0]); dropped.append(x.split(" with ", 1)[1])
+                else:
+                    dropped.append(x)
+                continue
+            ekeep.append(x)
+        spec["en"] = ", ".join(ekeep)
+    return dropped
 
 
 def one(a: dict) -> dict:
@@ -102,6 +149,11 @@ def one(a: dict) -> dict:
     if j.get("state") == "failed":                        # 上次 ns2 之外的失败：重新给一次机会（种子会换新的）
         j.update(state="pending", final=False)
         AJ.save_job(ROOT, j)
+    if j.get("kind") in ("sheet", "face"):
+        why = sanitize_spec(j.get("spec") or {})
+        if why:
+            AJ.log(j, f"{BY} 出图前清理规格（设定图不画带字道具 / 剧情备注；道具由镜头剧本体现）：去掉 {why}")
+            AJ.save_job(ROOT, j)
     if AW.is_crop_job(j) and not (j.get("spec") or {}).get("crop_failed"):
         j = AW.run_crop(jp, ROOT)
     else:

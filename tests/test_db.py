@@ -230,3 +230,14 @@ def test_p6_board_waits_only_for_its_own_assets(tmp_path):
     assert D.claim(c, "g", "g:3", ["board"]) is None                     # S1 还在等设定图
     D.finish(c, sheet["id"], "g", "blocked", error="两张都不过")
     assert D.claim(c, "g", "g:3", ["board"]) is None                     # 资产卡住：S1 照样等（不带着缺资产出图）
+
+
+def test_p6_asset_without_shots_blocks_nobody(tmp_path):
+    """11-09：没写镜号的资产行（单品裁图）卡住也不挡任何镜"""
+    c = D.connect(tmp_path / "q.db")
+    c.execute("INSERT INTO runs(run_id) VALUES ('r')")
+    D.enqueue(c, run_id="r", ep=5, shot="ep05", step="assets", want_host="g", state="done")
+    D.enqueue(c, run_id="r", ep=5, shot="ep05", step="asset", want_host="g", sig={"a": "item"}, state="blocked",
+              payload={"asset": "item-x", "shots": [], "after": []})
+    b, _ = D.enqueue(c, run_id="r", ep=5, shot="ep05-S1", step="board", want_host="g")
+    assert D.claim(c, "g", "g:0", ["board"])["id"] == b["id"]
