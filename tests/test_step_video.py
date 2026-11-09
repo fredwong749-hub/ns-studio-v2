@@ -9,7 +9,7 @@ import pytest
 @pytest.fixture(autouse=True)
 def _no_real_handoff(monkeypatch, request):
     """其余用例不连真出图机：交接打桩成“无变化”（交接本身由 test_handoff_pulls_image_host_frames 测）"""
-    if request.node.name != "test_handoff_pulls_image_host_frames":
+    if request.node.name not in ("test_handoff_pulls_image_host_frames", "test_p3_recheck_remote_frames_and_handoff_fixes"):
         from ns2 import handoff as HO
         monkeypatch.setattr(HO, "sync_frames", lambda *a, **k: {"changed": False})
 
@@ -223,3 +223,37 @@ def test_m7_seed_ledger_never_reuses(tmp_path, monkeypatch):
     led = json.loads(V.seed_ledger_path("r").read_text(encoding="utf-8"))
     assert led["ep01-S1"] == [a, b, c] and led["ep01-S2"] == [42]
     assert V.pick_seed("r", "ep01-S3", {"seed": 5, "graph": {}}, None) is None and "ep01-S3" not in json.loads(V.seed_ledger_path("r").read_text(encoding="utf-8"))
+
+
+def test_p3_recheck_remote_frames_and_handoff_fixes(tmp_path, monkeypatch):
+    """审查 3 §4：提交前复核出图机当前版（变了 → infra 回队）；交接时出图机没有首帧 → 本机也去掉；同名不同大小 → 冲突；op_id 不再确定性"""
+    import pytest
+    from ns2 import handoff as HO
+    job = {"run_id": "r", "ep": 2, "shot": "ep02-S1"}                   # ep02 出图在 gpu36
+    monkeypatch.setattr(HO, "remote_active", lambda run, sid, src, base=None: {"image": 14, "last": 4})
+    assert V.recheck_remote_frames(job, {"first_take": 14, "last_take": 4}, "gpu33") is None
+    assert "v13 变成 v14" in V.recheck_remote_frames(job, {"first_take": 13, "last_take": 4}, "gpu33")
+    assert V.recheck_remote_frames(job, {"first_take": 13}, "gpu36") is None          # 本机就是出图机
+    assert V.recheck_remote_frames(job, {"echo": True, "first_take": 1}, "gpu33") is None
+    # 交接：出图机 active 没有 image → 本机去掉旧首帧；同名文件大小不同 → 冲突
+    root = tmp_path
+    doc = {"active": {"image": 3, "last": 2}, "takes": [{"stage": "image", "n": 3, "file": "a.png"}]}
+    import sys, types
+    P = types.SimpleNamespace(mutate_takes=lambda sid, fn, **k: (ops.append(k["op_id"]), fn(doc)))
+    ops = []
+    mod = types.ModuleType("ns_render.pipeline"); mod.mutate_takes = P.mutate_takes
+    pkg = types.ModuleType("ns_render"); pkg.pipeline = mod
+    monkeypatch.setitem(sys.modules, "ns_render", pkg); monkeypatch.setitem(sys.modules, "ns_render.pipeline", mod)
+    remote = {"active": {"last": 2}, "takes": [{"stage": "last", "n": 2, "file": "renders/r/ep02/S1/takes/last_002.png"}]}
+    (root / "data/renders/r/ep02/S1/takes").mkdir(parents=True)
+    (root / "data/renders/r/ep02/S1/takes/last_002.png").write_bytes(b"12345")
+    monkeypatch.setattr(HO, "_get", lambda base, rel, timeout=120: json.dumps(remote).encode())
+    monkeypatch.setattr(HO, "remote_size", lambda base, rel: 5)
+    out = HO.sync_frames("r", "ep02-S1", "gpu36", root, base="http://x")
+    assert ops, ("mutate 没走假模块", out)
+    assert "image" not in doc["active"] and out["changed"] and ops[0].startswith("ns2-handoff-gpu36-None-2-")
+    HO.sync_frames("r", "ep02-S1", "gpu36", root, base="http://x")
+    assert ops[0] != ops[1]                                                             # 每次唯一，回摆不被吞
+    monkeypatch.setattr(HO, "remote_size", lambda base, rel: 999)
+    with pytest.raises(HO.HandoffConflict):
+        HO.sync_frames("r", "ep02-S1", "gpu36", root, base="http://x")

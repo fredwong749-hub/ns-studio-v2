@@ -9,6 +9,7 @@ smoke_v2 ep01-S2 视频用了 v1 旧首帧而不是出图机新出的 v14——�
 from __future__ import annotations
 
 import json
+import uuid
 import sys
 import urllib.parse
 import urllib.request
@@ -27,6 +28,25 @@ def _get(base: str, rel: str, timeout: float = 120) -> bytes:
     req = urllib.request.Request(f"{base}/files/{urllib.parse.quote(rel)}", headers=AU.headers())
     with urllib.request.urlopen(req, timeout=timeout) as r:
         return r.read()
+
+
+def remote_size(base: str, rel: str) -> int | None:
+    """出图机上这个文件多大（Range 0-0 取 Content-Range 总长）；问不到 → None（不挡）"""
+    req = urllib.request.Request(f"{base}/files/{urllib.parse.quote(rel)}", headers={**AU.headers(), "Range": "bytes=0-0"})
+    try:
+        with urllib.request.urlopen(req, timeout=30) as r:
+            cr = r.headers.get("Content-Range") or ""
+            return int(cr.rsplit("/", 1)[1]) if "/" in cr else int(r.headers.get("Content-Length") or 0) or None
+    except (OSError, ValueError):
+        return None
+
+
+def remote_active(run: str, sid: str, src_host: str, base: str | None = None) -> dict:
+    """审查 3 §4 stale-frame：提交视频前再问一次出图机当前首 / 尾帧版本号 → {"image": n, "last": n}"""
+    ep, s = sid.split("-")
+    remote = json.loads(_get(base or FILE_PORTS[src_host], f"renders/{run}/{ep}/{s}/takes.json"))
+    act = remote.get("active") or {}
+    return {"image": act.get("image"), "last": act.get("last")}
 
 
 def sync_frames(run: str, sid: str, src_host: str, root: Path, base: str | None = None) -> dict:
@@ -48,7 +68,11 @@ def sync_frames(run: str, sid: str, src_host: str, root: Path, base: str | None 
     for t in want.values():
         if t and t.get("file"):
             dst = root / "data" / t["file"]
-            if not dst.is_file():
+            if dst.is_file():                        # 审查 3 §4 N3：本机已有同名文件 → 核大小，对不上 = 冲突（不拿错图出片）
+                rs = remote_size(base, t["file"])
+                if rs is not None and rs != dst.stat().st_size:
+                    raise HandoffConflict(f"{sid} {t.get('stage')} v{t.get('n')}：本机 {t['file']} {dst.stat().st_size} 字节，出图机 {rs} 字节（同名不同图，要人工对齐）")
+            else:
                 dst.parent.mkdir(parents=True, exist_ok=True)
                 tmp = dst.with_suffix(dst.suffix + ".part")
                 tmp.write_bytes(_get(base, t["file"]))
@@ -60,9 +84,9 @@ def sync_frames(run: str, sid: str, src_host: str, root: Path, base: str | None 
         takes = doc.setdefault("takes", [])
         act = doc.setdefault("active", {})
         for stage, t in want.items():
-            if t is None:
-                if stage == "last" and "last" in act:
-                    act.pop("last"); out["changed"] = True
+            if t is None:                            # 审查 3 §4 N2：出图机没有当前版（首帧也算）→ 本机也去掉，不留旧帧
+                if stage in act:
+                    act.pop(stage); out["changed"] = True
                 continue
             mine = next((x for x in takes if x.get("stage") == stage and x.get("n") == t["n"]), None)
             if mine is None:
@@ -74,6 +98,6 @@ def sync_frames(run: str, sid: str, src_host: str, root: Path, base: str | None 
                 act[stage] = t["n"]; out["changed"] = True
         return doc
 
-    op = f"ns2-handoff-{src_host}-{out['image']}-{out['last']}"
+    op = f"ns2-handoff-{src_host}-{out['image']}-{out['last']}-{uuid.uuid4().hex[:8]}"   # 审查 3 §4 N4：14→13→14 回摆不被重放保护吞掉
     P.mutate_takes(sid, fn, op="ns2_handoff", by="ns2-worker", op_id=op, run=run)
     return out

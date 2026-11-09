@@ -279,6 +279,25 @@ def pick_seed(run: str, sid: str, var: dict, seed: int | None) -> int | None:
     return s
 
 
+def recheck_remote_frames(job: dict, p: dict, host: str) -> str | None:
+    """出图机 ≠ 视频机时，提交前再问一次出图机当前首 / 尾帧；和本次变体绑定的版本不同 → 返回原因（infra 回队，下次领到先重新交接）"""
+    if p.get("echo") or (p.get("first_take") is None and p.get("last_take") is None):
+        return None                                   # 没绑帧版本（echo / 只靠运行时编译前的交接）→ 没有可比的
+    from ns2 import handoff as HO
+    from ns2.migrate import host_for
+    src = host_for("images", int(job["ep"]))
+    if not src or src == host:
+        return None
+    try:
+        ra = HO.remote_active(job["run_id"], job["shot"], src)
+    except (OSError, ValueError) as e:
+        return f"提交前复核出图机当前帧失败（{src}）：{e!r}"[:300]
+    for stage, key in (("image", "first_take"), ("last", "last_take")):
+        if p.get(key) is not None and ra.get(stage) != p[key]:
+            return f"出图机 {src} 的{'首' if stage == 'image' else '尾'}帧当前版已从 v{p[key]} 变成 v{ra.get(stage)}（交接后又换了），回队重新交接"
+    return None
+
+
 def no_variant_reason(payload: dict, lane: str) -> str:
     """审查 3 §4（ep05-S2/S12/S13 线上报“没有可派的变体：”后面是空的）：pick_variant 为 None 时一律写出为什么——
     0 个变体 / 各变体状态与原因 / 阶梯里没有 ready 的 / 全是超长只能长道"""
@@ -447,6 +466,9 @@ def run(job: dict, lane: str):
         return "infra", {"variant": name, "has_output": False}, f"视频 preflight 查不了：{e}"
     if bad:                           # M5：提交前查，缺什么写清，不白跑 GPU
         return "blocked", {"variant": name, "preflight": bad, "has_output": False}, "视频 preflight 不过：" + "；".join(bad)[:900]
+    stale = recheck_remote_frames(job, p, host)          # 审查 3 §4：交接后到提交前出图机又换了版 → 回队重新交接 / 重编，不拿旧帧出片
+    if stale:
+        return "infra", {"variant": name, "has_output": False}, stale
     prefix = f"ns2/{sid}__{name}"
     tag = {"agent": "NS2", "kind": "video", "shot": sid, "job": job["id"], "label": name}
     seed = int.from_bytes(os.urandom(4), "big") if p.get("fresh_seed") else None
