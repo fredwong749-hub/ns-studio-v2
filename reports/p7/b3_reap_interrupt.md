@@ -23,3 +23,13 @@
 ## 遗留（明说）
 - 首帧 / 尾帧的 ComfyUI 提交在旧执行器 `legacy_frame` 里（旧 `FrameExec`），prompt_id 拿不到，这一轮**只覆盖视频步**。帧步有一个子进程超时（3600 s），但子进程被杀后 ComfyUI 侧不会被撤。R2 去旧代码时一起做（帧步换成 ns2 原生提交后接同一套）。
 - 真机演练（kill worker → 回收 → ComfyUI 那边被中断）要等 SSH 恢复，部署后补到本报告。
+
+## live 演练（2026-11-09 21:18–21:20 JST，项目方批“按改的做”）
+脚本 `tools/evidence/b3_live_drill.sh`，原始输出 `b3_live_drill.txt`。用 smoke_v2 ep01-S2 视频重出（第 307 行）做真任务：
+1. 派单 → smoke_v2 临时 producing → 10 s 内 gpu36:2 领走，comfy_prompts 登记 `2158777c… live` → **smoke_v2 立刻改回 paused**（暂停窗口 19 s）。
+2. ComfyUI :8190 `queue_running` 里是这个 prompt。
+3. kill gpu36 worker（只杀本目录 pid）→ 30 s 后 ComfyUI **仍在跑**（这就是 B3 原问题：worker 死了 GPU 还在烧）。
+4. 回收：同一段 `D.reap` 代码、租约缩到 20 s（正常 45 min 等不到 6 min 的视频），先断言只有 307 一行心跳过期 → `reaped [307]`，行回 queued、`ready_at` 退避 120 s、prompt 标 `cancel_req`。此时 ComfyUI 仍在跑（worker 不在，没人撤）。
+5. 重启 gpu36 worker → 启动时 `COMFY_CANCEL 307 2158777c… deleted,interrupted` → 25 s 后 ComfyUI 三个口 `queue_running` 全空，comfy_prompts 该行 `done`。
+- 结论：**视频步 B3 live 关闭**（worker 死 → 回收 → 重启撤残留 → ComfyUI 被中断）。帧步旧执行器仍未覆盖（R2）。
+- 副作用（如实）：暂停窗口里 gpu33 领走 smoke_v2 第 229 行（ep01-S3 尾帧）跑了一次，FL 不过 → 收成 best_effort；307 行留在 queued（smoke_v2 paused，不会再跑）。series10_v2 全程 paused。

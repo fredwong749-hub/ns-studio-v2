@@ -1,0 +1,48 @@
+[07:17:46] 0 before
+port 8188: {"queue_running": [], "queue_pending": []}
+port 8189: {"queue_running": [], "queue_pending": []}
+port 8190: {"queue_running": [], "queue_pending": []}
+[07:17:56] 1 dispatch
+{"job":{"id":307,"run_id":"smoke_v2","ep":1,"shot":"ep01-S2","step":"video","stage":"video","state":"queued","payload":{},"result":null,"want_host":"gpu36","lane":null,"host":null,"tries":0,"max_tries":4,"idem_key":"51994c32217cbb77","owner_trigger":0,"created_at":"2026-11-09T21:18:07+09:00","started_at":null,"finished_at":null,"beat_at":null,"error":null,"want_lane":null,"ready_at":null},"created
+J=307
+[07:18:07] 2 unpause smoke_v2
+{"run_id":"smoke_v2","title":"smoke_v2 M1c","status":"producing"}
+[07:18:26] poll 1 ('running', 'gpu36', 'gpu36:2') [('2158777c-681d-4dd4-983d-b2b1036a6bde', 'gpu36:2', 'live')]
+[07:18:26] 3 pause smoke_v2 again
+{"run_id":"smoke_v2","title":"smoke_v2 M1c","status":"paused"}
+[07:18:43] 4 comfy while running
+port 8188: {"queue_running": [], "queue_pending": []}
+port 8189: {"queue_running": [], "queue_pending": []}
+port 8190: {"queue_running": [[123, "2158777c-681d-4dd4-983d-b2b1036a6bde", {"127": {"class_type": "UNETLoader", "inputs": {"unet_name": "minimax_h3_fl2va_pruned_int8_convrot.safetensors", "weight_dtype": "default"}}, "128": {"class_type": "CLIPLoader", "inputs": {"clip_name": "qwen3vl_32b_minimax_h3_nvfp4_awq
+[07:18:51] 5 kill gpu36 worker
+killed 4048632
+[07:19:32] 6 comfy 30s after kill (prompt should still run = the B3 problem)
+port 8188: {"queue_running": [], "queue_pending": []}
+port 8189: {"queue_running": [], "queue_pending": []}
+port 8190: {"queue_running": [[123, "2158777c-681d-4dd4-983d-b2b1036a6bde", {"127": {"class_type": "UNETLoader", "inputs": {"unet_name": "minimax_h3_fl2va_pruned_int8_convrot.safetensors", "weight_dtype": "default"}}, "128": {"class_type": "CLIPLoader", "inputs": {"clip_name": "qwen3vl_32b_minimax_h3_nvfp4_awq
+[07:19:42] 7 reap (D.reap, lease 20s, only if J is the only stale running row)
+stale [307]
+reaped [307]
+(307, 'queued', '心跳超时回收', 1794226911.7990003)
+[('2158777c-681d-4dd4-983d-b2b1036a6bde', 'cancel_req')]
+[07:19:51] 8 comfy after reap, before worker restart
+port 8188: {"queue_running": [], "queue_pending": []}
+port 8189: {"queue_running": [], "queue_pending": []}
+port 8190: {"queue_running": [[123, "2158777c-681d-4dd4-983d-b2b1036a6bde", {"127": {"class_type": "UNETLoader", "inputs": {"unet_name": "minimax_h3_fl2va_pruned_int8_convrot.safetensors", "weight_dtype": "default"}}, "128": {"class_type": "CLIPLoader", "inputs": {"clip_name": "qwen3vl_32b_minimax_h3_nvfp4_awq
+[07:20:01] 9 restart gpu36 worker
+started 4104054
+[07:20:36] 10 comfy after restart
+port 8188: {"queue_running": [], "queue_pending": []}
+port 8189: {"queue_running": [], "queue_pending": []}
+port 8190: {"queue_running": [], "queue_pending": []}
+[('2158777c-681d-4dd4-983d-b2b1036a6bde', 307, 'gpu36:2', 'done', '2026-11-09T21:18:16+09:00', '2026-11-09T21:20:11+09:00')]
+(307, 'queued', '心跳超时回收')
+('paused',)
+11-09 20:49:07 gpu36:2 START 222 ep01-S1 video
+11-09 20:49:07 gpu36:2 END 222 blocked 没有可派的变体：v1=needs_writer（ep01-S1 缺时间轴：H3 镜内分拍 3 拍，**分拍** 2 拍（应写：In the first two seconds, … … Then, arou
+11-09 20:49:07 gpu36:2 START 301 ep01 film
+11-09 20:49:09 gpu36:2 END 301 done 
+11-09 21:18:16 gpu36:2 START 307 ep01-S2 video
+11-09 21:20:11 WORKER gpu36 ['gpu36:0', 'gpu36:1', 'gpu36:2'] ['script', 'assets', 'asset', 'board', 'first', 'last', 'video', 'film'] http://10.0.0.33:8900
+11-09 21:20:11 FILES 10.0.0.36:8901
+11-09 21:20:11 gpu36:2 COMFY_CANCEL 307 2158777c-681d-4dd4-983d-b2b1036a6bde deleted,interrupted

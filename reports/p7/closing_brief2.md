@@ -10,7 +10,7 @@
 |---|---|---|
 | Pillow 进 requirements | 本机关闭（全新 venv 62/62） | p0_pillow.md |
 | B1 文件口 / 伪造终态 / 密钥 | 代码关闭：白名单 403、live 入队拒终态和 result、导入口默认关、多密钥轮换 + 到期、浏览器 90 天到期 + 两页可清除。**finish 口仍收终态**（有 running + host 谓词保护） | b1_files_import_key.md |
-| B3 回收 interrupt | 视频步代码关闭（落盘登记、回收撤销、重启撤残留、wait 三个分支也撤、回收退避）。**帧步旧执行器未覆盖**（R2）；**真机演练待 SSH** | b3_reap_interrupt.md |
+| B3 回收 interrupt | 视频步代码关闭（落盘登记、回收撤销、重启撤残留、wait 三个分支也撤、回收退避）。**帧步旧执行器未覆盖**（R2）；**live 演练 11-09 21:20 关闭**（kill → reap → 重启撤 → ComfyUI 中断） | b3_reap_interrupt.md、b3_live_drill.txt |
 | 堵点 3 成人触发 | 代码关闭（is_adult 校验、撤销、按钮 gating） | b_adult_trigger.md |
 | 堵点 4 成片 force | 代码关闭 | b4_assemble_no_force.md |
 | 堵点 5 同输入 0 新版本 | 假 ✅ 已更正为 ⚠️；本机证据齐；**live 11-09 21:0x 关闭**（ep05 重入队 2 existing、行数 66→66、13 个 takes.json 字节不变） | p3/r17_idempotent_local.md、p3/r17_idempotent_live.txt |
