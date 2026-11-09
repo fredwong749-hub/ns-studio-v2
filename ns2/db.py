@@ -335,6 +335,7 @@ def enqueue_film(c, run_id: str, ep: int, want_host: str | None = None, force: b
 
 
 REAP_BACKOFF_S = 120
+FORCE_STALE_S = 5 * 60         # force 重派 running 的门槛：心跳停了这么久才认为 worker 已停
 
 
 def comfy_record(c, job_id: int, host: str, lane: str, pid: str) -> bool:
@@ -384,6 +385,8 @@ def requeue(c, job_id: int, reason: str, force: bool = False, adult_of=None) -> 
     if j is None:
         return None
     hold = 1 if (adult_of and j["step"] in ADULT_STEPS and adult_of(j["run_id"], j["shot"]) and not triggered(c, j["run_id"], j["shot"])) else j["owner_trigger"]
+    if force and j["state"] == "running" and (j.get("beat_at") or 0) > time.time() - FORCE_STALE_S:
+        return None               # 审查 3 M13：force 只收“心跳已停”的 running（最近 FORCE_STALE_S 内还在心跳 = worker 活着，拒）
     cur = c.execute(f"UPDATE jobs SET state='queued', tries=0, host=NULL, lane=NULL, error=NULL, finished_at=NULL, result=NULL, beat_at=NULL, ready_at=NULL,"
                     f" owner_trigger=? WHERE id=? AND state IN {states}", (hold, job_id))
     if cur.rowcount != 1:

@@ -1,3 +1,4 @@
+import time
 from ns2 import db as D
 
 
@@ -368,3 +369,14 @@ def test_m6_long_only_locks_lane_and_prereq_blocks_video(tmp_path):
     D.claim(c, "h", "h:0", ["first"])
     D.finish(c, f["id"], "h", "done")
     assert c.execute("SELECT state FROM jobs WHERE id=?", (v2["id"],)).fetchone()["state"] == "queued"
+
+
+def test_m13_force_requeue_fenced_by_heartbeat(tmp_path):
+    """审查 3 M13：force 重派 running 只在心跳停了 5 分钟以上时才收；worker 还在心跳 → 拒（None → API 409）"""
+    c = mk(tmp_path)
+    j, _ = D.enqueue(c, run_id="r", ep=1, shot="s", step="first")
+    D.claim(c, "h", "h:0", ["first"])
+    D.heartbeat(c, j["id"], "h")
+    assert D.requeue(c, j["id"], "manual", force=True) is None
+    c.execute("UPDATE jobs SET beat_at=? WHERE id=?", (time.time() - D.FORCE_STALE_S - 1, j["id"]))
+    assert D.requeue(c, j["id"], "manual", force=True)["state"] == "queued"
