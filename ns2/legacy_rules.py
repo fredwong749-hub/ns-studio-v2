@@ -13,6 +13,56 @@
 from __future__ import annotations
 
 _APPLIED = False
+BOARD_ORDER_NOTE = "（板上不写字，格子按从左到右、从上到下的顺序对应上面的编号；画面里不要出现任何文字、编号或标签）"
+
+
+def board_no_text(AR, project: str, tiles: list) -> str:
+    """无字参考板（P6 R4，规则 5）：同旧 make_board 的网格 / 缩放 / 缓存，只是不画底部标签，文件名加 nt_ 与旧板区分"""
+    import hashlib
+    import json
+    from PIL import Image
+    bc = AR._cfg().get("board") or {}
+    T = int(bc.get("tile", 512))
+    key = hashlib.sha1(json.dumps([[f, l, AR.sha_file(AR.ROOT / f)] for f, l in tiles], ensure_ascii=False).encode()).hexdigest()[:12]
+    sub = AR.project_cfg(project).get("board_dir", "data/refboards")
+    out, _w = AR.derived_target(sub, f"board_nt_{key}.png")
+    if out.is_file():
+        return AR.rel(out)
+    n = len(tiles)
+    cols = n if n <= 2 else (2 if n <= 4 else 3)
+    rows = (n + cols - 1) // cols
+    board = Image.new("RGB", (cols * T, rows * T), "white")
+    for i, (f, _label) in enumerate(tiles):
+        im = Image.open(AR.ROOT / f).convert("RGB")
+        im.thumbnail((T - 12, T - 12))
+        x, y = (i % cols) * T, (i // cols) * T
+        board.paste(im, (x + (T - im.width) // 2, y + (T - im.height) // 2))
+    out.parent.mkdir(parents=True, exist_ok=True)
+    board.save(out)
+    AR.record_derived(out, project)
+    return AR.rel(out)
+
+
+def _no_text_boards(AR) -> None:
+    """5. 参考板标签进画面（P6 R1a ep05-S5/S7/S11 Q6：“①祁念；层勘”“③服装：日常全壹装…”被模型照画）：
+    旧参考板每格底下印中文标签，出图模型把字当画面内容抄进去。修：参考板不印字；对应关系改在提示词里按格子顺序说明"""
+    orig_board, orig_line = AR.make_board, AR._line
+
+    def make_board(project, tiles):
+        try:
+            return board_no_text(AR, project, tiles)
+        except Exception as e:  # noqa: BLE001  旧树里辅助函数对不上 → 退回旧板（带字），打印出来
+            import sys
+            print(f"[legacy_rules] 无字参考板失败，退回旧板：{type(e).__name__}: {e}", file=sys.stderr)
+            return orig_board(project, tiles)
+
+    def _line(project, s):
+        line = orig_line(project, s)
+        if getattr(s, "kind", None) in ("board", "faceboard") and "board_nt_" in str(getattr(s, "file", "")):
+            line = line.replace("——", BOARD_ORDER_NOTE + "——", 1)
+        return line
+
+    AR.make_board, AR._line = make_board, _line
 
 
 def apply() -> None:
@@ -52,6 +102,7 @@ def apply() -> None:
         return r
 
     AR.resolve_shot = resolve_shot
+    _no_text_boards(AR)
     try:
         import producer as PR                       # 旧派单器模块（board / 首尾帧执行器都会 import 它）
         PR.refs_guard = lambda *a, **k: []

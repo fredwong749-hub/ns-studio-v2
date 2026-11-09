@@ -45,3 +45,28 @@ def test_p6_sanitize_sheet_spec_drops_text_props():
     assert len(dropped) == 3
     clean = {"slots": {"服装": "黑色修身西装"}, "en": "a black slim suit with a white shirt, a textured tie", "img": "穿黑色修身西装"}
     assert m.sanitize_spec(clean) == [] and clean["en"] == "a black slim suit with a white shirt, a textured tie"
+
+
+def test_p6_board_no_text_and_order_note(tmp_path):
+    """参考板不印字（Q6 根因）；提示词补格子顺序说明"""
+    import types
+    from PIL import Image
+    from ns2 import legacy_rules as LR
+    for i, c in enumerate(("red", "blue", "green")):
+        Image.new("RGB", (300, 400), c).save(tmp_path / f"t{i}.png")
+    rec = []
+    AR = types.SimpleNamespace(
+        ROOT=tmp_path, _cfg=lambda: {"board": {"tile": 128}}, sha_file=lambda p: p.name,
+        project_cfg=lambda p: {"board_dir": "boards"},
+        derived_target=lambda sub, name: (tmp_path / sub / name, True),
+        record_derived=lambda out, project=None: rec.append(out.name), rel=lambda p: str(p.relative_to(tmp_path)).replace("\\", "/"))
+    AR.make_board = lambda project, tiles: "old"
+    AR._line = lambda project, s: "图1是脸部参考板：①甲②乙——每一格是对应人物的脸。"
+    LR._no_text_boards(AR)
+    f = AR.make_board("p", [(f"t{i}.png", f"标签{i}") for i in range(3)])
+    assert f.startswith("boards/board_nt_") and rec
+    im = Image.open(tmp_path / f)
+    assert im.size == (256, 256)                         # 2×2 网格、没有标签条
+    assert im.getpixel((128 + 64, 128 + 120)) == (255, 255, 255)   # 空格子纯白（没印字）
+    s = types.SimpleNamespace(kind="faceboard", file=f)
+    assert LR.BOARD_ORDER_NOTE in AR._line("p", s)
