@@ -293,3 +293,18 @@ def test_adult_trigger_checks_is_adult_and_can_be_revoked(tmp_path, api_mod):
     sh = {s["id"]: s for e in c.get("/api/overview?run=r").json()["episodes"] for s in e["shots"]}
     assert sh["ep03-S1"]["triggered"] is False
     assert c.delete("/api/shots/ep03-S1/trigger?run_id=r", headers={"X-NS2-Key": ""}).status_code == 401
+
+
+def test_assemble_default_idempotent_and_frontend_no_force(tmp_path, api_mod):
+    """审查 3 堵点 4：成片默认不带 force → 同输入点两次只有一行（第二次 existing，不出新版本）；前端默认请求体不含 force:true"""
+    from pathlib import Path
+    from fastapi.testclient import TestClient
+    c = TestClient(api_mod.app, headers={"X-NS2-Key": "test-key"})
+    a = c.post("/api/episodes/1/assemble", json={"run_id": "r"}).json()
+    b = c.post("/api/episodes/1/assemble", json={"run_id": "r"}).json()
+    assert a["created"] is True and b["created"] is False and a["job"]["id"] == b["job"]["id"]
+    f = c.post("/api/episodes/1/assemble", json={"run_id": "r", "force": True}).json()
+    assert f["created"] is True and f["job"]["id"] != a["job"]["id"]                       # 只有明确强制才出新一版
+    js = (Path(__file__).resolve().parents[1] / "frontend/review.js").read_text(encoding="utf-8")
+    assert "force: true })" not in js and "if (force) body.force = true;" in js
+    assert "assemble(false)" in js.split("btn-assemble')")[1][:80]

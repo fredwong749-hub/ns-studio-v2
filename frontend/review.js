@@ -281,19 +281,26 @@
     });
   });
 
-  document.getElementById('btn-assemble').addEventListener('click', function () {
+  // 审查 3 堵点 4：默认不带 force（同输入幂等：签名没变就返回已有那一行，不出新版本）；只有明确点“强制重出成片”才带 force:true
+  function assemble(force) {
     var ep = epNumber();
     if (ep === null) {
       showMessage('触发成片失败：无法从镜号解析集号。', true);
       return;
     }
-    if (!window.confirm('确定触发第 ' + ep + ' 集的成片吗？')) return;
-    writeOp('触发成片', '/api/episodes/' + encodeURIComponent(ep) + '/assemble', {
+    var msg = force ? ('强制重出第 ' + ep + ' 集成片？输入没变也会出新一版（占 GPU）。')
+                    : ('触发第 ' + ep + ' 集成片？本集各镜没变就不会重出。');
+    if (!window.confirm(msg)) return;
+    var body = { run_id: run };
+    if (force) body.force = true;
+    writeOp(force ? '强制重出成片' : '触发成片', '/api/episodes/' + encodeURIComponent(ep) + '/assemble', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ run_id: run, force: true })
+      body: JSON.stringify(body)
     });
-  });
+  }
+  document.getElementById('btn-assemble').addEventListener('click', function () { assemble(false); });
+  document.getElementById('btn-assemble-force').addEventListener('click', function () { assemble(true); });
 
   document.getElementById('btn-adult').addEventListener('click', function () {
     if (!window.confirm('确定触发成人镜 ' + shotId + ' 吗？触发后本镜的出图 / 出片任务才会被认领（L-128，只由项目方操作）。')) return;
