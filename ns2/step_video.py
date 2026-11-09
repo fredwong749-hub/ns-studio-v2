@@ -376,7 +376,10 @@ def compile_payload(job: dict, host: str) -> tuple[dict | None, str | None]:
     from ns2 import enqueue_video as EV
     from ns2.step_frame import OFF, legacy_env
     run_id, sid = job["run_id"], job["shot"]
-    def current():
+    def current(strict: bool):
+        """作业表这镜的首 / 尾帧版本与 takes.json 当前版一致。strict（编译前）：takes 有当前尾帧、作业表却没尾帧 → 不算一致、要重编
+        （11-09 ep05-S1：尾帧尽力版 21:43:24 刚定、同一秒视频行开跑，用了旧作业表 → 7 个变体全 no_last_frame）；
+        编译后放宽（I2VA 兜底 / 只给首帧的镜作业表本来就没尾帧）"""
         try:
             jobs = json.loads((ROOT / "data/pipeline/runs" / run_id / "video/jobs.json").read_text(encoding="utf-8"))
             sh = next((x for x in jobs.get("shots") or [] if x.get("shot") == sid), None)
@@ -384,14 +387,18 @@ def compile_payload(job: dict, host: str) -> tuple[dict | None, str | None]:
         except (OSError, ValueError):
             return False
         act = tj.get("active") or {}
-        return bool(sh) and sh.get("first_frame_take") == act.get("image") and (sh.get("last_frame") is None or sh.get("last_frame_take") == act.get("last"))
+        if not sh or sh.get("first_frame_take") != act.get("image"):
+            return False
+        if sh.get("last_frame") is None:
+            return not (strict and act.get("last"))
+        return sh.get("last_frame_take") == act.get("last")
     log = ""
-    if not current():
+    if not current(True):
         # 经 ns2/legacy_build_jobs.py 跑旧 build_jobs：尽力版读视图 + sop_gate 视频闸门由队列前置代替（见该文件说明）
         r = subprocess.run([str(OFF / "venv/bin/python"), str(Path(__file__).resolve().parent / "legacy_build_jobs.py"), "--run", run_id], cwd=str(OFF / "repo"),
                            env=legacy_env(host, run_id), capture_output=True, text=True, timeout=1800)
         log = ((r.stdout or "")[-300:] + (r.stderr or "")[-300:]).strip()
-        if r.returncode or not current():
+        if r.returncode or not current(False):
             return None, f"视频变体编译不过 / 与当前首尾帧对不上（build_jobs rc={r.returncode}）：{log[-400:]}"
     try:
         pl = EV.build(run_id, sid, host)[2]["payload"]

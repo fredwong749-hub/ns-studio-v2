@@ -78,3 +78,41 @@ def test_legacy_frame_last_preflight_sees_marked_first_as_passed():
     assert take_pf(d["takes"][0])["ok"] is False
     src = (NS2 / "legacy_frame.py").read_text(encoding="utf-8")
     assert 'BV.marked(P.load_takes(a["sid"]), "image")' in src and "PR.take_pf = lambda" in src
+
+
+def _jobs_takes(tmp_path, last_in_jobs, active_last):
+    run, sid = "series10_v2", "ep05-S1"
+    jd = tmp_path / "data/pipeline/runs" / run / "video"
+    jd.mkdir(parents=True)
+    sh = {"shot": sid, "first_frame_take": 2, "variants": [{"id": "v1"}]}
+    if last_in_jobs:
+        sh.update(last_frame="x.png", last_frame_take=last_in_jobs)
+    (jd / "jobs.json").write_text(json.dumps({"shots": [sh]}), encoding="utf-8")
+    td = tmp_path / "data/renders" / run / "ep05/S1"
+    td.mkdir(parents=True)
+    (td / "takes.json").write_text(json.dumps({"active": {"image": 2, "last": active_last}}), encoding="utf-8")
+    return {"run_id": run, "shot": sid}
+
+
+def test_compile_recompiles_when_takes_gained_a_last_frame(monkeypatch, tmp_path):
+    """ep05-S1 11-09 21:43：takes 有当前尾帧、作业表这镜没尾帧 → 先重编，不拿旧表（旧表变体全 no_last_frame）"""
+    from ns2 import step_video as SV
+    from ns2 import enqueue_video as EV
+    job = _jobs_takes(tmp_path, None, 3)
+    calls = []
+    monkeypatch.setattr(SV.subprocess, "run", lambda cmd, **kw: calls.append(cmd) or types.SimpleNamespace(returncode=0, stdout="", stderr=""))
+    monkeypatch.setattr(SV, "ROOT", tmp_path)
+    monkeypatch.setattr(EV, "build", lambda run, sid, host: (None, None, {"payload": {"variants": [1]}}))
+    pl, err = SV.compile_payload(job, "gpu33")
+    assert calls and err is None and pl == {"variants": [1]}       # 重编过；编后作业表仍无尾帧（I2VA）= 放宽接受
+
+
+def test_compile_skips_build_when_jobs_table_matches(monkeypatch, tmp_path):
+    from ns2 import step_video as SV
+    from ns2 import enqueue_video as EV
+    job = _jobs_takes(tmp_path, 3, 3)
+    calls = []
+    monkeypatch.setattr(SV.subprocess, "run", lambda cmd, **kw: calls.append(cmd))
+    monkeypatch.setattr(SV, "ROOT", tmp_path)
+    monkeypatch.setattr(EV, "build", lambda run, sid, host: (None, None, {"payload": {"variants": [1]}}))
+    assert SV.compile_payload(job, "gpu33") == ({"variants": [1]}, None) and not calls
