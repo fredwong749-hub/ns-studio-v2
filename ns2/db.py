@@ -382,10 +382,32 @@ def trigger(c, run_id: str, shot: str, by: str = "owner") -> list[int]:
     for r in c.execute("SELECT id, payload FROM jobs WHERE run_id=? AND shot=? AND state='queued' AND step IN ('first','last','video')",
                        (run_id, shot)).fetchall():
         pl = {**json.loads(r["payload"] or "{}"), "owner_triggered": True}
-        c.execute("UPDATE jobs SET owner_trigger=0, payload=? WHERE id=?", (json.dumps(pl, ensure_ascii=False), r["id"]))
-        ids.append(r["id"])
+        cur = c.execute("UPDATE jobs SET owner_trigger=0, payload=? WHERE id=? AND state='queued'", (json.dumps(pl, ensure_ascii=False), r["id"]))   # M3 谓词
+        if cur.rowcount == 1:
+            ids.append(r["id"])
     _event(c, None, "trigger", {"run": run_id, "shot": shot, "by": by, "released": ids})
     return ids
+
+
+def triggers(c, run_id: str) -> set:
+    return {r["shot"] for r in c.execute("SELECT shot FROM triggers WHERE run_id=?", (run_id,))}
+
+
+def untrigger(c, run_id: str, shot: str, by: str = "owner") -> dict:
+    """审查 3 堵点 3：撤销触发。删 triggers 行；本镜排队中的出图 / 出片行重新挡（owner_trigger=1、去掉 payload.owner_triggered）。
+    在跑的不打断（返回 running 列表，前端提示）"""
+    had = c.execute("DELETE FROM triggers WHERE run_id=? AND shot=?", (run_id, shot)).rowcount
+    held = []
+    for r in c.execute("SELECT id, payload FROM jobs WHERE run_id=? AND shot=? AND state='queued' AND step IN ('first','last','video')",
+                       (run_id, shot)).fetchall():
+        pl = {k: v for k, v in json.loads(r["payload"] or "{}").items() if k != "owner_triggered"}
+        cur = c.execute("UPDATE jobs SET owner_trigger=1, payload=? WHERE id=? AND state='queued'", (json.dumps(pl, ensure_ascii=False), r["id"]))
+        if cur.rowcount == 1:
+            held.append(r["id"])
+    running = [r["id"] for r in c.execute("SELECT id FROM jobs WHERE run_id=? AND shot=? AND state='running' AND step IN ('first','last','video')",
+                                          (run_id, shot))]
+    _event(c, None, "untrigger", {"run": run_id, "shot": shot, "by": by, "had": bool(had), "held": held, "running": running})
+    return {"had_trigger": bool(had), "held": held, "running": running}
 
 
 def reviews(c, run_id: str) -> dict:

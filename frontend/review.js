@@ -133,6 +133,13 @@
     }).join('');
   }
 
+  // 审查 3 堵点 3：触发 / 撤销按钮只在服务端判为成人镜的镜上出现
+  function renderAdultButtons() {
+    var isAdult = !!(shot && shot.adult);
+    document.getElementById('btn-adult').hidden = !isAdult || !!shot.triggered;
+    document.getElementById('btn-untrigger').hidden = !isAdult || !shot.triggered;
+  }
+
   function loadShot() {
     clearError();
     clearMessage();
@@ -154,6 +161,7 @@
         });
         if (!shot) throw new Error('总览中未找到镜 ' + shotId + '（run=' + run + '）');
         render();
+        renderAdultButtons();
         // 再试 jobs 接口拿候选明细；失败不影响主展示。
         return fetch('/api/jobs?shot=' + encodeURIComponent(shotId) +
           '&run=' + encodeURIComponent(run));
@@ -294,6 +302,13 @@
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ run_id: run, by: 'owner' })
+    });
+  });
+
+  document.getElementById('btn-untrigger').addEventListener('click', function () {
+    if (!window.confirm('撤销 ' + shotId + ' 的成人镜触发？本镜还在排队的出图 / 出片会重新挡住（已在跑的不打断）。')) return;
+    writeOp('撤销成人镜触发', '/api/shots/' + encodeURIComponent(shotId) + '/trigger?run_id=' + encodeURIComponent(run), {
+      method: 'DELETE'
     });
   });
 

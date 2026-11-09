@@ -272,3 +272,24 @@ def test_b1_key_rotation_and_expiry(tmp_path, monkeypatch):
     assert AU.valid_keys("2026-11-09") == ["newkey", "oldkey"] and AU.valid_keys("2026-12-01") == ["newkey"]
     f.write_text("", encoding="utf-8")
     assert AU.ok("newkey") is False and AU.load_key() is None          # 读不到密钥 = 全拒（fail-closed）
+
+
+def test_adult_trigger_checks_is_adult_and_can_be_revoked(tmp_path, api_mod):
+    """审查 3 堵点 3：非成人镜触发被拒；误触发可撤销（排队行重新挡住、worker 领不到）；总览带 adult / triggered 给前端 gating"""
+    from conftest import write_script
+    from fastapi.testclient import TestClient
+    write_script(tmp_path, "r", adult_shots=("ep03-S1",))
+    c = TestClient(api_mod.app, headers={"X-NS2-Key": "test-key"})
+    c.put("/api/runs", json={"run_id": "r"})
+    assert c.post("/api/shots/ep02-S1/trigger", json={"run_id": "r"}).status_code == 400          # 非成人镜
+    assert c.post("/api/shots/ep09-S9/trigger", json={"run_id": "r"}).status_code == 200          # 剧本里没有 = 当成人（fail-closed，允许项目方触发）
+    c.post("/api/jobs", json={"run_id": "r", "ep": 3, "shot": "ep03-S1", "step": "first"})
+    assert len(c.post("/api/shots/ep03-S1/trigger", json={"run_id": "r"}).json()["released"]) == 1
+    sh = {s["id"]: s for e in c.get("/api/overview?run=r").json()["episodes"] for s in e["shots"]}
+    assert sh["ep03-S1"]["adult"] is True and sh["ep03-S1"]["triggered"] is True and sh["ep02-S1"]["adult"] is False
+    u = c.delete("/api/shots/ep03-S1/trigger?run_id=r").json()
+    assert u["had_trigger"] is True and len(u["held"]) == 1 and u["running"] == []
+    assert c.post("/api/worker/claim", json={"host": "gpu33", "lane": "gpu33:0", "steps": ["first"]}).json()["job"] is None
+    sh = {s["id"]: s for e in c.get("/api/overview?run=r").json()["episodes"] for s in e["shots"]}
+    assert sh["ep03-S1"]["triggered"] is False
+    assert c.delete("/api/shots/ep03-S1/trigger?run_id=r", headers={"X-NS2-Key": ""}).status_code == 401

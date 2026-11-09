@@ -281,7 +281,13 @@ def overview(run: str = "series10_v2"):
         rows = D.jobs(conn(), run, limit=1_000_000)
         rv = D.reviews(conn(), run)
         ev = D.finish_events(conn(), run)
-    return OV.build(run, rows, rv, OV.script_eps(ROOT, run), D.now_iso(), ev)
+        trig = D.triggers(conn(), run)
+    out = OV.build(run, rows, rv, OV.script_eps(ROOT, run), D.now_iso(), ev)
+    for e in out.get("episodes") or []:          # 审查 3 堵点 3：前端只在成人镜上给触发按钮（服务端判，按剧本导入稿）
+        for sh in e.get("shots") or []:
+            sh["adult"] = is_adult(run, sh["id"])
+            sh["triggered"] = sh["id"] in trig
+    return out
 
 
 class ReviewReq(BaseModel):
@@ -397,9 +403,19 @@ class TriggerReq(BaseModel):
 
 @app.post("/api/shots/{shot_id}/trigger")
 def trigger(shot_id: str, t: TriggerReq):
-    """L-128：项目方触发成人镜（只由项目方在前端点；放行本镜排队中的出图 / 出片行，之后新起的行直接带触发）"""
+    """L-128：项目方触发成人镜（只由项目方在前端点；放行本镜排队中的出图 / 出片行，之后新起的行直接带触发）。
+    审查 3 堵点 3：先按剧本验是不是成人镜，非成人镜拒（不写 triggers 表）"""
+    if not is_adult(t.run_id, shot_id):
+        raise HTTPException(400, f"{shot_id} 按剧本不是成人镜，不需要也不允许触发")
     with _lock:
         return {"released": D.trigger(conn(), t.run_id, shot_id, t.by)}
+
+
+@app.delete("/api/shots/{shot_id}/trigger")
+def untrigger(shot_id: str, run_id: str = "series10_v2", by: str = "owner"):
+    """撤销误触发：删 triggers 行，本镜排队中的出图 / 出片行重新挡住（已在跑的不打断，跑完的结果照记）"""
+    with _lock:
+        return D.untrigger(conn(), run_id, shot_id, by)
 
 
 # P2：前端与 API 同源（任务书：端口 8900，不用参考包的 8800）。总览 /ui/index.html（15 s 轮询）、审片 /ui/review.html?shot=
