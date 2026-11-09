@@ -309,6 +309,7 @@ class BulkReviewReq(BaseModel):
     shots: list[str]
     state: str = "passed"
     by: str = "owner"
+    confirm_rejected: list[str] = []          # 审查 3 N7：已驳回的镜只有逐镜列在这里才会被改成“用这版”
 
 
 @app.post("/api/reviews/bulk")
@@ -319,7 +320,7 @@ def review_bulk(r: BulkReviewReq):
     if len(r.shots) > 500:
         raise HTTPException(400, "一次最多 500 镜")
     with _lock:
-        return D.review_bulk(conn(), r.run_id, r.shots, r.state, r.by)
+        return D.review_bulk(conn(), r.run_id, r.shots, r.state, r.by, adult_of=is_adult, confirm_rejected=r.confirm_rejected)
 
 
 @app.post("/api/auth/check")

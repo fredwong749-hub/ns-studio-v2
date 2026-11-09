@@ -355,24 +355,36 @@ def set_review(c, run_id: str, shot: str, state: str, reason: str | None = None)
     return {"run_id": run_id, "shot": shot, "state": state, "reason": reason}
 
 
-def review_bulk(c, run_id: str, shots: list[str], state: str = "passed", by: str = "owner") -> dict:
+def review_bulk(c, run_id: str, shots: list[str], state: str = "passed", by: str = "owner", adult_of=None,
+                confirm_rejected: list[str] | tuple = ()) -> dict:
     """项目方一键“用这版”（11-09 项目方：逐镜点太累）。只收最新视频行有片（done / best_effort）的镜，其他跳过并写原因；
-    已是同状态的不重写。和逐镜 set_review 同一张 reviews 表，口径不变（final = 有片 + passed）"""
+    已是同状态的不重写。和逐镜 set_review 同一张 reviews 表，口径不变（final = 有片 + passed）。
+    审查 3 N7：已驳回的镜不静默覆盖——跳过并列出（带原驳回原因），除非调用方把它逐镜列进 confirm_rejected。
+    审查 3：显式成人检查——adult_of(run, shot) 为真且未触发的镜不批量定稿（不只靠视频行状态间接挡）"""
     assert state in ("passed",), state
-    done, skipped = [], {}
+    done, skipped, rejected = [], {}, {}
+    trig = triggers(c, run_id)
     for sh in dict.fromkeys(shots):
+        if adult_of is not None and adult_of(run_id, sh) and sh not in trig:
+            skipped[sh] = "成人镜未经项目方触发，不批量定稿（L-128）"
+            continue
         v = c.execute("SELECT state FROM jobs WHERE run_id=? AND shot=? AND step='video' ORDER BY id DESC LIMIT 1", (run_id, sh)).fetchone()
         if not v or v["state"] not in ("done", "best_effort"):
             skipped[sh] = "还没有片子" if not v else f"视频状态 {v['state']}，没有可用的片"
             continue
-        cur = c.execute("SELECT state FROM reviews WHERE run_id=? AND shot=?", (run_id, sh)).fetchone()
+        cur = c.execute("SELECT state, reason FROM reviews WHERE run_id=? AND shot=?", (run_id, sh)).fetchone()
         if cur and cur["state"] == state:
             skipped[sh] = "已经是这个状态"
             continue
-        set_review(c, run_id, sh, state, f"一键用这版（{by}）")
+        if cur and cur["state"] == "rejected" and sh not in confirm_rejected:
+            rejected[sh] = cur["reason"] or ""
+            skipped[sh] = "已驳回（原因：" + (cur["reason"] or "未写") + "），批量不覆盖；要用这版请逐镜确认"
+            continue
+        set_review(c, run_id, sh, state, f"一键用这版（{by}）" + ("；覆盖了之前的驳回（逐镜确认）" if cur and cur["state"] == "rejected" else ""))
         done.append(sh)
-    _event(c, None, "review_bulk", {"run": run_id, "state": state, "by": by, "done": done, "skipped": skipped})
-    return {"run_id": run_id, "state": state, "done": done, "skipped": skipped}
+    _event(c, None, "review_bulk", {"run": run_id, "state": state, "by": by, "done": done, "skipped": skipped,
+                                    "confirmed_rejected": [s for s in confirm_rejected if s in done]})
+    return {"run_id": run_id, "state": state, "done": done, "skipped": skipped, "rejected": rejected}
 
 
 def trigger(c, run_id: str, shot: str, by: str = "owner") -> list[int]:

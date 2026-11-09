@@ -272,6 +272,16 @@
     });
   });
 
+  // 审查 3 N8：反定稿（服务端 set_review 收 unreviewed）——一键通过后反悔用
+  document.getElementById('btn-unreview').addEventListener('click', function () {
+    if (!window.confirm('撤销 ' + shotId + ' 的定稿 / 驳回，回到“待审”？')) return;
+    writeOp('撤销定稿', '/api/shots/' + encodeURIComponent(shotId) + '/review', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ run_id: run, state: 'unreviewed', reason: '项目方撤销定稿' })
+    });
+  });
+
   document.getElementById('btn-cancel').addEventListener('click', function () {
     if (!window.confirm('确定取消该镜的排队任务吗？在途任务不会被取消。')) return;
     writeOp('取消排队任务', '/api/shots/' + encodeURIComponent(shotId) + '/cancel?run=' + encodeURIComponent(run), {

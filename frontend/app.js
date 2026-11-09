@@ -54,7 +54,8 @@
   // ---- 一键用这版：有片（待审片 / 尽力版）且还没定稿的镜 ----
   function usable(shot) {
     var vs = (shot.video && shot.video.state) || '';
-    return (vs === 'pending_review' || vs === 'best_effort') && shot.review !== 'passed';
+    return (vs === 'pending_review' || vs === 'best_effort') && shot.review !== 'passed' && shot.review !== 'rejected' &&
+      !(shot.adult && !shot.triggered);   // 审查 3 N7：已驳回 / 未触发的成人镜不进一键
   }
   function epUsable(ep) { return (ep.shots || []).filter(usable).map(function (s) { return s.id; }); }
   function visibleUsable() {
@@ -75,7 +76,7 @@
     if (!shots.length) { setBulkMsg('没有可以“用这版”的镜', false); return; }
     var k = savedKey();
     if (!k) { setBulkMsg('先在上面粘一次密钥再点', false); document.getElementById('key-input').focus(); return; }
-    if (!window.confirm(label + '：共 ' + shots.length + ' 镜都定为“用这版”？\n（只定有片子的镜；以后想改，单镜点进去点“修改”）')) return;
+    if (!window.confirm(label + '：共 ' + shots.length + ' 镜都定为“用这版”？\n（只定有片子的镜；已驳回的、未触发的成人镜不会被批量改；以后想改，单镜点进去点“撤销定稿”或“驳回”）')) return;
     setBulkMsg('正在提交 ' + shots.length + ' 镜……');
     fetch('/api/reviews/bulk', {
       method: 'POST',
