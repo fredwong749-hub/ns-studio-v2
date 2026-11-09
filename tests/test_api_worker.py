@@ -308,3 +308,20 @@ def test_assemble_default_idempotent_and_frontend_no_force(tmp_path, api_mod):
     js = (Path(__file__).resolve().parents[1] / "frontend/review.js").read_text(encoding="utf-8")
     assert "force: true })" not in js and "if (force) body.force = true;" in js
     assert "assemble(false)" in js.split("btn-assemble')")[1][:80]
+
+
+def test_m10_rollback_set_e_and_status_survives_empty_queries():
+    """审查 3 M10：set -e；没有进程 / pid 文件（查询为空）时 status 不被 set -e 误杀"""
+    import shutil
+    import subprocess
+    from pathlib import Path
+    import pytest
+    src = (Path(__file__).resolve().parents[1] / "ns2/rollback.sh").read_text(encoding="utf-8")
+    assert "\nset -eu" in src and "|| true" in src
+    b = shutil.which("bash")
+    if not b:
+        pytest.skip("no bash")
+    r = subprocess.run([b, "ns2/rollback.sh", "status"], capture_output=True, text=True, cwd=Path(__file__).resolve().parents[1])
+    assert r.returncode == 0 and "旧 vidgen" in r.stdout
+    assert subprocess.run([b, "ns2/rollback.sh", "bogus"], capture_output=True, text=True,
+                          cwd=Path(__file__).resolve().parents[1]).returncode == 2
