@@ -25,6 +25,11 @@ def post(api: str, path: str, body: dict) -> dict:
         return json.loads(r.read())
 
 
+def job_path(row: dict) -> str:
+    """审查 3 B1：live 入队只收 queued / blocked 且不带 result；迁移登记的终态行（first/last 已完成）走导入口（API 须 NS2_ALLOW_IMPORT=1）"""
+    return "/api/jobs" if row.get("state", "queued") in ("queued", "blocked") and row.get("result") is None else "/api/import/jobs"
+
+
 def build(run: str, sid: str, host: str) -> list[dict]:
     jobs = json.loads((ROOT / "data/pipeline/runs" / run / "video/jobs.json").read_text(encoding="utf-8"))
     sh = next((s for s in jobs["shots"] if s.get("shot") == sid), None)
@@ -91,7 +96,7 @@ def main(argv=None) -> int:
             if a.dry:
                 print(r["shot"], r["step"], r.get("state", "queued"), "variants=" + ",".join((r.get("payload") or {}).get("variants") or []))
                 continue
-            out = post(a.api, "/api/jobs", r)
+            out = post(a.api, job_path(r), r)
             print(r["shot"], r["step"], out["job"]["state"], "id", out["job"]["id"], "new" if out["created"] else "existing")
     if bad:
         print("跳过的镜：", ",".join(bad))

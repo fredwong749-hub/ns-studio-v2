@@ -21,7 +21,7 @@
 </header>
 
 <section id="keybar" class="keybar" aria-label="密钥">
-  <span id="key-saved" hidden>🔑 密钥已保存，这台电脑以后不用再填 <button id="key-change" type="button" class="link">更换</button></span>
+  <span id="key-saved" hidden>🔑 密钥已保存，这台电脑 90 天内不用再填 <button id="key-change" type="button" class="link">更换</button></span>
   <span id="key-form" hidden>
     🔑 第一次用：把那一长串密钥（64 位字母数字）粘到这里，点保存——只要粘一次，以后永远记住
     <input id="key-input" type="password" size="40" autocomplete="off" placeholder="粘贴密钥">
@@ -72,6 +72,7 @@
 
 <main id="episodes" aria-label="各集"></main>
 
+<script src="key.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

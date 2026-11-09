@@ -17,9 +17,8 @@
 
   var cached = null;      // 最近一次 /api/overview 的完整返回
 
-  // ---- 密钥：页面顶上粘一次，存本浏览器 localStorage（和审片页同一个名字），以后不再问 ----
-  var KEY_NAME = 'ns2_key';
-  function savedKey() { try { return window.localStorage.getItem(KEY_NAME); } catch (e) { return null; } }
+  // ---- 密钥：页面顶上粘一次，经 key.js 存本浏览器（和审片页同一份），90 天到期 ----
+  function savedKey() { return window.NS2Key.get(); }
   function setKeyMsg(text, ok) {
     var el = document.getElementById('key-msg');
     el.textContent = text || '';
@@ -38,17 +37,17 @@
       .then(function (resp) {
         if (resp.status === 401) { setKeyMsg('密钥不对：要整串复制，前后不要多空格', false); return; }
         if (!resp.ok) { setKeyMsg('核对失败（' + resp.status + '），稍后再试', false); return; }
-        try { window.localStorage.setItem(KEY_NAME, k); } catch (e) { setKeyMsg('浏览器不让存，只能这次用', false); }
+        if (!window.NS2Key.set(k)) { setKeyMsg('浏览器不让存，只能这次用', false); }
         document.getElementById('key-input').value = '';
         renderKeybar();
-        setKeyMsg('密钥正确，已记住 ✓', true);
+        setKeyMsg('密钥正确，已记住 90 天 ✓', true);
       })
       .catch(function (err) { setKeyMsg('连不上服务器：' + err.message, false); });
   }
   document.getElementById('key-save').addEventListener('click', saveKey);
   document.getElementById('key-input').addEventListener('keydown', function (e) { if (e.key === 'Enter') saveKey(); });
   document.getElementById('key-change').addEventListener('click', function () {
-    try { window.localStorage.removeItem(KEY_NAME); } catch (e) { /* ignore */ }
+    window.NS2Key.clear();
     renderKeybar(); setKeyMsg('');
   });
 
@@ -84,7 +83,7 @@
       body: JSON.stringify({ run_id: currentRun(), shots: shots, state: 'passed', by: 'owner' })
     }).then(function (resp) {
       if (resp.status === 401) {
-        try { window.localStorage.removeItem(KEY_NAME); } catch (e) { /* ignore */ }
+        window.NS2Key.clear();
         renderKeybar(); setBulkMsg('密钥失效了，请在上面重新粘一次', false); return null;
       }
       if (!resp.ok) return resp.text().then(function (t) { throw new Error(resp.status + ' ' + t); });

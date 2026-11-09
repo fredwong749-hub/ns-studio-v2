@@ -50,14 +50,14 @@ def test_worker_file_server_range(tmp_path):
     import pytest
     from ns2 import worker as W
     (tmp_path / "data/x").mkdir(parents=True)
-    (tmp_path / "data/x/a.bin").write_bytes(bytes(range(256)) * 4)
+    (tmp_path / "data/x/a.mp4").write_bytes(bytes(range(256)) * 4)
     srv = W.serve_files("127.0.0.1", 0, tmp_path)
     port = srv.server_address[1]
-    r = urllib.request.urlopen(urllib.request.Request(f"http://127.0.0.1:{port}/files/x/a.bin", headers={"Range": "bytes=10-19", "X-NS2-Key": "test-key"}))
+    r = urllib.request.urlopen(urllib.request.Request(f"http://127.0.0.1:{port}/files/x/a.mp4", headers={"Range": "bytes=10-19", "X-NS2-Key": "test-key"}))
     assert r.status == 206 and r.headers["Content-Range"] == "bytes 10-19/1024" and r.read() == bytes(range(10, 20))
-    assert len(urllib.request.urlopen(urllib.request.Request(f"http://127.0.0.1:{port}/files/x/a.bin", headers={"X-NS2-Key": "test-key"})).read()) == 1024
+    assert len(urllib.request.urlopen(urllib.request.Request(f"http://127.0.0.1:{port}/files/x/a.mp4", headers={"X-NS2-Key": "test-key"})).read()) == 1024
     with pytest.raises(urllib.error.HTTPError) as e:                                   # B1：没带密钥 → 401
-        urllib.request.urlopen(f"http://127.0.0.1:{port}/files/x/a.bin")
+        urllib.request.urlopen(f"http://127.0.0.1:{port}/files/x/a.mp4")
     assert e.value.code == 401
     with pytest.raises(urllib.error.HTTPError):
         urllib.request.urlopen(urllib.request.Request(f"http://127.0.0.1:{port}/files/../../etc/passwd", headers={"X-NS2-Key": "test-key"}))
@@ -226,3 +226,49 @@ def test_enqueue_episode_payload_has_name_and_version(tmp_path, monkeypatch):
     for b in sent:
         assert b["payload"]["name"] == "P4_ep05.final.md" and b["payload"]["version"] == "v3"
     assert sum(b["payload"]["enqueue_shots"] for b in sent) == 1
+
+
+def test_b1_file_port_whitelist_and_import_split(tmp_path, api_mod, monkeypatch):
+    """审查 3 B1：持密钥取 queue.db / 密钥 / 日志 → 403，媒体照给；live 入队拒伪造终态与自带 result；导入口默认关"""
+    import urllib.error
+    import urllib.request
+    import pytest
+    from fastapi.testclient import TestClient
+    from ns2 import worker as W
+    (tmp_path / "data/x").mkdir(parents=True)
+    for n in ("queue.db", "secret.key", "worker.log", "a.png"):
+        (tmp_path / "data/x" / n).write_bytes(b"0123456789")
+    srv = W.serve_files("127.0.0.1", 0, tmp_path)
+    port = srv.server_address[1]
+    H = {"X-NS2-Key": "test-key"}
+    for n in ("queue.db", "secret.key", "worker.log"):
+        with pytest.raises(urllib.error.HTTPError) as e:
+            urllib.request.urlopen(urllib.request.Request(f"http://127.0.0.1:{port}/files/x/{n}", headers=H))
+        assert e.value.code == 403
+    assert urllib.request.urlopen(urllib.request.Request(f"http://127.0.0.1:{port}/files/x/a.png", headers=H)).status == 200
+    srv.shutdown()
+    c = TestClient(api_mod.app, headers=H)
+    row = {"run_id": "r", "ep": 2, "shot": "ep02-S1", "step": "first"}
+    assert c.post("/api/jobs", json={**row, "state": "done", "result": {"take_n": 9}}).status_code == 403
+    assert c.post("/api/jobs", json={**row, "state": "best_effort"}).status_code == 403
+    assert c.post("/api/jobs", json={**row, "result": {"x": 1}}).status_code == 403
+    assert c.post("/api/jobs", json=row).status_code == 200
+    monkeypatch.delenv("NS2_ALLOW_IMPORT", raising=False)
+    assert c.post("/api/import/jobs", json={**row, "step": "last", "state": "done", "result": {"take_n": 1}}).status_code == 403
+    monkeypatch.setenv("NS2_ALLOW_IMPORT", "1")
+    assert c.post("/api/import/jobs", json={**row, "step": "last", "state": "done", "result": {"take_n": 1}}).json()["job"]["state"] == "done"
+    from ns2.enqueue_video import job_path
+    assert job_path({"state": "done", "result": {}}) == "/api/import/jobs" and job_path({"state": "queued"}) == "/api/jobs"
+
+
+def test_b1_key_rotation_and_expiry(tmp_path, monkeypatch):
+    from ns2 import auth as AU
+    f = tmp_path / "k"
+    f.write_text("newkey\noldkey 2026-11-30\n# 注释\ndead 2020-01-01\n", encoding="utf-8")
+    monkeypatch.delenv("NS2_KEY", raising=False)
+    monkeypatch.setattr(AU, "KEY_FILE", str(f))
+    assert AU.load_key() == "newkey"
+    assert AU.ok("newkey") and AU.ok("dead") is False
+    assert AU.valid_keys("2026-11-09") == ["newkey", "oldkey"] and AU.valid_keys("2026-12-01") == ["newkey"]
+    f.write_text("", encoding="utf-8")
+    assert AU.ok("newkey") is False and AU.load_key() is None          # 读不到密钥 = 全拒（fail-closed）

@@ -176,14 +176,13 @@
       });
   }
 
-  // B1：写操作要 X-NS2-Key。密钥只在服务器 /root/work/fredw/ns2/secret.key，由项目方自己粘贴一次，存在本浏览器 localStorage。
-  var KEY_NAME = 'ns2_key';
+  // B1：写操作要 X-NS2-Key。密钥只在服务器 /root/work/fredw/ns2/secret.key，由项目方自己粘贴一次，经 key.js 存本浏览器，90 天到期。
   function getKey(forcePrompt) {
     var k = null;
-    try { k = window.localStorage.getItem(KEY_NAME); } catch (e) { k = null; }
+    k = window.NS2Key.get();
     if (!k || forcePrompt) {
-      k = window.prompt('写操作需要密钥：粘贴那一长串（64 位字母数字），只要粘一次，以后这台电脑都记住（总览页顶上也能粘）：');
-      if (k) { k = k.trim(); try { window.localStorage.setItem(KEY_NAME, k); } catch (e) { /* 存不了就只用这一次 */ } }
+      k = window.prompt('写操作需要密钥：粘贴那一长串（64 位字母数字），粘一次，这台电脑记住 90 天（总览页顶上也能粘）：');
+      if (k) { k = k.trim(); window.NS2Key.set(k); }
     }
     return k;
   }
@@ -198,7 +197,7 @@
     return fetch(url, options)
       .then(function (resp) {
         if (resp.status === 401 && !retried) {      // 密钥错 / 换过 → 重新问一次
-          try { window.localStorage.removeItem(KEY_NAME); } catch (e) { /* ignore */ }
+          window.NS2Key.clear();
           if (getKey(true)) return { retry: true };
         }
         return resp;
@@ -236,6 +235,11 @@
     var m = /^ep(\d+)-/i.exec(shotId);
     return m ? parseInt(m[1], 10) : null;
   }
+
+  document.getElementById('btn-clear-key').addEventListener('click', function () {
+    window.NS2Key.clear();
+    showMessage('本机密钥已清除；下次写操作会重新要密钥。', false);
+  });
 
   document.getElementById('btn-pass').addEventListener('click', function () {
     writeOp('定稿通过', '/api/shots/' + encodeURIComponent(shotId) + '/review', {

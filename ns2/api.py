@@ -158,8 +158,10 @@ def list_jobs(run: str | None = None, shot: str | None = None, state: str | None
         return D.jobs(conn(), run, shot, state, limit)
 
 
-@app.post("/api/jobs")
-def enqueue(e: Enq):
+LIVE_STATES = ("queued", "blocked")
+
+
+def _enqueue_checked(e: Enq):
     if e.step not in D.STEPS or e.state not in D.STATES or e.state == "running":
         raise HTTPException(400, f"step/state 不认识：{e.step}/{e.state}")
     if e.key:
@@ -167,6 +169,26 @@ def enqueue(e: Enq):
     with _lock:
         j, created = D.enqueue(conn(), **{**e.model_dump(), "adult": e.step in D.ADULT_STEPS and is_adult(e.run_id, e.shot)})
     return {"job": j, "created": created}
+
+
+@app.post("/api/jobs")
+def enqueue(e: Enq):
+    """live 入队：只收 queued / blocked，且不收调用方自带 result（审查 3 B1：持密钥可伪造 done + 任意 result）。
+    迁移导入的终态行走 /api/import/jobs（默认关）"""
+    if e.step not in D.STEPS or e.state not in D.STATES or e.state == "running":
+        raise HTTPException(400, f"step/state 不认识：{e.step}/{e.state}")
+    if e.state not in LIVE_STATES or e.result is not None:
+        raise HTTPException(403, "live 入队只收 queued / blocked、不带 result；迁移导入终态走 /api/import/jobs（API 须以 NS2_ALLOW_IMPORT=1 启动）")
+    return _enqueue_checked(e)
+
+
+@app.post("/api/import/jobs")
+def import_job(e: Enq):
+    """迁移导入（一次性）：可写 done / na / best_effort / failed 与 result。只有 API 以 NS2_ALLOW_IMPORT=1 启动时开（平时 403）"""
+    if os.environ.get("NS2_ALLOW_IMPORT") != "1":
+        raise HTTPException(403, "导入口默认关闭：迁移时以 NS2_ALLOW_IMPORT=1 重启 API，导完再关")
+    return _enqueue_checked(e)
+
 
 
 class FilmReq(BaseModel):
@@ -285,7 +307,7 @@ def cancel(shot_id: str, run: str = "series10_v2"):
         return {"cancelled": D.cancel(conn(), run, shot_id)}
 
 
-MEDIA_EXT = {".png", ".jpg", ".jpeg", ".webp", ".mp4", ".webm", ".mov", ".json"}
+MEDIA_EXT = AU.MEDIA_EXT
 
 
 def _safe_rel(rel: str) -> str:

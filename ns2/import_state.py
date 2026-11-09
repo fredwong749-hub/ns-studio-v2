@@ -15,7 +15,7 @@ import argparse
 import json
 from pathlib import Path
 
-from ns2.enqueue_video import post
+from ns2.enqueue_video import job_path, post
 
 STATE_MAP = {"done": "done", "na": "na", "best_effort": "best_effort"}
 
@@ -62,7 +62,7 @@ def main(argv=None) -> int:
             if a.dry:
                 print(j["shot"], j["step"], j["state"], j["want_host"], j.get("error") or "")
                 continue
-            out = post(a.api, "/api/jobs", j)
+            out = post(a.api, job_path(j), j)
             n["new" if out["created"] else "existing"] += 1
     for ep in sorted({r["ep"] for r in rows}):
         host = next(r["lane_video"] for r in rows if r["ep"] == ep)

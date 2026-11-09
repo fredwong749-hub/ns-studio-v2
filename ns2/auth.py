@@ -10,22 +10,43 @@ import os
 from pathlib import Path
 
 HEADER = "X-NS2-Key"
+# B1 / M12：API 代理与 worker 文件口共用的白名单——只给图 / 片 / JSON，queue.db / 密钥 / 日志一律 403
+MEDIA_EXT = frozenset({".png", ".jpg", ".jpeg", ".webp", ".mp4", ".webm", ".mov", ".json"})
 KEY_FILE = os.environ.get("NS2_KEY_FILE", "/root/work/fredw/ns2/secret.key")
 
 
-def load_key() -> str | None:
+def _key_lines() -> list[tuple[str, str | None]]:
+    """密钥文件每行一把：`<密钥> [到期日 YYYY-MM-DD]`。轮换（审查 3 B1）：先加新行 → 各端换新 → 删旧行；到期日过了的行自动不认"""
     k = os.environ.get("NS2_KEY")
     if k:
-        return k.strip()
+        return [(k.strip(), None)]
     try:
-        return Path(KEY_FILE).read_text(encoding="utf-8").strip() or None
+        text = Path(KEY_FILE).read_text(encoding="utf-8")
     except OSError:
-        return None
+        return []
+    out = []
+    for ln in text.splitlines():
+        parts = ln.split()
+        if parts and not parts[0].startswith("#"):
+            out.append((parts[0], parts[1] if len(parts) > 1 else None))
+    return out
+
+
+def valid_keys(today: str | None = None) -> list[str]:
+    import time
+    today = today or time.strftime("%Y-%m-%d")
+    return [k for k, exp in _key_lines() if not exp or exp >= today]
+
+
+def load_key() -> str | None:
+    """本机发请求用的那把：第一条有效行（轮换时把新密钥放第一行）"""
+    ks = valid_keys()
+    return ks[0] if ks else None
 
 
 def ok(given: str | None, key: str | None = None) -> bool:
-    key = key if key is not None else load_key()
-    return bool(key) and bool(given) and hmac.compare_digest(given.encode(), key.encode())
+    keys = [key] if key is not None else valid_keys()
+    return bool(given) and any(k and hmac.compare_digest(given.encode(), k.encode()) for k in keys)
 
 
 def headers() -> dict:
