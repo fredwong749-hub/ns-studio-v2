@@ -44,3 +44,20 @@ def test_p6_last_all_too_similar_falls_back_to_i2va():
     assert r["fallback"] == "i2va" and d["last_frame_fallback"]["first_n"] == 4
     assert LF.i2va_fallback(P, "ep05-S3", d)["why"] == "已有尾帧兜底标记"
     assert LF.i2va_fallback(P, "x", {"active": {}})["promoted"] is None
+
+
+def test_no_board_fallback(monkeypatch):
+    """R4 质量 7：NS2_NO_BOARD_FALLBACK=1 → 双人首帧第 3 次的“参考板（B）”改回“造型设定图（A）”换 seed；默认关原样"""
+    import importlib.util
+    from pathlib import Path
+    spec = importlib.util.spec_from_file_location("lf", Path(__file__).resolve().parents[1] / "ns2" / "legacy_frame.py")
+    LF = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(LF)
+    b = {"name": "第 3 次：退到 两张脸 + 参考板（B）", "seed": 7, "plan_kw": {"two_person": "both_faces"}, "board": True, "variant": "faces_board"}
+    monkeypatch.delenv("NS2_NO_BOARD_FALLBACK", raising=False)
+    assert LF.no_board_fallback(b, 3) is b
+    monkeypatch.setenv("NS2_NO_BOARD_FALLBACK", "1")
+    r = LF.no_board_fallback(b, 3)
+    assert "board" not in r and r["variant"] == "faces_look" and r["seed"] == 7 and r["plan_kw"] == {"two_person": "both_faces"}
+    a = {"name": "第 1 次", "seed": 1, "plan_kw": {"two_person": "both_faces"}, "variant": "faces_look"}
+    assert LF.no_board_fallback(a, 1) is a and LF.no_board_fallback(None, 3) is None

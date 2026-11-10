@@ -10,7 +10,7 @@
    （face_described），编译同时给她写“只露出手，不露脸”；I2 矛盾检查把两者判成自相矛盾卡死。两者其实一致（要求不露脸 + 万一露了也是本人）
    → 只为兜底送脸的人（face_conflict）不算“露脸人物”参与矛盾检查；送脸照旧。
 5. 参考板不印字（_no_text_boards）；6. 尽力版当前不被重打分清空（_best_effort_rule）；
-7. 中景不补看不见的鞋（_mid_no_feet，NS2_MID_NO_FEET=1，默认关）；8. 排排站几何判不算两人转向相反（_lineup_facing，NS2_LINEUP_FACING=1，默认关）。
+7. 中景不补看不见的鞋（_mid_no_feet，NS2_MID_NO_FEET=1，默认关）；8. 排排站几何判不算两人转向相反（_lineup_facing，NS2_LINEUP_FACING=1，默认关）；9. 自动摆位图修相机距离与默认朝向（ns2/previz_fix.py，NS2_PREVIZ_FIT=1，默认关）。
 """
 from __future__ import annotations
 
@@ -143,6 +143,15 @@ def _lineup_facing(GZ=None, on: bool | None = None) -> bool:
     return True
 
 
+def _previz_fix() -> bool:
+    """9. 见 ns2/previz_fix.py（开关 NS2_PREVIZ_FIT=1）"""
+    try:
+        from ns2 import previz_fix as PF
+    except ImportError:                 # 服务器上 legacy_rules 以顶层模块导入（sys.path = ns2 目录）
+        import previz_fix as PF
+    return PF.apply()
+
+
 def _no_text_boards(AR) -> None:
     """5. 参考板标签进画面（P6 R1a ep05-S5/S7/S11 Q6：“①祁念；层勘”“③服装：日常全壹装…”被模型照画）：
     旧参考板每格底下印中文标签，出图模型把字当画面内容抄进去。修：参考板不印字；对应关系改在提示词里按格子顺序说明"""
@@ -206,6 +215,7 @@ def apply() -> None:
     _best_effort_rule()
     _mid_no_feet(getattr(AR, "FR", None))
     _lineup_facing()
+    _previz_fix()
     try:
         import producer as PR                       # 旧派单器模块（board / 首尾帧执行器都会 import 它）
         PR.refs_guard = lambda *a, **k: []

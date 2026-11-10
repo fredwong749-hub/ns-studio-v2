@@ -112,3 +112,17 @@ def test_lineup_facing_rule(monkeypatch):
     three = [row(100, -0.33), row(450, 0.78), row(800, 0.39)]                 # 三人：一对异号去掉，同号那对仍是排排站
     assert real.lineup_geo(three, 1000, 1800, {"yaw": 0.9})["lineup"] and GZ.lineup_geo(three, 1000, 1800, {"yaw": 0.9})["lineup"]
     assert LR.facing_pair(0.2, -0.2) is False and LR.facing_pair(None, 0.5) is False
+
+
+def test_previz_fix_rules(monkeypatch):
+    """R4 质量 6：摆位图宽度距离封顶（景别距离 × 1.15）；默认朝向只对多脸、没写明朝向的人改；开关默认关"""
+    import types
+    from ns2 import previz_fix as PF
+    assert PF.subject_distance(1.94, 3.70) == round(1.94 * 1.15, 2)      # ep05-S1 中景 50mm 三张脸：3.70 → 2.23
+    assert PF.subject_distance(1.94, 0) == 1.94 and PF.subject_distance(1.94, 2.0) == 2.0
+    assert PF.explicit_stance("侧右站在镜台前") and not PF.explicit_stance("站在画面右侧前景")
+    AB = types.SimpleNamespace(auto_blocking=lambda *a: "old", RENDER_VERSION=3)
+    monkeypatch.delenv("NS2_PREVIZ_FIT", raising=False)
+    assert PF.apply(AB) is False and AB.auto_blocking() == "old" and AB.RENDER_VERSION == 3
+    assert PF.apply(AB, on=True) is True and AB.auto_blocking._ns2_fit and AB.RENDER_VERSION == "3+" + PF.RENDER_TAG
+    assert PF.apply(AB, on=True) is True and AB.RENDER_VERSION == "3+" + PF.RENDER_TAG          # 不重复包

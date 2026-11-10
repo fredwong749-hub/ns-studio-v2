@@ -47,10 +47,23 @@ class _Stub:
         return min(2, sum(1 for b in self.prev if "FL" in (b or [])))
 
     def rung_ab(self, o, attempt):
-        return self.PR.Producer.rung_ab(self, o, attempt)
+        r = self.PR.Producer.rung_ab(self, o, attempt)
+        return no_board_fallback(r, attempt)
 
     def rung(self, o, attempt):
         return self.PR.Producer.rung(self, o, attempt)
+
+
+def no_board_fallback(r: dict | None, attempt: int, on: bool | None = None) -> dict | None:
+    """R4 质量 7（开关 NS2_NO_BOARD_FALLBACK=1）：双人首帧第 3 次起不再退到“两张脸 + 参考板（B）”，留在“两张脸 + 主角造型设定图（A）”换 seed。
+    依据：旧 11-01 A/B（A 4/12 过、B 0/8 过）；两台历史首帧带参考板的过率 28–29% vs 不带 37–39%；ep05 三个双人镜的第 3 次（参考板）
+    S1 / S7 / S11 全出成“参考板拼图”（多格设定图 + 编号，整张不能用），ep02-S11 v5 同样；r4_staging A/B 里默认参考板的 S7 几乎全是拼图"""
+    if on is None:
+        on = os.environ.get("NS2_NO_BOARD_FALLBACK") == "1"
+    if not on or not r or not r.get("board"):
+        return r
+    return {**{k: v for k, v in r.items() if k != "board"}, "variant": "faces_look",
+            "name": f"第 {attempt} 次：两张脸 + 主角造型设定图（A），换 seed（不退参考板：板会被画成拼图，R4 质量 7）"}
 
 
 BEST_EFFORT_REASON = "P6 尽力版一律自动用（项目方 11-09）：用完次数仍没过契约，按不过项最少、同等取最新设为当前"
