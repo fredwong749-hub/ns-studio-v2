@@ -1,7 +1,7 @@
 """队列表（PLAN §2.3 + P5 修正）：派单的唯一事实来源。只有 API 进程写它（单写者），worker 经 HTTP 认领 / 心跳 / 上报。
 
 语义：
-- FIFO（created_at, id），无 priority 字段，无让路。
+- FIFO（created_at, id），无 priority 字段；唯一让路：同档内准备步（script / assets / asset）先领（R4 11-11，见 PREP_STEPS）。
 - 同镜顺序：first 未 done/na 不领 last；first、last 未 done/na 不领 video（P5 修正 ④：QC 没过的帧不进视频）。
 - 幂等：idem_key UNIQUE，同输入重复入队返回已有行。
 - 认领原子：BEGIN IMMEDIATE + 条件 UPDATE。
@@ -214,6 +214,11 @@ def _soft_sql(soft: str) -> str:
     return pre
 
 
+# R4（11-11 ep07 验收）：准备步插队——资产行是剧本导入后才建的，按 FIFO 排在本集所有首 / 尾帧后面，
+# 用到新场景底图的镜（ep07 S11–S16）要等前面的镜全出完才轮到资产，整集尾巴被拖长。同一台、同一“专属 / 通用”档内，准备步先领。
+PREP_STEPS = frozenset({"script", "assets", "asset"})
+
+
 def claim(c, host: str, lane: str, steps: list[str]) -> dict | None:
     """原子认领一条：本机、前置步已过；先领“只能本机做”的（want_host = 本机），再领“哪台都行”的（want_host 空），同类内 FIFO。
     P6 11-09：视频行改成两台都能领后，出图机的道被视频占着、只能它出的尾帧排在后面（ep05 S10 / S11 尾帧等 gpu33 出完两条视频）"""
@@ -228,7 +233,7 @@ def claim(c, host: str, lane: str, steps: list[str]) -> dict | None:
         cands = [r for s in steps if (r := c.execute(_claim_sql(s), (host, lane, s)).fetchone()) is not None]
         if any(r["want_host"] == host for r in cands):       # 每步 SQL 只回最早一条：有本机专属的步，再按“专属优先”重取一遍
             cands += [r for s in steps if (r := c.execute(_claim_sql(s, pinned=True), (host, lane, s)).fetchone()) is not None]
-        for r in sorted(cands, key=lambda r: (r["want_host"] != host, r["created_at"], r["id"]))[:1]:
+        for r in sorted(cands, key=lambda r: (r["want_host"] != host, r["step"] not in PREP_STEPS, r["created_at"], r["id"]))[:1]:
             cur = c.execute("UPDATE jobs SET state='running', host=?, lane=?, started_at=?, beat_at=?, error=NULL WHERE id=? AND state='queued'",
                             (host, lane, now_iso(), time.time(), r["id"]))
             if cur.rowcount != 1:

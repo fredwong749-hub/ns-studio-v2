@@ -380,3 +380,14 @@ def test_m13_force_requeue_fenced_by_heartbeat(tmp_path):
     assert D.requeue(c, j["id"], "manual", force=True) is None
     c.execute("UPDATE jobs SET beat_at=? WHERE id=?", (time.time() - D.FORCE_STALE_S - 1, j["id"]))
     assert D.requeue(c, j["id"], "manual", force=True)["state"] == "queued"
+
+
+def test_prep_steps_claimed_before_older_frames(tmp_path):
+    """R4：资产行比本集首帧行晚建，也先领（新场景底图不排在整集首 / 尾帧后面）；同步内仍 FIFO"""
+    c = mk(tmp_path)
+    f1 = enq(c, "ep01-S1", "first", want_host="gpu33")
+    f2 = enq(c, "ep01-S2", "first", want_host="gpu33")
+    a = enq(c, "ep01", "asset", want_host="gpu33", payload={"asset": "scene-x", "shots": ["ep01-S9"], "after": []})
+    assert D.claim(c, "gpu33", "gpu33:0", ["first", "asset"])["id"] == a["id"]
+    assert D.claim(c, "gpu33", "gpu33:1", ["first", "asset"])["id"] == f1["id"]
+    assert D.claim(c, "gpu33", "gpu33:2", ["first", "asset"])["id"] == f2["id"]
