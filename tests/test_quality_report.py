@@ -48,3 +48,12 @@ def test_video_stats_and_load(tmp_path):
     v = r["video"]
     assert v["clips"] == 2 and v["gate_pass"] == 1 and v["low_motion_lt_1"] == 1 and v["fails"] == {"脸部泛红": 1}
     assert v["motion_mean"]["min"] == 0.6
+
+
+def test_video_scores_from_takes():
+    from ns2 import quality_report as Q
+    docs = {"ep05-S1": {"takes": [{"n": 3, "stage": "video", "variant": "v1", "score": {"mean": 0.4, "gate": {"pass": True}}},
+                                  {"n": 4, "stage": "video", "score": {"error": "x"}}, _take(1, "image")]}}
+    s = Q.video_take_scores(docs)
+    assert list(s) == ["ep05-S1#3"] and s["ep05-S1#3"]["variant"] == "v1"
+    assert Q.video_stats(s)["low_motion_lt_1"] == 1

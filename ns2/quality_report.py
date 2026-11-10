@@ -118,8 +118,20 @@ def load(root: Path, run: str, eps: list[int]) -> tuple[dict, dict]:
     return docs, scores
 
 
+def video_take_scores(docs: dict[str, dict]) -> dict[str, dict]:
+    """ns2 的视频分记在 takes.json 的 stage=video take 里（score: mean / penalty / gate），不另写 scores 文件"""
+    out = {}
+    for sid, d in sorted(docs.items()):
+        for t in (d or {}).get("takes") or []:
+            sc = t.get("score")
+            if t.get("stage") == "video" and isinstance(sc, dict) and sc.get("mean") is not None:
+                out[f"{sid}#{t.get('n')}"] = {**sc, "variant": t.get("variant")}
+    return out
+
+
 def report(root: Path, run: str, eps: list[int]) -> dict:
     docs, scores = load(root, run, eps)
+    scores = {**scores, **video_take_scores(docs)}
     return {"run": run, "eps": eps, "shots": len(docs), "frames": frame_stats(docs), "video": video_stats(scores)}
 
 
