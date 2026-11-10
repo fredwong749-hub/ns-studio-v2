@@ -43,6 +43,25 @@ def main() -> int:
     from ns_render import pipeline as P
     from ns_render import unified_frame as UF
     P.SCRIPT_JSON = Path(a.script_json)
+    # 资产步的“排期”（meta-schedule：角色 × 本集用哪套造型，写 data/looks/hub_episode_looks.json）入队后才跑；预检时按同一函数
+    # （asset_jobs.look_for_episode ← P1_looks.json）补上，否则造型只能靠剧本造型行文字匹配，I3 全镜误报（ep08 预检 28 帧）
+    try:
+        import json as _json
+        sys.path.insert(0, str(root / "tools" / "pipeline"))
+        import asset_jobs as AJ
+        from ns_agent import asset_refs as AR
+        p1 = _json.loads((root / "data/pipeline/runs" / a.run / "P1_looks.json").read_text(encoding="utf-8"))
+        p1 = p1.get("characters") if isinstance(p1, dict) else p1
+        _orig = AR.episode_look_override
+
+        def episode_look_override(project, cid, ep_n, _o=_orig):
+            v = _o(project, cid, ep_n)
+            if v or int(ep_n) != a.ep:
+                return v
+            return AJ.look_for_episode(AJ.p1_looks_of(p1, cid), int(ep_n))
+        AR.episode_look_override = episode_look_override
+    except Exception as e:  # noqa: BLE001
+        print("（排期补不上，I3 可能误报）", type(e).__name__, e, flush=True)
     s = P.load_script()
     proj = UF.project_for(s)
     ph = a.placeholder
