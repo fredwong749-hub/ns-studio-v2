@@ -169,10 +169,12 @@ FILM_SQL = (" AND j.id = (SELECT MAX(f.id) FROM jobs f WHERE f.run_id=j.run_id A
             " AND NOT EXISTS (SELECT 1 FROM jobs v WHERE v.run_id=j.run_id AND v.ep=j.ep AND v.step='video'"
             "   AND v.id = (SELECT MAX(x.id) FROM jobs x WHERE x.run_id=v.run_id AND x.shot=v.shot AND x.step='video')"
             "   AND (v.state='running' OR (v.state='queued' AND v.owner_trigger=0"
-            # 排队的视频只有在前置还“有望”时才算在途；首 / 尾帧最新行已是 failed / blocked / best_effort（等人）→ 不挡整集合成（占位）
+            # 排队的视频只有在前置还“有望”时才算在途；首 / 尾帧最新行已是 failed / blocked（等人）→ 不挡整集合成（占位）。
+            # R4 11-11（ep07 验收）：best_effort 不再算“等人”——P6 尽力版一律自动用，视频照样会领；原口径让 ep07 整集在 S14 视频
+            # 两次重试之间（行短暂 queued）就合成了、S14 成了占位
             "     AND NOT EXISTS (SELECT 1 FROM jobs f WHERE f.run_id=v.run_id AND f.shot=v.shot AND f.step IN ('first','last')"
             "       AND f.id = (SELECT MAX(y.id) FROM jobs y WHERE y.run_id=f.run_id AND y.shot=f.shot AND y.step=f.step)"
-            "       AND f.state IN ('failed','blocked','best_effort')))))")
+            "       AND f.state IN ('failed','blocked')))))")
 
 
 def _claim_sql(step: str, pinned: bool = False) -> str:

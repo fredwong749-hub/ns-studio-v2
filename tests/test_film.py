@@ -98,10 +98,29 @@ def test_run_end_to_end_ffmpeg(tmp_path):
 
 def test_film_not_blocked_by_video_waiting_on_human(tmp_path):
     c = mk(tmp_path)
-    D.enqueue(c, run_id="r", ep=1, shot="ep01-S1", step="first", state="best_effort")     # 首帧尽力版等人 → 视频卡住
+    D.enqueue(c, run_id="r", ep=1, shot="ep01-S1", step="first", state="blocked")         # 首帧卡住等人 → 视频不会领
     vid(c, "ep01-S1")
     for s in ("ep01-S2",):
         D.enqueue(c, run_id="r", ep=1, shot=s, step="first", state="done"); D.enqueue(c, run_id="r", ep=1, shot=s, step="last", state="na")
     v2 = vid(c, "ep01-S2")
     D.claim(c, "h", "h:0", ["video"]); D.finish(c, v2["id"], "h", "done")
     assert D.claim(c, "h", "h:1", ["film"])["shot"] == "ep01"
+
+
+def test_film_waits_for_queued_video_of_best_effort_shot(tmp_path):
+    """R4（ep07 验收）：首帧是尽力版（自动用）的镜，视频在两次重试之间短暂 queued → 整集合成要等它，不能当占位"""
+    c = mk(tmp_path)
+    D.enqueue(c, run_id="r", ep=1, shot="ep01-S1", step="first", state="best_effort")
+    D.enqueue(c, run_id="r", ep=1, shot="ep01-S1", step="last", state="na")
+    v1 = vid(c, "ep01-S1")
+    D.enqueue(c, run_id="r", ep=1, shot="ep01-S2", step="first", state="done"); D.enqueue(c, run_id="r", ep=1, shot="ep01-S2", step="last", state="na")
+    v2 = vid(c, "ep01-S2")
+    a = D.claim(c, "h", "h:0", ["video"]); assert a["id"] == v1["id"]
+    D.finish(c, v1["id"], "h", "retry", result={"has_output": True})                    # S1 第一条没过 → 回队（短暂 queued）
+    c.execute("UPDATE jobs SET ready_at=? WHERE id=?", (9e12, v1["id"]))                # 退避中：这一刻没人领它
+    b = D.claim(c, "h", "h:1", ["video"]); assert b["id"] == v2["id"]
+    D.finish(c, v2["id"], "h", "done")
+    assert D.claim(c, "h", "h:2", ["film"]) is None                                         # S1 视频还会再跑，不合成
+    c.execute("UPDATE jobs SET ready_at=NULL WHERE id=?", (v1["id"],))
+    j = D.claim(c, "h", "h:0", ["video"]); D.finish(c, j["id"], "h", "done")
+    assert D.claim(c, "h", "h:2", ["film"])["shot"] == "ep01"
