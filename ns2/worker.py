@@ -207,6 +207,7 @@ def serve_files(bind: str, port: int, root):
     import urllib.parse
     from pathlib import Path
     base = (Path(root) / "data").resolve()
+    abase = (Path(root) / "assets_v2").resolve()      # R4 NS2_SPLIT_IMAGES：/assets/ 给另一台补资产包（同一密钥、同一白名单）
 
     class H(http.server.BaseHTTPRequestHandler):
         def log_message(self, *a):
@@ -218,11 +219,15 @@ def serve_files(bind: str, port: int, root):
                 return self.send_error(401)
             u = urllib.parse.urlparse(self.path)
             rel = urllib.parse.unquote(u.path)
-            if not rel.startswith("/files/"):
+            if rel.startswith("/files/"):
+                root_dir, sub = base, rel[len("/files/"):]
+            elif rel.startswith("/assets/"):
+                root_dir, sub = abase, rel[len("/assets/"):]
+            else:
                 return self.send_error(404)
             try:
-                f = (base / rel[len("/files/"):]).resolve()
-                f.relative_to(base)
+                f = (root_dir / sub).resolve()
+                f.relative_to(root_dir)
             except (ValueError, OSError):
                 return self.send_error(400)
             if f.suffix.lower() not in AU.MEDIA_EXT:            # 审查 3 B1：文件口与 API 代理同一白名单（queue.db / 密钥 / 日志 403）

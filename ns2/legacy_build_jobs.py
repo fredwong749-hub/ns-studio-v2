@@ -30,11 +30,11 @@ def remote_shot_fn(self_host: str | None):
     """本机不是这集的出图机 → 这一镜的首 / 尾帧是交接来的：True"""
     def remote(sid: str) -> bool:
         try:
-            from ns2.migrate import host_for
+            from ns2.migrate import images_host
             ep = int(str(sid).split("-")[0][2:])
         except (ImportError, ValueError):
             return False
-        src = host_for("images", ep)
+        src = images_host(ep, sid)
         return bool(self_host and src and src != self_host)
     return remote
 

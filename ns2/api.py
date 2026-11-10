@@ -446,7 +446,8 @@ def dispatch(shot_id: str, r: DispatchReq):
     except ValueError:
         raise HTTPException(400, "镜号格式 epNN-SN")
     from ns2.migrate import video_host
-    host = video_host(ep) if r.stage == "video" else host_for("images", ep)
+    from ns2.migrate import images_host
+    host = video_host(ep) if r.stage == "video" else images_host(ep, shot_id)
     with _lock:
         c = conn()
         j, created = D.enqueue(c, run_id=r.run_id, ep=ep, shot=shot_id, step=r.stage, want_host=host,

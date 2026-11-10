@@ -319,8 +319,8 @@ def recheck_remote_frames(job: dict, p: dict, host: str) -> str | None:
     if p.get("echo") or (p.get("first_take") is None and p.get("last_take") is None):
         return None                                   # 没绑帧版本（echo / 只靠运行时编译前的交接）→ 没有可比的
     from ns2 import handoff as HO
-    from ns2.migrate import host_for
-    src = host_for("images", int(job["ep"]))
+    from ns2.migrate import images_host
+    src = images_host(int(job["ep"]), job["shot"])
     if not src or src == host:
         return None
     try:
@@ -472,8 +472,8 @@ def run(job: dict, lane: str):
         return "blocked", None, "成人镜未经项目方触发（L-128）：worker 拒渲；请在前端点“触发”"
     if not p.get("echo"):
         from ns2 import handoff as HO
-        from ns2.migrate import host_for
-        src = host_for("images", int(job["ep"]))
+        from ns2.migrate import images_host
+        src = images_host(int(job["ep"]), job["shot"])
         if src and src != host:          # P3 真机发现：出图机 ≠ 视频机时先把出图机当前首 / 尾帧交接过来，否则用的是本机旧帧
             try:
                 ho = HO.sync_frames(job["run_id"], job["shot"], src, ROOT)

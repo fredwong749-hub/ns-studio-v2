@@ -30,6 +30,29 @@ def host_for(kind: str, ep: int) -> str | None:
     return next((h for h, eps in PARTITION[kind].items() if ep in eps), None)
 
 
+# R4（11-11 ep07 验收：出图只在本集出图机两道，100 分钟出帧、另一台三道大多空等）：NS2_SPLIT_IMAGES=1 → 一集的镜按道数比例分到两台出图
+# （gpu33 两道、gpu36 三道 → 每 5 镜里 2 镜给 gpu33、3 镜给 gpu36）。一镜的 board / first / last 都在同一台（takes 在那台）；
+# 视频交接 / 作业表 / 人工派单都按镜问 images_host。资产包先从另一台补齐（ns2/asset_sync.py，board 步前）。API 与两台 worker 开关要一致
+SPLIT_PATTERN = ("gpu36", "gpu33", "gpu36", "gpu33", "gpu36")
+
+
+def split_on() -> bool:
+    import os
+    return os.environ.get("NS2_SPLIT_IMAGES") == "1"
+
+
+def images_host(ep: int, shot=None) -> str | None:
+    """本镜出图机：开关关 / 没给镜号 = 本集出图机（host_for）；开 = 按 SPLIT_PATTERN 轮"""
+    h = host_for("images", ep)
+    if not split_on() or shot is None or h is None:
+        return h
+    try:
+        idx = int(str(shot).rsplit("S", 1)[1]) if not isinstance(shot, int) else shot
+    except (ValueError, IndexError):
+        return h
+    return SPLIT_PATTERN[(idx - 1) % len(SPLIT_PATTERN)]
+
+
 # P6 11-09 项目方“把 gpu36 也用起来”：视频行不再按集钉死一台，两台谁空谁领（出图机 ≠ 视频机时 step_video 先交接首尾帧，
 # 拼片机缺的片经文件口取，见 handoff.sync_frames / step_film.fetch_remote）。出图仍按集分区（takes 在出图机上）。
 VIDEO_ANY_HOST = True
