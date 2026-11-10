@@ -179,6 +179,7 @@ def main(a: dict) -> dict:
         return {"outcome": kind, "error": msg[:600], "rung": rung.get("name")}
     if res.get("na"):
         return {"outcome": "na", "rung": rung.get("name")}
+    print("@@NS2RENDERED@@" + json.dumps({"take": res.get("take")}), flush=True)     # R4：图已出，worker 可放道（NS2_ASYNC_SCORE）
     try:
         pf = res["pf_future"].result(timeout=1800)
     except Exception as e:  # noqa: BLE001 — 图已入库、打分超时 = infra（旧系统同：只重打分不计次）

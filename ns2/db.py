@@ -249,6 +249,19 @@ def claim(c, host: str, lane: str, steps: list[str]) -> dict | None:
         raise
 
 
+SCORE_SUFFIX = "~score"
+
+
+def release_lane(c, job_id: int, host: str, lane: str) -> bool:
+    """R4（NS2_ASYNC_SCORE）：首 / 尾帧图已出、只剩契约打分（看图 / ArcFace，不占这道的 ComfyUI）→ 这一行的 lane 改成 “<道>~score”，
+    道守卫（每道 running 一条）不再算它，这道可以领下一单；行仍是 running、心跳 / 回收 / finish 照旧（finish 只认 host）"""
+    cur = c.execute("UPDATE jobs SET lane=? WHERE id=? AND state='running' AND host=? AND lane=?",
+                    (lane + SCORE_SUFFIX, job_id, host, lane))
+    if cur.rowcount == 1:
+        _event(c, job_id, "release_lane", {"lane": lane})
+    return cur.rowcount == 1
+
+
 def heartbeat(c, job_id: int, host: str) -> bool:
     cur = c.execute("UPDATE jobs SET beat_at=? WHERE id=? AND state='running' AND host=?", (time.time(), job_id, host))
     return cur.rowcount == 1

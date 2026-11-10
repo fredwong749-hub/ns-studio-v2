@@ -61,3 +61,27 @@ def test_no_board_fallback(monkeypatch):
     assert "board" not in r and r["variant"] == "faces_look" and r["seed"] == 7 and r["plan_kw"] == {"two_person": "both_faces"}
     a = {"name": "第 1 次", "seed": 1, "plan_kw": {"two_person": "both_faces"}, "variant": "faces_look"}
     assert LF.no_board_fallback(a, 1) is a and LF.no_board_fallback(None, 3) is None
+
+
+def test_call_legacy_streams_rendered_marker(monkeypatch, tmp_path):
+    """R4：旧执行器打出 @@NS2RENDERED@@ 行 → 回调放道；最后一行 @@NS2@@ 是结果"""
+    import sys
+    from ns2 import step_frame as F
+    script = tmp_path / "fake.py"
+    script.write_text("import time\nprint('noise', flush=True)\nprint('@@NS2RENDERED@@{}', flush=True)\ntime.sleep(0.2)\n"
+                      "print('@@NS2@@{\"outcome\": \"pass\", \"take\": 3}', flush=True)\n", encoding="utf-8")
+    monkeypatch.setattr(F, "RUNNER", script)
+    monkeypatch.setattr(F, "OFF", tmp_path)
+    (tmp_path / "venv/bin").mkdir(parents=True)
+    import os
+    py = tmp_path / "venv/bin/python"
+    try:
+        os.symlink(sys.executable, py)
+    except (OSError, NotImplementedError):
+        import pytest
+        pytest.skip("不能建 python 软链（Windows 无权限）")
+    (tmp_path / "repo").mkdir()
+    monkeypatch.setattr(F, "legacy_env", lambda h, r: dict(os.environ))
+    hits = []
+    out = F.call_legacy({"run": "r"}, "gpu33", 30, on_rendered=lambda: hits.append(1))
+    assert out == {"outcome": "pass", "take": 3} and hits == [1]

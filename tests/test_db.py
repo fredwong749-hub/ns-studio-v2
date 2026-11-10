@@ -391,3 +391,20 @@ def test_prep_steps_claimed_before_older_frames(tmp_path):
     assert D.claim(c, "gpu33", "gpu33:0", ["first", "asset"])["id"] == a["id"]
     assert D.claim(c, "gpu33", "gpu33:1", ["first", "asset"])["id"] == f1["id"]
     assert D.claim(c, "gpu33", "gpu33:2", ["first", "asset"])["id"] == f2["id"]
+
+
+def test_release_lane_frees_lane_but_job_stays_running(tmp_path):
+    """R4 NS2_ASYNC_SCORE：图已出 → 放道（lane 改 <道>~score）；道守卫放行下一单；原单仍 running、finish 照常"""
+    c = mk(tmp_path)
+    a = enq(c, "ep01-S1", "first", want_host="gpu33")
+    b = enq(c, "ep01-S2", "first", want_host="gpu33")
+    ja = D.claim(c, "gpu33", "gpu33:0", ["first"])
+    assert D.claim(c, "gpu33", "gpu33:0", ["first"]) is None             # 道上有在跑的
+    assert D.release_lane(c, ja["id"], "gpu33", "gpu33:0") is True
+    assert D.release_lane(c, ja["id"], "gpu33", "gpu33:0") is False      # 只放一次
+    jb = D.claim(c, "gpu33", "gpu33:0", ["first"])
+    assert jb["id"] == b["id"]
+    r = c.execute("SELECT state, lane FROM jobs WHERE id=?", (a["id"],)).fetchone()
+    assert r["state"] == "running" and r["lane"] == "gpu33:0~score"
+    assert D.finish(c, a["id"], "gpu33", "done")["state"] == "done"
+    assert D.release_lane(c, jb["id"], "gpu36", "gpu33:0") is False      # 别的机器放不了

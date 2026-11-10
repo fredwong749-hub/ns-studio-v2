@@ -280,6 +280,19 @@ def comfy_prompt(r: ComfyRec):
     return {"ok": True}
 
 
+class Release(BaseModel):
+    host: str
+    job_id: int
+    lane: str
+
+
+@app.post("/api/worker/release_lane")
+def release_lane(b: Release):
+    """R4：图已出、只剩打分 → 放道（见 db.release_lane）"""
+    with _lock:
+        return {"ok": D.release_lane(conn(), b.job_id, b.host, b.lane)}
+
+
 @app.post("/api/worker/finish")
 def finish(f: Fin):
     if f.state not in ("done", "failed", "blocked", "best_effort", "na", "retry", "infra"):

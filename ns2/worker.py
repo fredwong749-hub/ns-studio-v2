@@ -133,8 +133,40 @@ def resend_pending(api: str) -> list:
     return out
 
 
+ASYNC_SCORE = os.environ.get("NS2_ASYNC_SCORE") == "1"
+ASYNC_STEPS = ("first", "last")
+ASYNC_MAX_BG = 2          # 每道最多同时有几单在后台等打分（图已出、道已放）
+
+
+def process(api: str, host: str, lane: str, job: dict, fns: dict) -> None:
+    """跑一单：心跳 → 步函数 → finish（可在后台线程里跑：道已放给下一单时，这单继续等打分）"""
+    done = threading.Event()
+
+    def beat():
+        while not done.wait(30):
+            try:
+                post(api, "/api/worker/heartbeat", {"host": host, "job_id": job["id"], "lanes": [lane]})
+            except Exception:  # noqa: BLE001 — 心跳丢一次不致命（45 分钟才回收）
+                pass
+    threading.Thread(target=beat, daemon=True).start()
+    t0 = time.time()
+    try:
+        state, result, error = run_job(job, lane, fns)
+    finally:
+        done.set()
+    result = {**(result or {}), "secs": round(time.time() - t0, 1)}
+    if job.get("_released_at"):
+        result["render_secs"] = round(job["_released_at"] - t0, 1)
+    finish_durable(api, lane, {"host": host, "job_id": job["id"], "state": state, "result": result, "error": error})
+    log(lane, "END", job["id"], state, (error or "")[:160])
+
+
 def lane_loop(api: str, host: str, lane: str, steps: list[str], fns: dict, idle_s: float = 5):
+    bg: list[threading.Thread] = []
     while not STOP.is_set():
+        bg = [t for t in bg if t.is_alive()]
+        if len(bg) >= ASYNC_MAX_BG:
+            STOP.wait(2); continue
         try:
             job = post(api, "/api/worker/claim", {"host": host, "lane": lane, "steps": steps}).get("job")
         except Exception as e:  # noqa: BLE001
@@ -142,21 +174,30 @@ def lane_loop(api: str, host: str, lane: str, steps: list[str], fns: dict, idle_
         if not job:
             STOP.wait(idle_s); continue
         log(lane, "START", job["id"], job["shot"], job["step"])
-        done = threading.Event()
+        if not (ASYNC_SCORE and job["step"] in ASYNC_STEPS):
+            process(api, host, lane, job, fns)
+            continue
+        released = threading.Event()
 
-        def beat():
-            while not done.wait(30):
-                try:
-                    post(api, "/api/worker/heartbeat", {"host": host, "job_id": job["id"], "lanes": [lane]})
-                except Exception:  # noqa: BLE001 — 心跳丢一次不致命（45 分钟才回收）
-                    pass
-        threading.Thread(target=beat, daemon=True).start()
-        t0 = time.time()
-        state, result, error = run_job(job, lane, fns)
-        done.set()
-        result = {**(result or {}), "secs": round(time.time() - t0, 1)}
-        finish_durable(api, lane, {"host": host, "job_id": job["id"], "state": state, "result": result, "error": error})
-        log(lane, "END", job["id"], state, (error or "")[:160])
+        def release(job=job, released=released):
+            """步函数在“图已出、开始打分”时调：放道，本道去领下一单"""
+            if released.is_set():
+                return
+            try:
+                ok = post(api, "/api/worker/release_lane", {"host": host, "job_id": job["id"], "lane": lane}).get("ok")
+            except Exception as e:  # noqa: BLE001 — 放不掉就按旧口径占着道等打分
+                log(lane, "RELEASE_ERR", job["id"], repr(e)[:160]); return
+            if ok:
+                job["_released_at"] = time.time()
+                log(lane, "RELEASED", job["id"])
+                released.set()
+        job["_release"] = release
+        t = threading.Thread(target=process, args=(api, host, lane, job, fns), daemon=True, name=f"{lane}#{job['id']}")
+        t.start()
+        while t.is_alive() and not released.is_set() and not STOP.is_set():
+            released.wait(1)
+        if t.is_alive():
+            bg.append(t)
 
 
 def serve_files(bind: str, port: int, root):
