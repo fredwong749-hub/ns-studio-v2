@@ -158,3 +158,6 @@ def test_build_jobs_accepts_record_only_q10():
     plain_na = {"ok": True, "items": [{"id": "Q10", "status": "na"}]}
     assert BJ.accept_status("ep08-S8", "a.png", plain_na, {}) == "na"
     assert BJ.accept_status("ep08-S8", "a.png", {"ok": False, "items": rec["items"]}, {}) == "na"
+    no_q10 = {"ok": True, "items": [{"id": "Q1", "status": "pass"}]}                           # 物件插镜：契约里没有 Q10
+    assert BJ.accept_status("ep08-S10", "a.png", no_q10, {}) == "pass"
+    assert BJ.accept_status("ep08-S10", "a.png", {"ok": True, "items": []}, {}) is None          # 根本没打过分 → 照旧等

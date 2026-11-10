@@ -57,6 +57,9 @@ def patch(BJ, G, remote=None) -> None:
         q10 = next((i for i in (pf or {}).get("items") or [] if i.get("id") == "Q10"), None)
         if q10 and q10.get("status") == "na" and q10.get("record_only") and (pf or {}).get("ok"):
             return "pass"
+        if q10 is None and (pf or {}).get("ok") and (pf or {}).get("items"):
+            # ep08 S10 / S13（物件插镜）：契约里本来就没有 Q10，旧系统靠另跑的验收批量（data/vqa/accept/）补；ns2 不跑那一批 → 永远“没验收”
+            return "pass"
         return _o(sid, file, pf, rows)
     if oacc0 is not None:
         BJ.accept_status = accept_status
