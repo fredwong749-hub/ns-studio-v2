@@ -207,7 +207,14 @@ def serve_files(bind: str, port: int, root):
     import urllib.parse
     from pathlib import Path
     base = (Path(root) / "data").resolve()
-    abase = (Path(root) / "assets_v2").resolve()      # R4 NS2_SPLIT_IMAGES：/assets/ 给另一台补资产包（同一密钥、同一白名单）
+    # R4 NS2_SPLIT_IMAGES：/assets/ 给另一台补资产包（同一密钥、同一白名单）。资产包在旧部署 repo 下（旧执行器读的就是它）；
+    # 测试 / 本地没有旧部署时退到 <root>/assets_v2
+    try:
+        from ns2.step_frame import OFF as _OFF
+        _a = Path(_OFF) / "repo" / "assets_v2"
+    except Exception:  # noqa: BLE001
+        _a = None
+    abase = (_a if _a is not None and _a.is_dir() else Path(root) / "assets_v2").resolve()
 
     class H(http.server.BaseHTTPRequestHandler):
         def log_message(self, *a):
