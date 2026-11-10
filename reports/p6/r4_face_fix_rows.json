@@ -1,0 +1,354 @@
+[
+ {
+  "sid": "ep05-S1",
+  "stage": "image",
+  "n": 3,
+  "who": "ch_tang_yao",
+  "orig_sim_pf": 0.133,
+  "orig_sim": 0.1446,
+  "orig_lap": 653.0,
+  "arms": {
+   "0.35": {
+    "file": "rep/r4_face_fix/ep05-S1_image3_d35.png",
+    "secs": 3.0,
+    "lap": 214.9,
+    "outside_change": 0.0,
+    "sim": 0.0006
+   },
+   "0.5": {
+    "file": "rep/r4_face_fix/ep05-S1_image3_d50.png",
+    "secs": 3.0,
+    "lap": 235.4,
+    "outside_change": 0.0,
+    "sim": -0.0053
+   },
+   "0.65": {
+    "file": "rep/r4_face_fix/ep05-S1_image3_d65.png",
+    "secs": 3.0,
+    "lap": 241.9,
+    "outside_change": 0.0,
+    "sim": 0.0069
+   }
+  }
+ },
+ {
+  "sid": "ep05-S1",
+  "stage": "last",
+  "n": 3,
+  "who": "lead_f",
+  "orig_sim_pf": 0.304,
+  "orig_sim": 0.2875,
+  "orig_lap": 297.6,
+  "arms": {
+   "0.35": {
+    "file": "rep/r4_face_fix/ep05-S1_last3_d35.png",
+    "secs": 3.0,
+    "lap": 131.9,
+    "outside_change": 0.0,
+    "sim": 0.2939
+   },
+   "0.5": {
+    "file": "rep/r4_face_fix/ep05-S1_last3_d50.png",
+    "secs": 3.0,
+    "lap": 130.3,
+    "outside_change": 0.0,
+    "sim": 0.2939
+   },
+   "0.65": {
+    "file": "rep/r4_face_fix/ep05-S1_last3_d65.png",
+    "secs": 3.0,
+    "lap": 136.1,
+    "outside_change": 0.0,
+    "sim": 0.2879
+   }
+  }
+ },
+ {
+  "sid": "ep05-S1",
+  "stage": "image",
+  "n": 2,
+  "who": "ch_tang_yao",
+  "orig_sim_pf": 0.475,
+  "orig_sim": 0.5102,
+  "orig_lap": 234.9,
+  "arms": {
+   "0.35": {
+    "file": "rep/r4_face_fix/ep05-S1_image2_d35.png",
+    "secs": 3.0,
+    "lap": 82.2,
+    "outside_change": 0.0,
+    "sim": 0.399
+   },
+   "0.5": {
+    "file": "rep/r4_face_fix/ep05-S1_image2_d50.png",
+    "secs": 3.0,
+    "lap": 83.0,
+    "outside_change": 0.0,
+    "sim": 0.4153
+   },
+   "0.65": {
+    "file": "rep/r4_face_fix/ep05-S1_image2_d65.png",
+    "secs": 3.0,
+    "lap": 84.4,
+    "outside_change": 0.0,
+    "sim": 0.3756
+   }
+  }
+ },
+ {
+  "sid": "ep05-S1",
+  "stage": "last",
+  "n": 2,
+  "who": "ch_tang_yao",
+  "orig_sim_pf": 0.364,
+  "orig_sim": 0.3614,
+  "orig_lap": 524.5,
+  "arms": {
+   "0.35": {
+    "file": "rep/r4_face_fix/ep05-S1_last2_d35.png",
+    "secs": 3.0,
+    "lap": 297.4,
+    "outside_change": 0.0,
+    "sim": 0.19
+   },
+   "0.5": {
+    "file": "rep/r4_face_fix/ep05-S1_last2_d50.png",
+    "secs": 3.0,
+    "lap": 292.3,
+    "outside_change": 0.0,
+    "sim": 0.1922
+   },
+   "0.65": {
+    "file": "rep/r4_face_fix/ep05-S1_last2_d65.png",
+    "secs": 3.0,
+    "lap": 310.3,
+    "outside_change": 0.0,
+    "sim": 0.1891
+   }
+  }
+ },
+ {
+  "sid": "ep05-S4",
+  "stage": "last",
+  "n": 3,
+  "who": "lead_f",
+  "orig_sim_pf": 0.438,
+  "orig_sim": 0.4141,
+  "orig_lap": 418.2,
+  "arms": {
+   "0.35": {
+    "file": "rep/r4_face_fix/ep05-S4_last3_d35.png",
+    "secs": 3.0,
+    "lap": 187.7,
+    "outside_change": 0.0,
+    "sim": 0.401
+   },
+   "0.5": {
+    "file": "rep/r4_face_fix/ep05-S4_last3_d50.png",
+    "secs": 18.0,
+    "lap": 194.3,
+    "outside_change": 0.0,
+    "sim": 0.3885
+   },
+   "0.65": {
+    "file": "rep/r4_face_fix/ep05-S4_last3_d65.png",
+    "secs": 18.0,
+    "lap": 221.6,
+    "outside_change": 0.0,
+    "sim": 0.391
+   }
+  }
+ },
+ {
+  "sid": "ep05-S4",
+  "stage": "last",
+  "n": 1,
+  "who": "lead_f",
+  "orig_sim_pf": 0.48,
+  "orig_sim": 0.4094,
+  "orig_lap": 455.5,
+  "arms": {
+   "0.35": {
+    "file": "rep/r4_face_fix/ep05-S4_last1_d35.png",
+    "secs": 27.0,
+    "lap": 191.9,
+    "outside_change": 0.0,
+    "sim": 0.3741
+   },
+   "0.5": {
+    "file": "rep/r4_face_fix/ep05-S4_last1_d50.png",
+    "secs": 18.0,
+    "lap": 190.0,
+    "outside_change": 0.0,
+    "sim": 0.3626
+   },
+   "0.65": {
+    "file": "rep/r4_face_fix/ep05-S4_last1_d65.png",
+    "secs": 18.0,
+    "lap": 191.9,
+    "outside_change": 0.0,
+    "sim": 0.3614
+   }
+  }
+ },
+ {
+  "sid": "ep05-S5",
+  "stage": "last",
+  "n": 1,
+  "who": "lead_f",
+  "orig_sim_pf": 0.48,
+  "orig_sim": 0.4794,
+  "orig_lap": 289.8,
+  "arms": {
+   "0.35": {
+    "file": "rep/r4_face_fix/ep05-S5_last1_d35.png",
+    "secs": 27.0,
+    "lap": 121.3,
+    "outside_change": 0.0,
+    "sim": 0.3426
+   },
+   "0.5": {
+    "file": "rep/r4_face_fix/ep05-S5_last1_d50.png",
+    "secs": 18.0,
+    "lap": 114.9,
+    "outside_change": 0.0,
+    "sim": 0.3645
+   },
+   "0.65": {
+    "file": "rep/r4_face_fix/ep05-S5_last1_d65.png",
+    "secs": 18.0,
+    "lap": 119.4,
+    "outside_change": 0.0,
+    "sim": 0.3441
+   }
+  }
+ },
+ {
+  "sid": "ep05-S6",
+  "stage": "last",
+  "n": 1,
+  "who": "ch_jiang_yubai",
+  "orig_sim_pf": 0.506,
+  "orig_sim": 0.5142,
+  "orig_lap": 113.0,
+  "arms": {
+   "0.35": {
+    "file": "rep/r4_face_fix/ep05-S6_last1_d35.png",
+    "secs": 15.0,
+    "lap": 30.7,
+    "outside_change": 0.0,
+    "sim": 0.1133
+   },
+   "0.5": {
+    "file": "rep/r4_face_fix/ep05-S6_last1_d50.png",
+    "secs": 9.0,
+    "lap": 30.3,
+    "outside_change": 0.0,
+    "sim": 0.1143
+   },
+   "0.65": {
+    "file": "rep/r4_face_fix/ep05-S6_last1_d65.png",
+    "secs": 9.0,
+    "lap": 30.0,
+    "outside_change": 0.0,
+    "sim": 0.1225
+   }
+  }
+ },
+ {
+  "sid": "ep05-S7",
+  "stage": "image",
+  "n": 3,
+  "who": "ch_jiang_yubai",
+  "orig_sim_pf": 0.348,
+  "orig_sim": 0.3708,
+  "orig_lap": 742.5,
+  "arms": {
+   "0.35": {
+    "file": "rep/r4_face_fix/ep05-S7_image3_d35.png",
+    "secs": 15.0,
+    "lap": 331.6,
+    "outside_change": 0.0,
+    "sim": 0.2673
+   },
+   "0.5": {
+    "file": "rep/r4_face_fix/ep05-S7_image3_d50.png",
+    "secs": 9.0,
+    "lap": 342.9,
+    "outside_change": 0.0,
+    "sim": 0.2887
+   },
+   "0.65": {
+    "file": "rep/r4_face_fix/ep05-S7_image3_d65.png",
+    "secs": 9.0,
+    "lap": 330.8,
+    "outside_change": 0.0,
+    "sim": 0.278
+   }
+  }
+ },
+ {
+  "sid": "ep05-S7",
+  "stage": "last",
+  "n": 3,
+  "who": "lead_f",
+  "orig_sim_pf": 0.58,
+  "orig_sim": 0.6078,
+  "orig_lap": 283.5,
+  "arms": {
+   "0.35": {
+    "file": "rep/r4_face_fix/ep05-S7_last3_d35.png",
+    "secs": 27.0,
+    "lap": 92.6,
+    "outside_change": 0.0,
+    "sim": 0.4755
+   },
+   "0.5": {
+    "file": "rep/r4_face_fix/ep05-S7_last3_d50.png",
+    "secs": 18.0,
+    "lap": 89.6,
+    "outside_change": 0.0,
+    "sim": 0.4978
+   },
+   "0.65": {
+    "file": "rep/r4_face_fix/ep05-S7_last3_d65.png",
+    "secs": 18.0,
+    "lap": 95.6,
+    "outside_change": 0.0,
+    "sim": 0.468
+   }
+  }
+ },
+ {
+  "sid": "ep05-S9",
+  "stage": "last",
+  "n": 3,
+  "who": "ch_jiang_yubai",
+  "orig_sim_pf": 0.379,
+  "orig_sim": 0.3968,
+  "orig_lap": 255.4,
+  "arms": {
+   "0.35": {
+    "file": "rep/r4_face_fix/ep05-S9_last3_d35.png",
+    "secs": 15.0,
+    "lap": 104.2,
+    "outside_change": 0.0,
+    "sim": 0.3318
+   },
+   "0.5": {
+    "file": "rep/r4_face_fix/ep05-S9_last3_d50.png",
+    "secs": 9.0,
+    "lap": 98.2,
+    "outside_change": 0.0,
+    "sim": 0.3434
+   },
+   "0.65": {
+    "file": "rep/r4_face_fix/ep05-S9_last3_d65.png",
+    "secs": 9.0,
+    "lap": 104.1,
+    "outside_change": 0.0,
+    "sim": 0.3423
+   }
+  }
+ }
+]

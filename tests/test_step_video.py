@@ -280,3 +280,33 @@ def test_mot_early_after_low_motion_fail(tmp_path, monkeypatch):
     monkeypatch.setattr(V, "ROOT", tmp_path)
     assert [h["variant"] for h in V.job_history(_job())] == ["v1", "s2"]
     assert V.job_history({**_job(), "shot": "ep09-S9"}) == []
+
+
+def test_same_fail_stop_rule(monkeypatch):
+    """R4 质量 3：连续两条没过项一模一样且在清单里 → 停；不在清单（景别不符 / 多肢 / 动作不足…）→ 照常换种子；开关关 = 不停"""
+    h = [{"variant": "v1", "score": {"gate": {"pass": False, "fails": ["脸部泛红"]}}}]
+    assert not V.same_fail_stop(h, ["脸部泛红"])                                   # 默认关
+    monkeypatch.setattr(V, "SAME_FAIL_STOP", True)
+    assert V.same_fail_stop(h, ["脸部泛红"])
+    assert not V.same_fail_stop(h, ["镜内硬切"]) and not V.same_fail_stop([], ["脸部泛红"]) and not V.same_fail_stop(h, [])
+    k = [{"variant": "v1", "score": {"gate": {"fails": ["景别不符"]}}}]
+    assert not V.same_fail_stop(k, ["景别不符"])                                   # 景别不符换种子救回 23%：不停
+    two = [{"variant": "v1", "score": {"gate": {"fails": ["身份偏离", "镜内硬切"]}}}]
+    assert V.same_fail_stop(two, ["镜内硬切", "身份偏离"])
+    assert not V.same_fail_stop([{"score": {"gate": {"fails": ["多肢", "镜内硬切"]}}}], ["多肢", "镜内硬切"])
+
+
+def test_same_fail_stop_in_run_goes_best_effort(tmp_path, monkeypatch):
+    monkeypatch.setattr(V, "shot_adult", lambda run, sid: False)
+    monkeypatch.setattr(V, "SAME_FAIL_STOP", True)
+    pen = iter([0.7, 0.3, 0.5])
+    calls = _fake_render(tmp_path, monkeypatch, lambda clip, meta, host="": {"gate": {"pass": False, "fails": ["镜内硬切"]}, "penalty": next(pen), "mean": 0.8})
+    tj = tmp_path / "data/renders/r/ep01/S1/takes.json"
+    monkeypatch.setattr(P, "takes_path", lambda sid, run=None: tj)                  # 生产里两条路径是同一个文件
+    job = {**_job(max_tries=5), "payload": {"variants": VARS, "ladder": ["v1", "s2"]}}
+    st, res, err = V.run(job, "gpu33:1")
+    assert st == "retry"                                                            # 第一条没过：照常换种子
+    st, res, err = V.run(job, "gpu33:1")
+    assert st == "best_effort" and res["same_fail_stop"] == ["镜内硬切"] and "换种子不救" in err and calls["submit"] == 2
+    d = json.loads(tj.read_text(encoding="utf-8"))
+    assert d["active"]["video"] == res["best_effort_n"] == 2                       # penalty 最小（0.3）那条设当前

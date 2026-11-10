@@ -33,6 +33,19 @@ LONG_LANE, LONG_FRAMES = "gpu36:2", 260
 # 开关默认关；NS2_MOT_EARLY=1 才生效（先离线 A/B，过线再开）
 MOT_EARLY = os.environ.get("NS2_MOT_EARLY") == "1"
 MOT_LOW = float(os.environ.get("NS2_MOT_LOW") or 1.0)
+# R4 质量 3（11-10）：同一 job 连续两条视频门没过、没过项一模一样、且都在“换种子基本救不回”的清单里 → 停渲、取 penalty 最小的当尽力版。
+# 清单按旧数据回放定（reports/p6/r4_video_same_fail_replay.md，476 条片）：泛红 / 身份偏离 / 镜内硬切 下一条救回率 9–17%；
+# 全部没过项都停 = 省 97 条但丢 14 个本可救回的镜，这三项 = 省 50 条丢 3 个。默认关，先 A/B 再开
+SAME_FAIL_STOP = os.environ.get("NS2_SAME_FAIL_STOP") == "1"
+SAME_FAIL_STOP_ON = frozenset((os.environ.get("NS2_SAME_FAIL_STOP_ON") or "脸部泛红,身份偏离,镜内硬切").split(","))
+
+
+def same_fail_stop(history: list | None, fails: list | None) -> bool:
+    """history = 本 job 之前的视频 take（job_history）；fails = 这一条的没过项"""
+    if not SAME_FAIL_STOP or not history or not fails:
+        return False
+    prev = ((history[-1].get("score") or {}).get("gate") or {}).get("fails") or []
+    return set(prev) == set(fails) and set(fails) <= SAME_FAIL_STOP_ON
 _uploads: dict[tuple[str, str], str] = {}
 
 
@@ -484,7 +497,8 @@ def run(job: dict, lane: str):
     if any(r.get("error") for r in re_):
         return "blocked", {"rescored": re_, "has_output": True}, "打分仍出错（infra，不重渲）：" + str(re_[0]["error"])[:300]
     k = rendered_count(job)                                              # 变体按“本 job 已出几条”取，不按 tries（重启 / 回收不跳号也不重出）
-    pv = pick_variant(p, k, lane, job_history(job) if MOT_EARLY else None)
+    hist = job_history(job) if (MOT_EARLY or SAME_FAIL_STOP) else None
+    pv = pick_variant(p, k, lane, hist if MOT_EARLY else None)
     if pv is None and lane != LONG_LANE and pick_variant(p, k, LONG_LANE) is not None:
         # M6：长镜头（>260 帧）只能 gpu36:2 → 回队并锁定那条道（infra 不计次），不再 blocked 堵死
         return "infra", {"want_lane": LONG_LANE, "has_output": False}, f"长镜头只派 {LONG_LANE}，已改派"
@@ -529,7 +543,9 @@ def run(job: dict, lane: str):
                 raise
             time.sleep(5)
     s = score(dst, p.get("score_meta") or {}, host)
-    final = k + 1 >= int(job.get("max_tries") or 3)
+    fails = (s.get("gate") or {}).get("fails") or []
+    stop = not s.get("error") and not (s.get("gate") or {}).get("pass") and same_fail_stop(hist, fails)
+    final = k + 1 >= int(job.get("max_tries") or 3) or stop
     rec = record_take(job, name, var, str(dst.relative_to(ROOT / "data")), s, final=final, seed=used, trial=bool(p.get("trial")),
                       attempt=f"{job['id']}-r{k}-{name}-s{used}")
     result = {"variant": name, "seed": used, "trial": bool(p.get("trial")), "pid": pid, "gpu_s": res.get("gpu_s"), "clip": str(dst.relative_to(ROOT)), "take_n": rec["n"],
@@ -538,4 +554,7 @@ def run(job: dict, lane: str):
         return "done", result, None
     if s.get("error"):                                                   # 打分 infra 错：片留着，下次领到先补打分，不重渲
         return "blocked", result, "打分出错（infra，片已出、不重渲；修好后重派即补打分）：" + str(s["error"])[:300]
+    if stop:
+        return ("best_effort", {**result, "same_fail_stop": fails, "best_effort_n": rec.get("best_effort_n")},
+                "视频门连续两条同样没过（" + "/".join(fails)[:200] + "）：换种子不救，停渲、用 penalty 最小的一条")
     return "retry", {**result, "rescored": re_},  "视频门没过：" + "/".join((s.get("gate") or {}).get("fails") or [s.get("error") or "?"])[:300]
