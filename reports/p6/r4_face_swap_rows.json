@@ -1,0 +1,475 @@
+[
+ {
+  "sid": "ep05-S1",
+  "stage": "image",
+  "n": 3,
+  "who": "ch_tang_yao",
+  "file": "data/renders/series10_v2/ep05/S1/takes/image_003_468794de_raw_post.png",
+  "bbox": [
+   366.9,
+   434.7,
+   405.9,
+   493.1
+  ],
+  "arms": {
+   "swap": {
+    "file": "rep/r4_face_swap/ep05-S1_image3_swap.png",
+    "outside_change": 0.0,
+    "sim": 0.7903,
+    "lap": 423.2
+   },
+   "swap_gfpgan": {
+    "file": "rep/r4_face_swap/ep05-S1_image3_swap_gfpgan.png",
+    "outside_change": 0.0,
+    "sim": 0.7262,
+    "lap": 1262.8
+   },
+   "swap_codeformer": {
+    "file": "rep/r4_face_swap/ep05-S1_image3_swap_codeformer.png",
+    "outside_change": 0.0,
+    "sim": 0.7202,
+    "lap": 1031.4
+   },
+   "swap_cf_match": {
+    "file": "rep/r4_face_swap/ep05-S1_image3_swap_cf_match.png",
+    "outside_change": 0.0,
+    "sim": 0.7782,
+    "lap": 640.6
+   }
+  },
+  "det_iou": 0.991,
+  "cf_match_blend": 0.3,
+  "orig_sim": 0.1446,
+  "orig_lap": 653.0
+ },
+ {
+  "sid": "ep05-S1",
+  "stage": "last",
+  "n": 3,
+  "who": "lead_f",
+  "file": "data/renders/series10_v2/ep05/S1/takes/last_003_5bc4d3fe_raw_post.png",
+  "bbox": [
+   355.6,
+   392.9,
+   434.1,
+   501.5
+  ],
+  "arms": {
+   "swap": {
+    "file": "rep/r4_face_swap/ep05-S1_last3_swap.png",
+    "outside_change": 0.0,
+    "sim": 0.8924,
+    "lap": 95.8
+   },
+   "swap_gfpgan": {
+    "file": "rep/r4_face_swap/ep05-S1_last3_swap_gfpgan.png",
+    "outside_change": 0.0,
+    "sim": 0.8798,
+    "lap": 314.1
+   },
+   "swap_codeformer": {
+    "file": "rep/r4_face_swap/ep05-S1_last3_swap_codeformer.png",
+    "outside_change": 0.0,
+    "sim": 0.8666,
+    "lap": 330.2
+   },
+   "swap_cf_match": {
+    "file": "rep/r4_face_swap/ep05-S1_last3_swap_cf_match.png",
+    "outside_change": 0.0,
+    "sim": 0.8662,
+    "lap": 341.7
+   }
+  },
+  "det_iou": 0.993,
+  "cf_match_blend": 0.6,
+  "orig_sim": 0.2875,
+  "orig_lap": 297.6
+ },
+ {
+  "sid": "ep05-S1",
+  "stage": "image",
+  "n": 2,
+  "who": "ch_tang_yao",
+  "file": "data/renders/series10_v2/ep05/S1/takes/image_002_030f1b1d_raw_post.png",
+  "bbox": [
+   182.5,
+   381.4,
+   243.8,
+   463.1
+  ],
+  "arms": {
+   "swap": {
+    "file": "rep/r4_face_swap/ep05-S1_image2_swap.png",
+    "outside_change": 0.0,
+    "sim": 0.8242,
+    "lap": 107.8
+   },
+   "swap_gfpgan": {
+    "file": "rep/r4_face_swap/ep05-S1_image2_swap_gfpgan.png",
+    "outside_change": 0.0,
+    "sim": 0.7386,
+    "lap": 551.5
+   },
+   "swap_codeformer": {
+    "file": "rep/r4_face_swap/ep05-S1_image2_swap_codeformer.png",
+    "outside_change": 0.0,
+    "sim": 0.7442,
+    "lap": 634.9
+   },
+   "swap_cf_match": {
+    "file": "rep/r4_face_swap/ep05-S1_image2_swap_cf_match.png",
+    "outside_change": 0.0,
+    "sim": 0.8019,
+    "lap": 257.8
+   }
+  },
+  "det_iou": 0.996,
+  "cf_match_blend": 0.3,
+  "orig_sim": 0.5102,
+  "orig_lap": 234.9
+ },
+ {
+  "sid": "ep05-S1",
+  "stage": "last",
+  "n": 2,
+  "who": "ch_tang_yao",
+  "file": "data/renders/series10_v2/ep05/S1/takes/last_002_5b74a692_raw_post.png",
+  "bbox": [
+   517.5,
+   644.1,
+   597.5,
+   748.7
+  ],
+  "arms": {
+   "swap": {
+    "file": "rep/r4_face_swap/ep05-S1_last2_swap.png",
+    "outside_change": 0.0,
+    "sim": 0.8591,
+    "lap": 197.7
+   },
+   "swap_gfpgan": {
+    "file": "rep/r4_face_swap/ep05-S1_last2_swap_gfpgan.png",
+    "outside_change": 0.0,
+    "sim": 0.848,
+    "lap": 498.1
+   },
+   "swap_codeformer": {
+    "file": "rep/r4_face_swap/ep05-S1_last2_swap_codeformer.png",
+    "outside_change": 0.0,
+    "sim": 0.8382,
+    "lap": 539.3
+   },
+   "swap_cf_match": {
+    "file": "rep/r4_face_swap/ep05-S1_last2_swap_cf_match.png",
+    "outside_change": 0.0,
+    "sim": 0.8393,
+    "lap": 557.6
+   }
+  },
+  "det_iou": 0.995,
+  "cf_match_blend": 0.6,
+  "orig_sim": 0.3614,
+  "orig_lap": 524.5
+ },
+ {
+  "sid": "ep05-S4",
+  "stage": "last",
+  "n": 3,
+  "who": "lead_f",
+  "file": "data/renders/series10_v2/ep05/S4/takes/last_003_70399c37_raw_post.png",
+  "bbox": [
+   334.0,
+   242.9,
+   402.2,
+   328.5
+  ],
+  "arms": {
+   "swap": {
+    "file": "rep/r4_face_swap/ep05-S4_last3_swap.png",
+    "outside_change": 0.0,
+    "sim": 0.9173,
+    "lap": 170.8
+   },
+   "swap_gfpgan": {
+    "file": "rep/r4_face_swap/ep05-S4_last3_swap_gfpgan.png",
+    "outside_change": 0.0,
+    "sim": 0.9058,
+    "lap": 589.7
+   },
+   "swap_codeformer": {
+    "file": "rep/r4_face_swap/ep05-S4_last3_swap_codeformer.png",
+    "outside_change": 0.0,
+    "sim": 0.9027,
+    "lap": 498.4
+   },
+   "swap_cf_match": {
+    "file": "rep/r4_face_swap/ep05-S4_last3_swap_cf_match.png",
+    "outside_change": 0.0,
+    "sim": 0.9145,
+    "lap": 381.7
+   }
+  },
+  "det_iou": 0.989,
+  "cf_match_blend": 0.45,
+  "orig_sim": 0.4141,
+  "orig_lap": 418.2
+ },
+ {
+  "sid": "ep05-S4",
+  "stage": "last",
+  "n": 1,
+  "who": "lead_f",
+  "file": "data/renders/series10_v2/ep05/S4/takes/last_001_6b1631d5_raw_post.png",
+  "bbox": [
+   339.9,
+   247.5,
+   408.7,
+   337.3
+  ],
+  "arms": {
+   "swap": {
+    "file": "rep/r4_face_swap/ep05-S4_last1_swap.png",
+    "outside_change": 0.0,
+    "sim": 0.915,
+    "lap": 177.1
+   },
+   "swap_gfpgan": {
+    "file": "rep/r4_face_swap/ep05-S4_last1_swap_gfpgan.png",
+    "outside_change": 0.0,
+    "sim": 0.9036,
+    "lap": 553.1
+   },
+   "swap_codeformer": {
+    "file": "rep/r4_face_swap/ep05-S4_last1_swap_codeformer.png",
+    "outside_change": 0.0,
+    "sim": 0.9112,
+    "lap": 480.2
+   },
+   "swap_cf_match": {
+    "file": "rep/r4_face_swap/ep05-S4_last1_swap_cf_match.png",
+    "outside_change": 0.0,
+    "sim": 0.9124,
+    "lap": 495.6
+   }
+  },
+  "det_iou": 0.968,
+  "cf_match_blend": 0.6,
+  "orig_sim": 0.4094,
+  "orig_lap": 455.5
+ },
+ {
+  "sid": "ep05-S5",
+  "stage": "last",
+  "n": 1,
+  "who": "lead_f",
+  "file": "data/renders/series10_v2/ep05/S5/takes/last_001_73424cff_raw_post.png",
+  "bbox": [
+   176.7,
+   251.9,
+   297.6,
+   418.3
+  ],
+  "arms": {
+   "swap": {
+    "file": "rep/r4_face_swap/ep05-S5_last1_swap.png",
+    "outside_change": 0.0,
+    "sim": 0.9007,
+    "lap": 78.4
+   },
+   "swap_gfpgan": {
+    "file": "rep/r4_face_swap/ep05-S5_last1_swap_gfpgan.png",
+    "outside_change": 0.0,
+    "sim": 0.8836,
+    "lap": 295.7
+   },
+   "swap_codeformer": {
+    "file": "rep/r4_face_swap/ep05-S5_last1_swap_codeformer.png",
+    "outside_change": 0.0,
+    "sim": 0.8734,
+    "lap": 219.5
+   },
+   "swap_cf_match": {
+    "file": "rep/r4_face_swap/ep05-S5_last1_swap_cf_match.png",
+    "outside_change": 0.0,
+    "sim": 0.8622,
+    "lap": 312.5
+   }
+  },
+  "det_iou": 0.991,
+  "cf_match_blend": 0.75,
+  "orig_sim": 0.4794,
+  "orig_lap": 289.8
+ },
+ {
+  "sid": "ep05-S6",
+  "stage": "last",
+  "n": 1,
+  "who": "ch_jiang_yubai",
+  "file": "data/renders/series10_v2/ep05/S6/takes/last_001_e0febee6_raw_post.png",
+  "bbox": [
+   515.5,
+   164.5,
+   676.4,
+   432.2
+  ],
+  "arms": {
+   "swap": {
+    "file": "rep/r4_face_swap/ep05-S6_last1_swap.png",
+    "outside_change": 0.0,
+    "sim": 0.8148,
+    "lap": 5.4
+   },
+   "swap_gfpgan": {
+    "file": "rep/r4_face_swap/ep05-S6_last1_swap_gfpgan.png",
+    "outside_change": 0.0,
+    "sim": 0.7705,
+    "lap": 147.3
+   },
+   "swap_codeformer": {
+    "file": "rep/r4_face_swap/ep05-S6_last1_swap_codeformer.png",
+    "outside_change": 0.0,
+    "sim": 0.7697,
+    "lap": 117.8
+   },
+   "swap_cf_match": {
+    "file": "rep/r4_face_swap/ep05-S6_last1_swap_cf_match.png",
+    "outside_change": 0.0,
+    "sim": 0.769,
+    "lap": 118.9
+   }
+  },
+  "det_iou": 0.985,
+  "cf_match_blend": 0.6,
+  "orig_sim": 0.5142,
+  "orig_lap": 113.0
+ },
+ {
+  "sid": "ep05-S7",
+  "stage": "image",
+  "n": 3,
+  "who": "ch_jiang_yubai",
+  "file": "data/renders/series10_v2/ep05/S7/takes/image_003_e0ecb3d3_raw_post.png",
+  "bbox": [
+   328.3,
+   553.4,
+   368.4,
+   615.8
+  ],
+  "arms": {
+   "swap": {
+    "file": "rep/r4_face_swap/ep05-S7_image3_swap.png",
+    "outside_change": 0.0,
+    "sim": 0.789,
+    "lap": 398.4
+   },
+   "swap_gfpgan": {
+    "file": "rep/r4_face_swap/ep05-S7_image3_swap_gfpgan.png",
+    "outside_change": 0.0,
+    "sim": 0.764,
+    "lap": 1539.0
+   },
+   "swap_codeformer": {
+    "file": "rep/r4_face_swap/ep05-S7_image3_swap_codeformer.png",
+    "outside_change": 0.0,
+    "sim": 0.761,
+    "lap": 1186.4
+   },
+   "swap_cf_match": {
+    "file": "rep/r4_face_swap/ep05-S7_image3_swap_cf_match.png",
+    "outside_change": 0.0,
+    "sim": 0.803,
+    "lap": 677.0
+   }
+  },
+  "det_iou": 0.995,
+  "cf_match_blend": 0.3,
+  "orig_sim": 0.3708,
+  "orig_lap": 742.5
+ },
+ {
+  "sid": "ep05-S7",
+  "stage": "last",
+  "n": 3,
+  "who": "lead_f",
+  "file": "data/renders/series10_v2/ep05/S7/takes/last_003_d905eae0_raw_post.png",
+  "bbox": [
+   200.0,
+   247.8,
+   312.3,
+   393.5
+  ],
+  "arms": {
+   "swap": {
+    "file": "rep/r4_face_swap/ep05-S7_last3_swap.png",
+    "outside_change": 0.0,
+    "sim": 0.9205,
+    "lap": 76.8
+   },
+   "swap_gfpgan": {
+    "file": "rep/r4_face_swap/ep05-S7_last3_swap_gfpgan.png",
+    "outside_change": 0.0,
+    "sim": 0.9146,
+    "lap": 225.1
+   },
+   "swap_codeformer": {
+    "file": "rep/r4_face_swap/ep05-S7_last3_swap_codeformer.png",
+    "outside_change": 0.0,
+    "sim": 0.9127,
+    "lap": 205.0
+   },
+   "swap_cf_match": {
+    "file": "rep/r4_face_swap/ep05-S7_last3_swap_cf_match.png",
+    "outside_change": 0.0,
+    "sim": 0.9029,
+    "lap": 287.9
+   }
+  },
+  "det_iou": 0.965,
+  "cf_match_blend": 0.75,
+  "orig_sim": 0.6078,
+  "orig_lap": 283.5
+ },
+ {
+  "sid": "ep05-S9",
+  "stage": "last",
+  "n": 3,
+  "who": "ch_jiang_yubai",
+  "file": "data/renders/series10_v2/ep05/S9/takes/last_003_28886cfc_raw_post.png",
+  "bbox": [
+   174.8,
+   574.9,
+   263.9,
+   698.6
+  ],
+  "arms": {
+   "swap": {
+    "file": "rep/r4_face_swap/ep05-S9_last3_swap.png",
+    "outside_change": 0.0,
+    "sim": 0.8847,
+    "lap": 85.5
+   },
+   "swap_gfpgan": {
+    "file": "rep/r4_face_swap/ep05-S9_last3_swap_gfpgan.png",
+    "outside_change": 0.0,
+    "sim": 0.8813,
+    "lap": 308.3
+   },
+   "swap_codeformer": {
+    "file": "rep/r4_face_swap/ep05-S9_last3_swap_codeformer.png",
+    "outside_change": 0.0,
+    "sim": 0.8641,
+    "lap": 264.6
+   },
+   "swap_cf_match": {
+    "file": "rep/r4_face_swap/ep05-S9_last3_swap_cf_match.png",
+    "outside_change": 0.0,
+    "sim": 0.8642,
+    "lap": 272.7
+   }
+  },
+  "det_iou": 0.998,
+  "cf_match_blend": 0.6,
+  "orig_sim": 0.3968,
+  "orig_lap": 255.4
+ }
+]
