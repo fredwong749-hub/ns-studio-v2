@@ -85,3 +85,14 @@ def test_call_legacy_streams_rendered_marker(monkeypatch, tmp_path):
     hits = []
     out = F.call_legacy({"run": "r"}, "gpu33", 30, on_rendered=lambda: hits.append(1))
     assert out == {"outcome": "pass", "take": 3} and hits == [1]
+
+
+def test_gpu36_scoring_goes_to_review_card(monkeypatch):
+    """R4：gpu36 的打分只去 gpu33 审图位（本机看图与 ComfyUI 抢 GPU1）；gpu33 不变；NS2_REVIEW_ON_GPU33=0 回旧口径"""
+    from ns2 import step_frame as F
+    e = F.legacy_env("gpu36", "r")
+    assert e["VQA_REVIEW_ONLY"] == "1" and e["VQA_LAN_URL"] == "http://10.0.0.33:8870"
+    monkeypatch.delenv("VQA_REVIEW_ONLY", raising=False)
+    assert "VQA_REVIEW_ONLY" not in F.legacy_env("gpu33", "r")
+    monkeypatch.setenv("NS2_REVIEW_ON_GPU33", "0")
+    assert "VQA_REVIEW_ONLY" not in F.legacy_env("gpu36", "r")

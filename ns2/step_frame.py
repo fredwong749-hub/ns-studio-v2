@@ -20,7 +20,13 @@ RUNNER = Path(__file__).resolve().parent / "legacy_frame.py"
 def legacy_env(host: str, run: str) -> dict:
     """与旧 start.sh / resident_restart.sh 同一套环境（OFFLINE_SELF 决定打分走本机、人数检测走本机常驻等）"""
     vision = OFF / "repo/models_cache/vision"
-    return dict(os.environ, TZ="Asia/Tokyo", OFFLINE_SELF=host, OFFLINE_ALIASES="gpu33" if host == "gpu36" else "",
+    review = {}
+    if host == "gpu36" and os.environ.get("NS2_REVIEW_ON_GPU33", "1") == "1":
+        # R4（ep08 验收）：gpu36 本机看图服务和 ComfyUI 道 gpu36:1 共用 GPU1、要等卡空（“等不到空闲卡：GPU1 ComfyUI 有任务”）；
+        # 打分不占道后 gpu36:1 连续出图，本机看图几乎排不上，打分卡 10–20 分钟。按 L-206 本意只去 gpu33 审图位（专卡 gpu33:3，
+        # 内网入口 10.0.0.33:8870 只认 10.0.0.36，config/pipeline/lane_roles.json review.lan_url）
+        review = {"VQA_REVIEW_ONLY": "1", "VQA_LAN_URL": "http://10.0.0.33:8870"}
+    return dict(os.environ, **review, TZ="Asia/Tokyo", OFFLINE_SELF=host, OFFLINE_ALIASES="gpu33" if host == "gpu36" else "",
                 PATH=f"{OFF}/bin:" + os.environ.get("PATH", ""), PYTHONUTF8="1", PYTHONIOENCODING="utf-8", NS_RUN=run,
                 NS_QC_VISION_DIR=str(vision if vision.is_dir() else "/root/work/fredw/video10_srv/models_cache/vision"),
                 PYTHONPATH="")
