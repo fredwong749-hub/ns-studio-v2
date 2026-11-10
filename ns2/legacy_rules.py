@@ -10,7 +10,7 @@
    （face_described），编译同时给她写“只露出手，不露脸”；I2 矛盾检查把两者判成自相矛盾卡死。两者其实一致（要求不露脸 + 万一露了也是本人）
    → 只为兜底送脸的人（face_conflict）不算“露脸人物”参与矛盾检查；送脸照旧。
 5. 参考板不印字（_no_text_boards）；6. 尽力版当前不被重打分清空（_best_effort_rule）；
-7. 中景不补看不见的鞋（_mid_no_feet，NS2_MID_NO_FEET=1，默认关）。
+7. 中景不补看不见的鞋（_mid_no_feet，NS2_MID_NO_FEET=1，默认关）；8. 排排站几何判不算两人转向相反（_lineup_facing，NS2_LINEUP_FACING=1，默认关）。
 """
 from __future__ import annotations
 
@@ -88,6 +88,61 @@ def _mid_no_feet(FR, on: bool | None = None) -> bool:
     return True
 
 
+FACING_DYAW = 0.5
+
+
+def facing_pair(ya, yb, dyaw: float = FACING_DYAW) -> bool:
+    """两张脸头部朝向一左一右（yaw_n 异号）且相差 ≥ dyaw → 互相看 / 各看一边，不是“正面并排合影”"""
+    if ya is None or yb is None:
+        return False
+    ya, yb = float(ya), float(yb)
+    return ya * yb < 0 and abs(ya - yb) >= dyaw
+
+
+def lineup_drop_facing(res: dict, rows: list) -> dict:
+    """lineup_geo 结果去掉转向相反的对，人数 / 结论重算（min_faces 用原阈值）"""
+    pairs = [p for p in res.get("pairs") or []
+             if not (max(p) < len(rows) and facing_pair((rows[p[0]] or {}).get("yaw_n"), (rows[p[1]] or {}).get("yaw_n")))]
+    if len(pairs) == len(res.get("pairs") or []):
+        return res
+    members = {i for p in pairs for i in p}
+    mn = int((res.get("thr") or {}).get("min_faces", 2))
+    return {**res, "pairs": pairs, "n": len(members), "lineup": bool(pairs) and len(members) >= mn,
+            "facing_dropped": [p for p in res.get("pairs") or [] if p not in pairs]}
+
+
+def _lineup_facing(GZ=None, on: bool | None = None) -> bool:
+    """8. 排排站几何判去掉“两人转向相反”的对（R4 质量 5，11-10；开关 NS2_LINEUP_FACING=1，默认关）：
+    ns_qc.gaze.LINEUP 的 yaw 上限 0.6（|yaw_n| ≥ 0.25 已是侧脸），只看绝对值——两人互相看（左人朝右、右人朝左）也被判成
+    “正面并排合影”，G1 硬项挡掉。两台历史 104 张被判排排站的图逐张看：20 张 yaw 异号且相差 ≥ 0.5，20/20 是对视 / 一人低头看物 /
+    各看一边，不是合影；其余 84 张（同号小 yaw）保持原判。只改排排站，看镜头（gaze_x）照旧判"""
+    if on is None:
+        import os
+        on = os.environ.get("NS2_LINEUP_FACING") == "1"
+    if not on:
+        return False
+    if GZ is None:
+        try:
+            import sys
+            from pathlib import Path
+            qc = str(Path.cwd() / "packages" / "qc")
+            if qc not in sys.path:
+                sys.path.insert(0, qc)
+            from ns_qc import gaze as GZ
+        except Exception:  # noqa: BLE001  旧树没有 ns_qc → 不动
+            return False
+    if getattr(GZ.lineup_geo, "_ns2_facing", False):
+        return True
+    orig = GZ.lineup_geo
+
+    def lineup_geo(rows, W, H, thr=None):
+        return lineup_drop_facing(orig(rows, W, H, thr), list(rows or []))
+
+    lineup_geo._ns2_facing = True
+    GZ.lineup_geo = lineup_geo
+    return True
+
+
 def _no_text_boards(AR) -> None:
     """5. 参考板标签进画面（P6 R1a ep05-S5/S7/S11 Q6：“①祁念；层勘”“③服装：日常全壹装…”被模型照画）：
     旧参考板每格底下印中文标签，出图模型把字当画面内容抄进去。修：参考板不印字；对应关系改在提示词里按格子顺序说明"""
@@ -150,6 +205,7 @@ def apply() -> None:
     _no_text_boards(AR)
     _best_effort_rule()
     _mid_no_feet(getattr(AR, "FR", None))
+    _lineup_facing()
     try:
         import producer as PR                       # 旧派单器模块（board / 首尾帧执行器都会 import 它）
         PR.refs_guard = lambda *a, **k: []

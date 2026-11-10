@@ -84,3 +84,31 @@ def test_mid_no_feet_rule(monkeypatch):
     assert LR._mid_no_feet(FR) is True and FR.CLOSE_NO_LOWER == base + ("中景",)
     assert LR._mid_no_feet(FR) is True and FR.CLOSE_NO_LOWER.count("中景") == 1      # 重复调用不重复加
     assert LR._mid_no_feet(None) is False                                            # 旧树没有 framing → 不动
+
+
+def test_lineup_facing_rule(monkeypatch):
+    """R4 质量 5：NS2_LINEUP_FACING=1 → 排排站几何判去掉 yaw 异号且相差 ≥ 0.5 的对（对视），同号小 yaw 保持；默认关不动"""
+    import sys
+    from pathlib import Path
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "packages" / "qc"))
+    import types
+    from ns_qc import gaze as real
+    from ns2 import legacy_rules as LR
+    GZ = types.SimpleNamespace(lineup_geo=real.lineup_geo)
+
+    def row(x, yaw):
+        return {"box": [x, 300, 100, 120], "iod": 40, "yaw_n": yaw, "status": "视线离轴"}
+    facing = [row(200, 0.34), row(700, -0.45)]           # 左人朝右、右人朝左：对视（ep05-S5 v1 同款）
+    side = [row(200, 0.13), row(700, 0.09)]              # 并排都朝镜头（ep05-S4 同款）
+    assert real.lineup_geo(facing, 1000, 1800)["lineup"] and real.lineup_geo(side, 1000, 1800)["lineup"]
+    monkeypatch.delenv("NS2_LINEUP_FACING", raising=False)
+    assert LR._lineup_facing(GZ) is False and GZ.lineup_geo is real.lineup_geo
+    monkeypatch.setenv("NS2_LINEUP_FACING", "1")
+    assert LR._lineup_facing(GZ) is True
+    r = GZ.lineup_geo(facing, 1000, 1800)
+    assert r["lineup"] is False and r["facing_dropped"] == [[0, 1]]
+    assert GZ.lineup_geo(side, 1000, 1800)["lineup"] is True
+    assert LR._lineup_facing(GZ) is True and GZ.lineup_geo._ns2_facing        # 不重复包
+    three = [row(100, -0.33), row(450, 0.78), row(800, 0.39)]                 # 三人：一对异号去掉，同号那对仍是排排站
+    assert real.lineup_geo(three, 1000, 1800, {"yaw": 0.9})["lineup"] and GZ.lineup_geo(three, 1000, 1800, {"yaw": 0.9})["lineup"]
+    assert LR.facing_pair(0.2, -0.2) is False and LR.facing_pair(None, 0.5) is False
