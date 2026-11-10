@@ -11,3 +11,6 @@ config/netfix/
 config/factory/hosts.json
 tools/netfix/
 *.key
+
+# 剧本草稿（含成人集，公开仓库不提交）
+data_drafts/
