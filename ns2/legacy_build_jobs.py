@@ -49,6 +49,17 @@ def patch(BJ, G, remote=None) -> None:
     BJ._q9_ok = lambda pf: True if (pf or {}).get(BV.FLAG) else oq(pf)
     BJ.anomaly_block = lambda sid, file, pf, rows: None if (pf or {}).get(BV.FLAG) else oa(sid, file, pf, rows)
     G.filter_video_specs = lambda run, specs, root=None: specs
+    oacc0 = getattr(BJ, "accept_status", None)
+
+    def accept_status(sid, file, pf, rows, _o=oacc0):
+        """4. R4（ep08 验收 S8 / S15）：Q10 没过但被 L-196 降成只记录（status=na、record_only）→ 这一版已过契约，验收算过。
+        旧口径 na 要等 600 s 再补跑（旧 night 循环会回来重编）；ns2 里视频行这时直接 blocked、不会自己回来"""
+        q10 = next((i for i in (pf or {}).get("items") or [] if i.get("id") == "Q10"), None)
+        if q10 and q10.get("status") == "na" and q10.get("record_only") and (pf or {}).get("ok"):
+            return "pass"
+        return _o(sid, file, pf, rows)
+    if oacc0 is not None:
+        BJ.accept_status = accept_status
     if remote is not None:
         oacc, oreg = BJ.accept_status, BJ.regen_holds
         BJ.accept_status = lambda sid, file, pf, rows: "pass" if remote(sid) else oacc(sid, file, pf, rows)

@@ -145,3 +145,16 @@ def test_compile_recompiles_when_table_has_no_ready_variant(monkeypatch, tmp_pat
     monkeypatch.setattr(EV, "build", lambda run, sid, host: (None, None, {"payload": {"variants": {}}}))
     pl, err = SV.compile_payload(job, "gpu36")
     assert calls and pl is None and "0 个视频变体" in err                 # 重编过；仍 0 个才报
+
+
+def test_build_jobs_accepts_record_only_q10():
+    """R4（ep08 S8 / S15）：Q10 被 L-196 降成只记录（na + record_only）、整版 ok → 验收算过，不再卡视频；真没跑过 / 真 fail 照旧"""
+    import legacy_build_jobs as LB
+    BJ = types.SimpleNamespace(json=json, _q9_ok=lambda pf: True, anomaly_block=lambda *a: None,
+                               accept_status=lambda sid, f, pf, rows: (next((i for i in pf.get("items") or [] if i["id"] == "Q10"), {}) or {}).get("status"))
+    LB.patch(BJ, types.SimpleNamespace(filter_video_specs=None))
+    rec = {"ok": True, "items": [{"id": "Q10", "status": "na", "record_only": True, "status_recorded": "fail"}]}
+    assert BJ.accept_status("ep08-S8", "a.png", rec, {}) == "pass"
+    plain_na = {"ok": True, "items": [{"id": "Q10", "status": "na"}]}
+    assert BJ.accept_status("ep08-S8", "a.png", plain_na, {}) == "na"
+    assert BJ.accept_status("ep08-S8", "a.png", {"ok": False, "items": rec["items"]}, {}) == "na"
