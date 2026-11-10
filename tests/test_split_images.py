@@ -77,3 +77,16 @@ def test_files_port_serves_assets(tmp_path, monkeypatch):
         with pytest.raises(urllib.error.HTTPError) as e:
             get(bad)
         assert e.value.code in (code, 404)
+
+
+def test_hub_sync_union(tmp_path):
+    from ns2 import asset_sync as AS
+    (tmp_path / "data/looks").mkdir(parents=True)
+    local = {"series10_v2": {"lead_f": {"7": "O4", "_by": "W", "_at": "1"}, "ch_li_an": {"7": "B"}}}
+    remote = {"series10_v2": {"lead_f": {"8": "O4", "_by": "W", "_at": "2"}, "ch_li_an": {"7": "A", "8": "B"}}}
+    (tmp_path / "data" / AS.HUB).write_text(json.dumps(local), encoding="utf-8")
+    r = AS.pull_hub(tmp_path, "gpu36", fetch=lambda rel: json.dumps(remote).encode())
+    m = json.loads((tmp_path / "data" / AS.HUB).read_text(encoding="utf-8"))
+    assert m["series10_v2"]["lead_f"]["8"] == "O4" and m["series10_v2"]["lead_f"]["7"] == "O4"
+    assert m["series10_v2"]["ch_li_an"] == {"7": "B", "8": "B"}                     # 冲突留本机
+    assert r["conflicts"] == ["/series10_v2/ch_li_an/7"] and r["changed"]

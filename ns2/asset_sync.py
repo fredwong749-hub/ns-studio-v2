@@ -103,3 +103,29 @@ def pull(root: Path, other: str, base: str | None = None, fetch=None, dry: bool 
             return {"added": added, "pulled": pulled, "conflicts": conflicts, "bad_sha": bad, "changed": False, "retry": "本机清单刚被改过"}
         _write_atomic(mf, json.dumps(merged, ensure_ascii=False, indent=1).encode("utf-8"))
     return {"added": added, "pulled": pulled, "conflicts": conflicts, "bad_sha": bad, "changed": changed}
+
+
+HUB = "looks/hub_episode_looks.json"      # data/ 下：资产步“排期”（角色 × 集 → 造型），出图机的资产步写；另一台出图前要有
+
+
+def _get_file(base: str, rel: str, timeout: float = 60) -> bytes:
+    req = urllib.request.Request(f"{base}/files/{urllib.parse.quote(rel)}", headers=AU.headers())
+    with urllib.request.urlopen(req, timeout=timeout) as r:
+        return r.read()
+
+
+def pull_hub(root: Path, other: str, base: str | None = None, fetch=None, dry: bool = False) -> dict:
+    """排期并集（ep08 实测：gpu36 资产步写了 lead_f / ch_li_an 第 8 集，gpu33 的同名文件没有 → 分到 gpu33 的镜 I3 全挡）。
+    同键不同值不覆盖本机（_by / _at 不算冲突）"""
+    fetch = fetch or (lambda rel: _get_file(base or FILE_PORTS[other], rel))
+    f = root / "data" / HUB
+    local = json.loads(f.read_text(encoding="utf-8")) if f.is_file() else {}
+    remote = json.loads(fetch(HUB))
+    merged, added, conflicts = merge(local, remote)
+    added = [a for a in added if not a.endswith(("/_by", "/_at"))]
+    conflicts = [c for c in conflicts if not c.endswith(("/_by", "/_at"))]
+    if added and not dry:
+        if f.is_file():
+            f.with_name(f"{f.name}.bak_ns2sync_{time.strftime('%Y%m%d-%H%M%S')}").write_bytes(f.read_bytes())
+        _write_atomic(f, json.dumps(merged, ensure_ascii=False, indent=1).encode("utf-8"))
+    return {"added": added, "conflicts": conflicts, "changed": bool(added)}

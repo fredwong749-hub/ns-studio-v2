@@ -23,6 +23,7 @@ def sync_assets(host: str) -> dict | None:
     other = next((h for h in AS.FILE_PORTS if h != host), None)
     try:
         r = AS.pull(OFF / "repo", other)
+        r["hub"] = AS.pull_hub(OFF / "repo", other)          # 排期（角色 × 集 → 造型）也要并过来，否则 I3 挡
         return {k: (v if not isinstance(v, list) else v[:20]) for k, v in r.items()} | {"from": other}
     except Exception as e:  # noqa: BLE001
         return {"error": f"{type(e).__name__}: {e}"[:300], "from": other}
