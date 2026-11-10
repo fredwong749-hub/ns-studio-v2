@@ -70,3 +70,17 @@ def test_p6_board_no_text_and_order_note(tmp_path):
     assert im.getpixel((128 + 64, 128 + 120)) == (255, 255, 255)   # 空格子纯白（没印字）
     s = types.SimpleNamespace(kind="faceboard", file=f)
     assert LR.BOARD_ORDER_NOTE in AR._line("p", s)
+
+
+def test_mid_no_feet_rule(monkeypatch):
+    """R4 质量 4：NS2_MID_NO_FEET=1 → 旧 framing.CLOSE_NO_LOWER 加上中景（outer_items 按 K-REN-707 裁掉看不见的鞋）；默认关不动"""
+    import types
+    from ns2 import legacy_rules as LR
+    base = ("极近特写", "大特写", "特写", "中近景", "近景")
+    FR = types.SimpleNamespace(CLOSE_NO_LOWER=base)
+    monkeypatch.delenv("NS2_MID_NO_FEET", raising=False)
+    assert LR._mid_no_feet(FR) is False and FR.CLOSE_NO_LOWER == base
+    monkeypatch.setenv("NS2_MID_NO_FEET", "1")
+    assert LR._mid_no_feet(FR) is True and FR.CLOSE_NO_LOWER == base + ("中景",)
+    assert LR._mid_no_feet(FR) is True and FR.CLOSE_NO_LOWER.count("中景") == 1      # 重复调用不重复加
+    assert LR._mid_no_feet(None) is False                                            # 旧树没有 framing → 不动

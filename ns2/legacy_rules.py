@@ -9,6 +9,8 @@
 4. K-REN-950 × K-REN-708（ep05-S7/S8 卓琳“局部｜手”）：局部人物在以人为主的景别里，K-REN-950 为防陌生脸按“可能露脸”兜底送身份脸
    （face_described），编译同时给她写“只露出手，不露脸”；I2 矛盾检查把两者判成自相矛盾卡死。两者其实一致（要求不露脸 + 万一露了也是本人）
    → 只为兜底送脸的人（face_conflict）不算“露脸人物”参与矛盾检查；送脸照旧。
+5. 参考板不印字（_no_text_boards）；6. 尽力版当前不被重打分清空（_best_effort_rule）；
+7. 中景不补看不见的鞋（_mid_no_feet，NS2_MID_NO_FEET=1，默认关）。
 """
 from __future__ import annotations
 
@@ -64,6 +66,26 @@ def _best_effort_rule() -> None:
 
     decide._ns2_rule4 = True
     AC.decide = decide
+
+
+MID_SIZES = ("中景",)
+
+
+def _mid_no_feet(FR, on: bool | None = None) -> bool:
+    """7. 中景不补看不见的鞋（R4 质量 4，11-10；开关 NS2_MID_NO_FEET=1，默认关）：
+    旧 frame_job.outer_items 的“本镜造型要穿全：…（正文没写也必须入画）”只对特写 / 近景 / 中近景（framing.CLOSE_NO_LOWER，K-REN-707）
+    裁掉景别外的单品；中景（膝盖以上，framing.HIDE 已把脚列为看不见）没裁，一体件“抹胸短裙 + 丝袜 + 透明尖头细高跟”整句补进去，
+    模型为画出鞋把中景拉成全身。两台历史 takes 回放：中景带鞋句 146 张远两档以上 22%、不带 322 张 3%（按同框人数分层仍成立）。
+    修：CLOSE_NO_LOWER 加上中景——同一套 K-REN-707 裁剪（visible_garment / visible_items 按 HIDE[中景] = 脚，只删鞋、留裙与丝袜）。
+    旧代码里 CLOSE_NO_LOWER 只有 outer_items 用。返回是否生效"""
+    if on is None:
+        import os
+        on = os.environ.get("NS2_MID_NO_FEET") == "1"
+    cur = tuple(getattr(FR, "CLOSE_NO_LOWER", ()) or ()) if FR is not None else ()
+    if not on or not cur:
+        return False
+    FR.CLOSE_NO_LOWER = cur + tuple(s for s in MID_SIZES if s not in cur)
+    return True
 
 
 def _no_text_boards(AR) -> None:
@@ -127,6 +149,7 @@ def apply() -> None:
     AR.resolve_shot = resolve_shot
     _no_text_boards(AR)
     _best_effort_rule()
+    _mid_no_feet(getattr(AR, "FR", None))
     try:
         import producer as PR                       # 旧派单器模块（board / 首尾帧执行器都会 import 它）
         PR.refs_guard = lambda *a, **k: []
