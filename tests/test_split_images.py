@@ -13,6 +13,9 @@ def test_images_host_split(monkeypatch):
     hosts = [M.images_host(7, f"ep07-S{i}") for i in range(1, 17)]
     assert hosts.count("gpu36") == 10 and hosts.count("gpu33") == 6                      # 3:2 按道数
     assert M.images_host(7) == "gpu33" and M.images_host(7, "ep07") == "gpu33"           # 集级行（资产）仍在本集出图机
+    monkeypatch.setenv("NS2_SPLIT_FROM_EP", "8")
+    assert [M.images_host(7, f"ep07-S{i}") for i in (1, 2, 3)] == ["gpu33"] * 3          # 旧集不改路由
+    assert M.images_host(8, "ep08-S2") == "gpu33" and M.images_host(8, "ep08-S1") == "gpu36"
 
 
 def test_shot_rows_follow_split(monkeypatch):

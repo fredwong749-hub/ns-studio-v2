@@ -36,15 +36,23 @@ def host_for(kind: str, ep: int) -> str | None:
 SPLIT_PATTERN = ("gpu36", "gpu33", "gpu36", "gpu33", "gpu36")
 
 
-def split_on() -> bool:
+def split_on(ep: int | None = None) -> bool:
+    """开关 NS2_SPLIT_IMAGES=1；NS2_SPLIT_FROM_EP=N → 只对第 N 集起生效（已按旧口径出完图的集，takes 都在本集出图机上，
+    重派 / 视频重试还得去那台找帧，不能改路由）。ep=None → 只看总开关（board 前资产同步用）"""
     import os
-    return os.environ.get("NS2_SPLIT_IMAGES") == "1"
+    if os.environ.get("NS2_SPLIT_IMAGES") != "1":
+        return False
+    try:
+        frm = int(os.environ.get("NS2_SPLIT_FROM_EP") or 0)
+    except ValueError:
+        frm = 0
+    return ep is None or int(ep) >= frm
 
 
 def images_host(ep: int, shot=None) -> str | None:
     """本镜出图机：开关关 / 没给镜号 = 本集出图机（host_for）；开 = 按 SPLIT_PATTERN 轮"""
     h = host_for("images", ep)
-    if not split_on() or shot is None or h is None:
+    if not split_on(ep) or shot is None or h is None:
         return h
     try:
         idx = int(str(shot).rsplit("S", 1)[1]) if not isinstance(shot, int) else shot
